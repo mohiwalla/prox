@@ -10,7 +10,7 @@ implementation, not Theo's unpublished fork.
 
 - Base `#000000`, panels `#101010`, borders `#292929`, text `#ededed`, secondary text `#a2a2a2`.
 - Codex blue `#82aafa`, Antigravity apricot `#e59a75`; status also uses text labels.
-- System sans serif to match the reference and work without remote font requests.
+- Self-hosted Geist for the interface and Geist Mono for chart labels; no remote font requests.
 - Left-aligned sidebar and wide charts; compact navigation and stacked details on phones.
 - Large figures always describe measured account percentages. Plans are not assumed
   to have equal token budgets. Restrictions and missing/stale readings remain visible.
@@ -52,6 +52,7 @@ to the original panel.
 systemctl --user status cliproxy-dashboard
 systemctl --user restart cliproxy-dashboard
 python3 -m unittest discover -s dashboard -v
+python3 dashboard/deploy.py
 ```
 
 Rollback only the dashboard route, preserving the proxy:
@@ -62,3 +63,13 @@ systemctl --user disable --now cliproxy-dashboard
 ```
 
 The original Tailscale handler map is saved as `data/tailscale-before-dashboard.json`.
+
+Versioned source is in `~/cliproxyapi/source`. The tag `baseline-supplied-zip` points
+to the original supplied source archive, before any dashboard code was added.
+The production proxy is still the installed v8.0.67 release binary; the archive
+baseline is a supplied source snapshot, not a claim that the binary was rebuilt.
+Dashboard deployment backs up its own files and verifies that the proxy binary,
+configuration, and original panel have identical SHA-256 fingerprints afterward.
+It does not modify inference routes or restart the core proxy.
+
+The design audit, direction, and skill attribution are recorded in `DESIGN.md`.

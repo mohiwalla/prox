@@ -297,6 +297,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.command == "GET" and path == "/":
             self.send(200, (ROOT / "index.html").read_bytes(), "text/html; charset=utf-8")
             return
+        if self.command == "GET" and path in {"/assets/geist-sans.woff2", "/assets/geist-mono.woff2"}:
+            self.send(200, (ROOT / path.lstrip("/")).read_bytes(), "font/woff2")
+            return
         if self.command == "POST":
             origin = self.headers.get("Origin")
             if (origin and origin not in {f"https://{host}", f"http://{host}"}) or self.headers.get("X-Dashboard-Request") != "1":
