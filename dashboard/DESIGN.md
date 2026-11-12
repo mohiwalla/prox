@@ -11,7 +11,7 @@
 
 ## Direction
 
-Product: a private view of the accounts and quotas powering coding agents on Batman.
+Product: a private view of the accounts and quotas powering your coding agents.
 
 Character: precise, quiet, watchful.
 

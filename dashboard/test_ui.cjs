@@ -84,7 +84,7 @@ const assert = require("assert/strict");
     `${counts.accounts} accounts · ${counts.measured} quotas loaded`,
   );
   assert.equal(
-    await page.evaluate(() => document.cookie.includes("batman_dashboard")),
+    await page.evaluate(() => document.cookie.includes("prox_session")),
     false,
   );
   assert.equal(
@@ -808,7 +808,7 @@ const assert = require("assert/strict");
   });
   assert.deepEqual(errors, []);
   const cookie = (await context.cookies()).find(
-    (c) => c.name === "batman_dashboard",
+    (c) => c.name === "prox_session",
   );
   assert.ok(cookie.httpOnly && cookie.secure && cookie.sameSite === "Strict");
   assert.deepEqual(escaped, [], "No real account or config mutation escaped");

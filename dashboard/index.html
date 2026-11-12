@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
-    <title>prox · Batman</title>
+    <title>prox</title>
     <link
       rel="icon"
       type="image/svg+xml"
@@ -498,12 +498,6 @@
       .brand-text strong {
         font-weight: 600;
         letter-spacing: -0.01em;
-      }
-      .brand-dash {
-        color: var(--brand);
-      }
-      .brand-host {
-        color: var(--muted-foreground);
       }
 
       /* Sidebar: every row is inset 8px, so icons, logo and dot share x = 16px. */
@@ -1621,13 +1615,6 @@
       .login-card .primary {
         width: 100%;
       }
-      .privacy {
-        padding-top: 16px;
-        border-top: 1px solid var(--border);
-        font-size: 12px;
-        line-height: 16px;
-        color: var(--muted-foreground);
-      }
 
       /* Dialog */
       dialog {
@@ -2504,15 +2491,14 @@
         <div class="login-brand">
           <span class="brand-mark"
             ><svg aria-hidden="true"><use href="#prox-brand" /></svg></span
-          ><span class="brand-text"
-            ><strong>prox</strong
-            ><span class="brand-dash" aria-hidden="true">—</span
-            ><span class="brand-host">batman</span></span
-          >
+          ><span class="brand-text"><strong>prox</strong></span>
         </div>
         <header class="login-header">
           <h1>Your accounts. One place.</h1>
-          <p>See what’s left across your Codex and Antigravity accounts.</p>
+          <p>
+            Pool your AI coding accounts behind one endpoint and keep an eye on
+            every quota.
+          </p>
         </header>
         <div class="field">
           <label for="management-key">Management key</label
@@ -2525,14 +2511,11 @@
             aria-describedby="management-key-help login-error"
           />
           <p class="field-description" id="management-key-help">
-            Same key as the original CLIProxyAPI panel. Sign-in lasts 12 hours.
+            Your CLIProxyAPI management key. Sign-in lasts 12 hours.
           </p>
         </div>
         <p id="login-error" class="form-error" role="alert" hidden></p>
         <button class="primary" type="submit">Open dashboard</button>
-        <p class="privacy">
-          Private on your Tailscale network. Your account tokens stay on Batman.
-        </p>
       </form>
     </section>
     <div id="app" hidden>
@@ -2547,11 +2530,7 @@
           <a class="brand" href="#quotas"
             ><span class="brand-mark"
               ><svg aria-hidden="true"><use href="#prox-brand" /></svg></span
-            ><span class="brand-text"
-              ><strong>prox</strong
-              ><span class="brand-dash" aria-hidden="true">—</span
-              ><span class="brand-host">batman</span></span
-            ></a
+            ><span class="brand-text"><strong>prox</strong></span></a
           >
         </div>
         <nav class="sidebar-content">
