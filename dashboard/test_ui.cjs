@@ -204,6 +204,27 @@ const assert = require("assert/strict");
   );
   await page.getByRole("button", { name: "Add account", exact: true }).click();
   await page.locator("#oauth-close").click();
+  // OAuth page: one card per supported provider; Sign in preselects it.
+  await page.locator('[data-page="oauth"]').click();
+  await page.locator(".oauth-card").first().waitFor();
+  assert.equal(await page.locator(".oauth-card").count(), 2);
+  await page.locator('[data-add="antigravity"]').click();
+  assert.equal(
+    await page.locator("#oauth-provider").inputValue(),
+    "antigravity",
+  );
+  await page.locator("#oauth-choose [data-dialog-cancel]").click();
+  await page.waitForFunction(
+    () => !document.querySelector("#oauth-dialog").open,
+  );
+  // Toasts are rich-colored and their text is not selectable.
+  await page.evaluate(() => notify("Test", "success"));
+  assert.equal(
+    await page
+      .locator('.toast[data-type="success"]')
+      .evaluate((el) => getComputedStyle(el).userSelect),
+    "none",
+  );
   await page.locator('[data-page="connection"]').click();
   await page.locator(".codebox").waitFor();
   assert.ok((await page.locator(".codebox").textContent()).includes("/v1"));
@@ -357,6 +378,8 @@ const assert = require("assert/strict");
       tooltip.textContent === inspected &&
       document.activeElement === plot;
     select.focus();
+    // Let the select's own focus-ring transition finish; only refresh motion counts.
+    await new Promise((r) => setTimeout(r, 300));
     await load();
     return {
       inspectionPreserved,
@@ -375,11 +398,17 @@ const assert = require("assert/strict");
     quiet: true,
   });
 
-  // Keyboard activation is immediate, including the indicator.
+  // Keyboard activation animates like pointer activation, including the indicator.
   await page.locator('[data-filter="codex"]').focus();
-  await page.keyboard.press("Enter");
+  await page.keyboard.press("ArrowRight");
   assert.equal(await page.locator("[data-pool]").count(), 1);
-  assert.equal(await page.evaluate(() => document.getAnimations().length), 0);
+  assert.ok(
+    await page.evaluate(() =>
+      document
+        .getAnimations()
+        .some((a) => a.transitionProperty === "clip-path"),
+    ),
+  );
   await page.locator('[data-filter="all"]').click();
   await settle();
   const timestampInspection = await page.evaluate(() => {
@@ -547,6 +576,7 @@ const assert = require("assert/strict");
         "roving keyboard focus and focus rings",
         "emails shown by default",
         "sign-in dialog and right-aligned footer",
+        "oauth page and toasts",
         "connection view",
         "390px layout",
         "mobile navigation",
@@ -555,7 +585,7 @@ const assert = require("assert/strict");
         "history timestamp inspection",
         "queued range selection",
         "dialog entrance, exit and focus return",
-        "keyboard and reduced motion",
+        "keyboard motion and reduced motion",
         "SVGL provider marks",
       ],
       pageErrors: errors,

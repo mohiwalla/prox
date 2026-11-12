@@ -80,11 +80,6 @@
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
       }
-      html[data-input="keyboard"] {
-        --duration-fast: 0ms;
-        --duration-ui: 0ms;
-        --duration-panel: 0ms;
-      }
 
       /* Base */
       *,
@@ -475,6 +470,10 @@
       }
       .sidebar-item:active {
         transform: scale(0.98);
+      }
+      /* Footer links have no sliding indicator, so they keep a hover surface. */
+      .sidebar-footer .sidebar-item:hover {
+        background: var(--accent);
       }
       .sidebar-item > span:not(.sidebar-badge) {
         overflow: hidden;
@@ -1108,6 +1107,65 @@
       .account-row > button {
         justify-self: end;
       }
+      /* shadcn Switch */
+      button.switch {
+        width: 32px;
+        height: 18px;
+        min-height: 0;
+        padding: 0;
+        flex-shrink: 0;
+        justify-content: flex-start;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        background: rgb(255 255 255 / 12%);
+        transition: background-color var(--duration-fast) ease;
+      }
+      button.switch:hover {
+        background: rgb(255 255 255 / 16%);
+      }
+      button.switch[aria-checked="true"] {
+        background: var(--primary);
+      }
+      button.switch:active {
+        transform: none;
+      }
+      button.switch[data-motion-pending] {
+        pointer-events: none;
+      }
+      .switch-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--foreground);
+        box-shadow: 0 1px 2px rgb(0 0 0 / 30%);
+        transition:
+          transform var(--duration-ui) var(--ease-out),
+          background-color var(--duration-ui) ease;
+      }
+      button.switch[aria-checked="true"] .switch-thumb {
+        background: var(--primary-foreground);
+        transform: translateX(14px);
+      }
+
+      /* OAuth page */
+      .oauth-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
+      }
+      .oauth-card-top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+      }
+      .oauth-card-top .provider-icon {
+        width: 20px;
+        height: 20px;
+      }
+      .oauth-card-top .tag {
+        margin-left: auto;
+      }
 
       /* Connection page */
       .connection-grid {
@@ -1249,28 +1307,97 @@
       }
 
       /* Toast (sonner) */
-      .toast {
+
+      /* Toasts: a small Sonner-style toaster with rich colors. */
+      .toaster {
+        --toast-width: 356px;
+        --toast-gap: 14px;
         position: fixed;
         right: 24px;
         bottom: 24px;
         z-index: 100;
-        max-width: 360px;
-        padding: 12px 16px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
-        background: var(--popover);
-        box-shadow: var(--shadow-lg);
-        font-size: 14px;
-        opacity: 1;
-        transform: translateY(0);
-        transition:
-          opacity var(--duration-ui) var(--ease-out),
-          transform var(--duration-ui) var(--ease-out),
-          display var(--duration-ui) allow-discrete;
+        width: var(--toast-width);
+        user-select: none;
+        -webkit-user-select: none;
       }
-      .toast[hidden] {
+      #toaster {
+        position: relative;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        transition: height 400ms ease;
+      }
+      .toast {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--popover);
+        color: var(--foreground);
+        box-shadow: 0 4px 12px rgb(0 0 0 / 35%);
+        font-size: 13px;
+        line-height: 18px;
+        transform-origin: bottom center;
+        touch-action: pan-y;
+        cursor: default;
+        transition:
+          transform 400ms ease,
+          opacity 400ms ease,
+          height 400ms ease;
+      }
+      .toast > * {
+        transition: opacity 400ms ease;
+      }
+      .toaster:not([data-expanded]) .toast:not([data-front]) > * {
         opacity: 0;
-        transform: translateY(8px);
+      }
+      .toast[data-swiping] {
+        transition: none;
+      }
+      .toast-icon {
+        display: flex;
+        flex-shrink: 0;
+        width: 16px;
+        height: 18px;
+        align-items: center;
+      }
+      .toast-icon svg {
+        width: 16px;
+        height: 16px;
+      }
+      .toast-title {
+        font-weight: 500;
+      }
+      .toast-description {
+        margin-top: 2px;
+        opacity: 0.8;
+        font-weight: 400;
+      }
+      .toast[data-type="success"] {
+        background: hsl(150 100% 6%);
+        border-color: hsl(147 100% 12%);
+        color: hsl(150 86% 65%);
+      }
+      .toast[data-type="info"] {
+        background: hsl(215 100% 6%);
+        border-color: hsl(223 43% 17%);
+        color: hsl(216 87% 65%);
+      }
+      .toast[data-type="warning"] {
+        background: hsl(64 100% 6%);
+        border-color: hsl(60 100% 9%);
+        color: hsl(46 87% 65%);
+      }
+      .toast[data-type="error"] {
+        background: hsl(358 76% 10%);
+        border-color: hsl(357 89% 16%);
+        color: hsl(358 100% 81%);
       }
 
       /* Login */
@@ -1431,10 +1558,6 @@
         dialog[open]::backdrop,
         .nav-scrim {
           opacity: 0;
-        }
-        .toast {
-          opacity: 0;
-          transform: translateY(8px);
         }
       }
 
@@ -1637,21 +1760,11 @@
         .dialog-footer button {
           width: 100%;
         }
-        .toast {
-          right: auto;
-          left: 50%;
+        .toaster {
+          right: 16px;
           bottom: 16px;
-          width: max-content;
-          max-width: calc(100% - 32px);
-          transform: translate(-50%, 0);
-        }
-        .toast[hidden] {
-          transform: translate(-50%, 8px);
-        }
-        @starting-style {
-          .toast {
-            transform: translate(-50%, 8px);
-          }
+          left: 16px;
+          width: auto;
         }
       }
 
@@ -2005,6 +2118,12 @@
           <circle cx="12" cy="9" r="2.5" />
           <path d="M8 17c0-4 8-4 8 0" />
         </symbol>
+        <symbol id="i-key" viewBox="0 0 24 24">
+          <path
+            d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"
+          />
+          <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" />
+        </symbol>
         <symbol id="i-link" viewBox="0 0 24 24">
           <path
             d="m10 13 4-4m-5 7-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0m0 2 2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0"
@@ -2146,6 +2265,9 @@
                 <use href="#i-accounts" /></svg
               ><span>Accounts</span
               ><span class="sidebar-badge" id="nav-account-count"></span></a
+            ><a class="sidebar-item" href="#oauth" data-page="oauth"
+              ><svg class="icon" aria-hidden="true"><use href="#i-key" /></svg
+              ><span>OAuth login</span></a
             ><a class="sidebar-item" href="#connection" data-page="connection"
               ><svg class="icon" aria-hidden="true"><use href="#i-link" /></svg
               ><span>Connection</span></a
@@ -2193,7 +2315,9 @@
         <div id="page-body"></div>
       </main>
     </div>
-    <div id="toast" class="toast" role="status" hidden></div>
+    <section class="toaster" aria-label="Notifications">
+      <ol id="toaster"></ol>
+    </section>
     <dialog
       id="oauth-dialog"
       aria-labelledby="oauth-title"
@@ -2296,26 +2420,9 @@
         oauthTimer: null,
         loadBusy: false,
       };
-      let toastTimer, refreshTimer;
+      let refreshTimer;
       const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
-      document.documentElement.dataset.input = "pointer";
-      document.addEventListener(
-        "pointerdown",
-        () => {
-          document.documentElement.dataset.input = "pointer";
-        },
-        true,
-      );
-      document.addEventListener(
-        "keydown",
-        () => {
-          document.documentElement.dataset.input = "keyboard";
-        },
-        true,
-      );
-      const motionAllowed = () =>
-        !reducedMotion.matches &&
-        document.documentElement.dataset.input !== "keyboard";
+      const motionAllowed = () => !reducedMotion.matches;
       reducedMotion.addEventListener("change", () => {
         if (reducedMotion.matches)
           document.getAnimations().forEach((animation) => animation.cancel());
@@ -2449,12 +2556,135 @@
       }
       document.fonts.ready.then(updateIndicators);
       let renderedPage, renderedSelection;
-      function notify(text) {
-        $("#toast").textContent = text;
-        $("#toast").hidden = false;
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => ($("#toast").hidden = true), 4500);
+      const toastIcons = {
+        success:
+          '<path fill-rule="evenodd" clip-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"/>',
+        info: '<path fill-rule="evenodd" clip-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z"/>',
+        warning:
+          '<path fill-rule="evenodd" clip-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"/>',
+        error:
+          '<path fill-rule="evenodd" clip-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z"/>',
+      };
+      // Sonner-style toaster: newest in front, older ones tucked behind it;
+      // hover expands the stack and pauses dismissal; swipe right to dismiss.
+      const toasts = [],
+        TOAST_GAP = 14,
+        TOAST_VISIBLE = 3;
+      let toasterHovered = false;
+      function layoutToasts() {
+        const list = $("#toaster"),
+          expanded = toasterHovered && toasts.length > 1;
+        $(".toaster").toggleAttribute("data-expanded", expanded);
+        let offset = 0;
+        const frontHeight = toasts[0]?.el.offsetHeight || 0;
+        toasts.forEach((toast, i) => {
+          const { el } = toast,
+            height = el.scrollHeight;
+          el.toggleAttribute("data-front", i === 0);
+          el.style.zIndex = String(toasts.length - i);
+          let y, scale, opacity;
+          if (!toast.mounted) {
+            y = "100%";
+            scale = 1;
+            opacity = 0;
+          } else if (expanded) {
+            y = `${-offset}px`;
+            scale = 1;
+            opacity = i < TOAST_VISIBLE ? 1 : 0;
+          } else {
+            y = `${-TOAST_GAP * i}px`;
+            scale = 1 - 0.05 * i;
+            opacity = i < TOAST_VISIBLE ? 1 : 0;
+          }
+          el.style.height =
+            expanded || i === 0 ? `${height}px` : `${frontHeight}px`;
+          el.style.transform = `translate3d(${toast.dx || 0}px, ${y}, 0) scale(${scale})`;
+          el.style.opacity = String(opacity);
+          offset += height + TOAST_GAP;
+        });
+        list.style.height = `${expanded ? Math.max(0, offset - TOAST_GAP) : frontHeight}px`;
+        $(".toaster").style.pointerEvents = toasts.length ? "" : "none";
       }
+      function runToast(toast) {
+        clearTimeout(toast.timer);
+        toast.started = Date.now();
+        toast.timer = setTimeout(() => dismissToast(toast), toast.remaining);
+      }
+      function pauseToast(toast) {
+        clearTimeout(toast.timer);
+        toast.remaining -= Date.now() - toast.started;
+      }
+      function dismissToast(toast) {
+        const i = toasts.indexOf(toast);
+        if (i < 0) return;
+        clearTimeout(toast.timer);
+        toasts.splice(i, 1);
+        const { el } = toast;
+        el.style.opacity = "0";
+        el.style.transform =
+          i === 0
+            ? `translate3d(${toast.dx || 0}px, 100%, 0)`
+            : `${el.style.transform} translateY(40%)`;
+        setTimeout(() => el.remove(), 400);
+        if (!toasts.length) toasterHovered = false;
+        layoutToasts();
+      }
+      function notify(title, type = "info", description = "") {
+        const el = document.createElement("li");
+        el.className = "toast";
+        el.dataset.type = type;
+        el.setAttribute("role", type === "error" ? "alert" : "status");
+        el.innerHTML = `<span class="toast-icon"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">${toastIcons[type] || toastIcons.info}</svg></span><div><div class="toast-title"></div>${description ? '<div class="toast-description"></div>' : ""}</div>`;
+        $(".toast-title", el).textContent = title;
+        if (description) $(".toast-description", el).textContent = description;
+        const toast = {
+          el,
+          mounted: false,
+          remaining: type === "error" ? 6000 : 4000,
+        };
+        toasts.unshift(toast);
+        $("#toaster").append(el);
+        layoutToasts();
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            toast.mounted = true;
+            layoutToasts();
+          }),
+        );
+        if (!toasterHovered) runToast(toast);
+        // Swipe right to dismiss.
+        el.addEventListener("pointerdown", (e) => {
+          const startX = e.clientX;
+          el.setPointerCapture(e.pointerId);
+          el.dataset.swiping = "";
+          const move = (ev) => {
+            toast.dx = Math.max(0, ev.clientX - startX);
+            layoutToasts();
+          };
+          const up = () => {
+            el.removeEventListener("pointermove", move);
+            delete el.dataset.swiping;
+            if ((toast.dx || 0) > 45) dismissToast(toast);
+            else {
+              toast.dx = 0;
+              layoutToasts();
+            }
+          };
+          el.addEventListener("pointermove", move);
+          el.addEventListener("pointerup", up, { once: true });
+          el.addEventListener("pointercancel", up, { once: true });
+        });
+      }
+      $(".toaster").addEventListener("mouseenter", () => {
+        toasterHovered = true;
+        toasts.forEach(pauseToast);
+        layoutToasts();
+      });
+      $(".toaster").addEventListener("mouseleave", () => {
+        toasterHovered = false;
+        toasts.forEach(runToast);
+        layoutToasts();
+      });
       async function api(path, body) {
         const res = await fetch(
           new URL("/dashboard/api/" + path, location.origin),
@@ -2804,7 +3034,7 @@
         const annotation = latest
           ? `<circle cx="${x(latest.ts)}" cy="${y(latest.value)}" r="4" fill="var(--pool-color)" stroke="var(--card)" stroke-width="2"/><text class="current-value" x="${x(latest.ts) + 9}" y="${Math.max(top + 12, y(latest.value) - 9)}">${esc(fmtPct(latest.value))}</text>`
           : "";
-        return `<figure class="plot" tabindex="0" data-chart="${p}" aria-label="${pName(p)} quota history and forecast. Use left and right arrows to inspect recorded samples."><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${points.length} recorded samples${forecast.length ? ", estimated future usage" : ""}"><defs><linearGradient id="fill-${p}" x1="0" x2="0" y1="0" y2="1"><stop stop-color="var(--pool-color)" stop-opacity=".16"/><stop offset="1" stop-color="var(--pool-color)" stop-opacity="0"/></linearGradient></defs>${ticks}${resetMarks}<line x1="${x(now)}" x2="${x(now)}" y1="${top - 4}" y2="${H - bottom + 2}" stroke="#686868"/><text class="axis-now" x="${x(now)}" y="16" text-anchor="middle">Now</text>${area}${points.length > 1 ? `<path d="${path(points)}" stroke="var(--pool-color)" stroke-width="2.25" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${forecast.length ? `<path d="${path(forecast)}" stroke="var(--pool-color)" stroke-opacity=".8" stroke-width="2" stroke-dasharray="6 5" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${annotation}<g class="chart-crosshair" hidden><line y1="${top}" y2="${H - bottom}"/><circle r="4"/></g></svg><div class="chart-tooltip" hidden></div>${points.length < 2 ? '<div class="chart-empty"><strong>History starts here</strong><p>Quotas are recorded every 5 minutes, even with this page closed. Your usage curve will build over time.</p></div>' : ""}<figcaption class="chart-caption"><span>Pool</span><span class="legend"><i class="legend-line"></i>Recorded</span><span class="legend"><i class="legend-line dashed"></i>Projected</span><span class="chart-inspect" aria-live="polite">${forecast.length ? "Estimate from recent usage" : !state.forecast ? "Forecast hidden" : "Forecast needs 10+ minutes of recent samples"}</span></figcaption></figure>`;
+        return `<figure class="plot" tabindex="0" data-chart="${p}" aria-label="${pName(p)} quota history and forecast. Use left and right arrows to inspect recorded samples."><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${points.length} recorded samples${forecast.length ? ", estimated future usage" : ""}"><defs><linearGradient id="fill-${p}" x1="0" x2="0" y1="0" y2="1"><stop stop-color="var(--pool-color)" stop-opacity=".16"/><stop offset="1" stop-color="var(--pool-color)" stop-opacity="0"/></linearGradient></defs>${ticks}${resetMarks}<line x1="${x(now)}" x2="${x(now)}" y1="${top - 4}" y2="${H - bottom + 2}" stroke="#686868"/><text class="axis-now" x="${x(now)}" y="16" text-anchor="middle">Now</text><g class="chart-data">${area}${points.length > 1 ? `<path d="${path(points)}" stroke="var(--pool-color)" stroke-width="2.25" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${forecast.length ? `<path d="${path(forecast)}" stroke="var(--pool-color)" stroke-opacity=".8" stroke-width="2" stroke-dasharray="6 5" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${annotation}</g><g class="chart-crosshair" hidden><line y1="${top}" y2="${H - bottom}"/><circle r="4"/></g></svg><div class="chart-tooltip" hidden></div>${points.length < 2 ? '<div class="chart-empty"><strong>History starts here</strong><p>Quotas are recorded every 5 minutes, even with this page closed. Your usage curve will build over time.</p></div>' : ""}<figcaption class="chart-caption"><span>Pool</span><span class="legend"><i class="legend-line"></i>Recorded</span><span class="legend"><i class="legend-line dashed"></i>Projected</span><span class="chart-inspect" aria-live="polite">${forecast.length ? "Estimate from recent usage" : !state.forecast ? "Forecast hidden" : "Forecast needs 10+ minutes of recent samples"}</span></figcaption></figure>`;
       }
 
       function ratePlot(p, accounts, metric) {
@@ -2888,9 +3118,7 @@
         ]
           .filter((p) => state.provider === "all" || p === state.provider)
           .map(pool)
-          .join(
-            "",
-          )}<footer class="footnote"><span>Recorded on Batman. Forecasts are estimates; account selection is handled by the proxy.</span><span>Updated ${esc(age(state.data.updated_at))}</span></footer>`;
+          .join("")}`;
       }
       function accountsPage() {
         return `${tabs()}<div class="page-toolbar"><p class="muted">Accounts share one endpoint. Paused accounts are excluded from rotation.</p><button class="primary" data-add>${icon("plus")}Add account</button></div><div class="account-list">${filteredAccounts()
@@ -2901,11 +3129,23 @@
                 a.windows.find((w) => /flash/i.test(w.label)) ||
                 a.windows[0];
             const label = accountLabel(a, i);
-            return `<article class="account-row ${a.provider === "codex" ? "" : "agy"}" data-account="${esc(a.id)}"><div class="account-identity">${providerIcon(a.provider)}<span class="account-label" title="${esc(label)}">${esc(label)}</span><span class="account-sub">${esc([planLabel(a.plan), pName(a.provider)].filter((v, n, all) => v && all.indexOf(v) === n).join(" · "))}</span></div><div class="account-quota"><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="quota-value">${w ? fmtPct(w.remaining) : "—"}</span><span class="account-meta">${esc(age(a.quota_at))}${a.quota_error ? " · last known" : ""}</span></div><div class="account-status"><span class="tag ${c}">${s}</span><span class="account-reason" title="${esc(statusReason(a))}">${esc(statusReason(a))}</span></div><button data-pause="${esc(a.id)}" data-disabled="${!a.disabled}" class="outline sm">${a.disabled ? "Resume" : "Pause"}</button></article>`;
+            return `<article class="account-row ${a.provider === "codex" ? "" : "agy"}" data-account="${esc(a.id)}"><div class="account-identity">${providerIcon(a.provider)}<span class="account-label" title="${esc(label)}">${esc(label)}</span><span class="account-sub">${esc([planLabel(a.plan), pName(a.provider)].filter((v, n, all) => v && all.indexOf(v) === n).join(" · "))}</span></div><div class="account-quota"><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="quota-value">${w ? fmtPct(w.remaining) : "—"}</span><span class="account-meta">${esc(age(a.quota_at))}${a.quota_error ? " · last known" : ""}</span></div><div class="account-status"><span class="tag ${c}">${s}</span><span class="account-reason" title="${esc(statusReason(a))}">${esc(statusReason(a))}</span></div><button class="switch" role="switch" aria-checked="${!a.disabled}" aria-label="Include ${esc(label)} in rotation" title="${a.disabled ? "Paused: excluded from rotation" : "In rotation"}" data-pause="${esc(a.id)}" data-disabled="${!a.disabled}"><span class="switch-thumb"></span></button></article>`;
           })
           .join(
             "",
           )}</div><footer class="footnote"><span>${state.data.accounts.reduce((s, a) => s + a.success, 0).toLocaleString()} successful requests</span></footer>`;
+      }
+      function oauthPage() {
+        const providers = [
+          ["codex", "OpenAI accounts with a ChatGPT plan."],
+          ["antigravity", "Google accounts with Antigravity access."],
+        ];
+        return `<div class="page-toolbar"><p class="muted">Sign in once per account. The proxy adds it to the pool and rotates it automatically.</p></div><div class="oauth-grid">${providers
+          .map(([p, text]) => {
+            const n = filteredAccounts(p).length;
+            return `<section class="panel oauth-card" data-oauth="${p}"><div class="oauth-card-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="tag">${n} account${n === 1 ? "" : "s"}</span></div><p>${text}</p><button class="primary sm" data-add="${p}">${icon("plus")}Sign in with ${pName(p)}</button></section>`;
+          })
+          .join("")}</div>`;
       }
       function connectionPage() {
         return `<div class="connection-grid"><section class="panel"><h2>One endpoint for your accounts</h2><p>Use this private address from any device on your Tailscale network. Batman handles account selection and failover.</p><div class="codebox"><code>${esc(state.data.endpoint)}</code><button data-copy="endpoint" class="ghost icon-btn sm copy-button" aria-label="Copy API endpoint"><span class="copy-icons">${icon("copy", "copy-idle")}${icon("check", "copy-done")}</span></button></div><p>Clients use the API key. This dashboard uses the management key.</p><div class="panel-tags"><span class="tag outline">Tailscale HTTPS</span><span class="tag">Batman</span></div></section><section class="panel"><h2>Already connected in T3 Code</h2><ol class="steps"><li>Open a thread on <strong>Batman</strong>.</li><li>Choose <strong>Codex Proxy</strong> for GPT models or <strong>Antigravity Proxy</strong> for AGY models.</li><li>Use it normally. Add accounts here whenever needed.</li></ol></section><section class="panel"><h2>Routing</h2><p>The existing proxy uses round-robin selection, session affinity, and automatic failover. Limits and model access depend on each account.</p><p>This dashboard observes quotas. It does not change the routing strategy.</p></section><section class="panel"><h2>Advanced settings</h2><p>Use the original panel for API keys, model settings, sign-in recovery, and proxy configuration.</p><a href="/management.html" target="_blank" rel="noopener" class="button outline sm">Open original panel ${icon("out")}</a></section></div>`;
@@ -2913,7 +3153,7 @@
       function render(animate = false) {
         if (!state.data) return;
         const body = $("#page-body");
-        state.page = ["quotas", "accounts", "connection"].includes(
+        state.page = ["quotas", "accounts", "oauth", "connection"].includes(
           location.hash.slice(1),
         )
           ? location.hash.slice(1)
@@ -2921,6 +3161,7 @@
         $("#page-title").textContent = {
           quotas: "Quota management",
           accounts: "Accounts",
+          oauth: "OAuth login",
           connection: "Connection",
         }[state.page];
         const count = state.data.accounts.length,
@@ -2949,7 +3190,9 @@
               ? quotaPage()
               : state.page === "accounts"
                 ? accountsPage()
-                : connectionPage();
+                : state.page === "oauth"
+                  ? oauthPage()
+                  : connectionPage();
         const selection = JSON.stringify([
           state.provider,
           state.view,
@@ -2963,6 +3206,19 @@
         if (selectionChanged) $$("[data-chart]", body).forEach(clearChart);
         patchChildren(body, next.content);
         updateIndicators();
+        // Draw each chart's data in from the left the first time it mounts.
+        $$("[data-chart]", body).forEach((plot) => {
+          if (plot.hasAttribute("data-motion-drawn")) return;
+          plot.dataset.motionDrawn = "";
+          if (motionAllowed())
+            $(".chart-data", plot)?.animate(
+              [
+                { clipPath: "inset(0 100% 0 0)" },
+                { clipPath: "inset(0 0 0 0)" },
+              ],
+              { duration: 900, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
+            );
+        });
         if (animate && motionAllowed()) {
           if (pageChanged) enter(body, 6);
           else if (selectionChanged) {
@@ -3039,7 +3295,7 @@
           state.data = null;
           showLogin();
         } catch (e) {
-          notify(e.message);
+          notify(e.message, "error");
         }
       });
       $("#refresh").addEventListener("click", async () => {
@@ -3049,11 +3305,15 @@
           await api("refresh", {});
           state.data.refreshing = true;
           render();
-          notify("Checking live quotas across all accounts");
+          notify(
+            "Refreshing quotas",
+            "info",
+            "Checking live quotas across all accounts.",
+          );
           setTimeout(load, 1200);
         } catch (e) {
           b.disabled = false;
-          notify(e.message);
+          notify(e.message, "error");
         }
       });
       function setMenu(open) {
@@ -3115,7 +3375,7 @@
         } else if (b.dataset.go) {
           location.hash = b.dataset.go;
         } else if (b.hasAttribute("data-add")) {
-          openOAuth();
+          openOAuth(b.dataset.add);
         } else if (b.dataset.copy) {
           try {
             await navigator.clipboard.writeText(state.data.endpoint);
@@ -3128,24 +3388,39 @@
               b.setAttribute("aria-label", "Copy API endpoint");
             }, 2000);
           } catch {
-            notify("Select and copy the endpoint above");
+            notify(
+              "Couldn't copy",
+              "error",
+              "Select the endpoint above and copy it.",
+            );
           }
         } else if (b.dataset.pause) {
-          b.disabled = true;
+          if (b.hasAttribute("data-motion-pending")) return;
+          const pause = b.dataset.disabled === "true",
+            label = b
+              .closest(".account-row")
+              ?.querySelector(".account-label")?.textContent;
+          // Flip immediately; revert if the proxy rejects the change.
+          b.dataset.motionPending = "";
+          b.setAttribute("aria-checked", String(!pause));
           try {
             await api("account/status", {
               id: b.dataset.pause,
-              disabled: b.dataset.disabled === "true",
+              disabled: pause,
             });
             notify(
-              b.dataset.disabled === "true"
-                ? "Account paused"
-                : "Account resumed",
+              pause ? "Account paused" : "Account resumed",
+              "success",
+              pause
+                ? `${label} is excluded from rotation.`
+                : `${label} is back in rotation.`,
             );
             await load();
           } catch (err) {
-            b.disabled = false;
-            notify(err.message);
+            b.setAttribute("aria-checked", String(pause));
+            notify("Couldn't update the account", "error", err.message);
+          } finally {
+            delete b.dataset.motionPending;
           }
         }
       });
@@ -3304,8 +3579,9 @@
           "Sign in once. The proxy adds the account to its pool automatically.",
         flow: "Open the sign-in page and choose the account to add.",
       };
-      function openOAuth() {
+      function openOAuth(provider) {
         state.oauth = null;
+        if (provider) $("#oauth-provider").value = provider;
         $("#oauth-description").textContent = oauthDescriptions.choose;
         $("#oauth-choose").hidden = false;
         $("#oauth-flow").hidden = true;
@@ -3344,7 +3620,7 @@
             clearTimeout(state.oauthTimer);
             state.oauth = null;
             $("#oauth-dialog").close();
-            notify("Account connected. Refreshing quotas.");
+            notify("Account connected", "success", "Refreshing quotas.");
             await load();
             setTimeout(load, 2000);
             return;
@@ -3403,7 +3679,11 @@
             state: state.oauth.state,
             redirect_url: raw,
           });
-          notify("Callback submitted. Waiting for account confirmation.");
+          notify(
+            "Callback submitted",
+            "info",
+            "Waiting for account confirmation.",
+          );
         } catch (e) {
           oauthError(e.message);
         } finally {
