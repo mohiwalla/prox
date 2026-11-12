@@ -10,6 +10,7 @@ import http.cookies
 import json
 import math
 import os
+import re
 from pathlib import Path
 import secrets
 import sqlite3
@@ -30,6 +31,17 @@ QUOTA_INTERVAL = 30  # seconds between live quota checks
 HISTORY_POINTS = 720  # most points per series sent to the browser
 # Every OAuth flow CLIProxyAPI v8 exposes through /oauth/auth-url.
 OAUTH_PROVIDERS = {"claude", "codex", "antigravity", "xai", "kimi", "kimi-ai", "devin", "meta"}
+ERROR_LOG_NAME = re.compile(r"^error-[A-Za-z0-9._-]+\.log$")
+ERROR_LOG_LIMIT = 256 * 1024  # bytes of a failed-request log sent to the browser
+
+
+class ProxyError(ValueError):
+    """An HTTP error from CLIProxyAPI. The body stays server-side; only the status is public."""
+
+    def __init__(self, status, body=b""):
+        super().__init__(f"Proxy returned HTTP {status}. Check the original panel for details.")
+        self.status = status
+        self.body = body
 
 
 def timestamp(value):
@@ -95,13 +107,15 @@ def safe_account(raw, quota=None):
     cooldowns = [{k: c.get(k) for k in ["scope", "model_key", "reason", "retry_at", "http_status"]}
                  for c in raw.get("cooldowns", [])]
     plan = (quota or {}).get("plan") or raw.get("id_token", {}).get("plan_type") or "Unknown"
+    retry = [t for t in (timestamp(c.get("retry_at")) for c in raw.get("cooldowns", [])) if t]
     return {"id": raw["auth_index"], "provider": raw.get("provider", raw.get("type")),
             "email": raw.get("email") or raw.get("label") or "", "name": raw.get("name", ""),
             "plan": plan, "disabled": bool(raw.get("disabled")), "status": raw.get("status", "unknown"),
             "unavailable": bool(raw.get("unavailable")), "requires_sign_in": bool(raw.get("requires_sign_in")),
             "cooldowns": cooldowns, "success": raw.get("success", 0), "failed": raw.get("failed", 0),
             "windows": (quota or {}).get("windows", []), "quota_at": (quota or {}).get("observed_at"),
-            "quota_error": (quota or {}).get("error"), "last_refresh": raw.get("last_refresh")}
+            "quota_error": (quota or {}).get("error"), "last_refresh": raw.get("last_refresh"),
+            "cooldown_until": max(retry) if retry else None}
 
 
 class Store:
@@ -132,6 +146,11 @@ class Store:
                 db.execute("INSERT OR REPLACE INTO samples VALUES (?,?,?,?,?,?,?)", (
                     quota["observed_at"], account, provider, w["id"], w["remaining"], w["reset_at"], w["period"]))
             db.execute("DELETE FROM samples WHERE ts < ?", (time.time() - 30 * 86400,))
+
+    def forget(self, account):
+        """Drop an account's latest reading; its history samples stay for the charts."""
+        with self.connect() as db:
+            db.execute("DELETE FROM latest WHERE account=?", (account,))
 
     @staticmethod
     def bucket(hours):
@@ -168,16 +187,20 @@ class Hub:
     def management_key():
         return json.loads(CREDENTIALS.read_text())["management_key"]
 
-    def request(self, path, data=None, method=None):
+    def request(self, path, data=None, method=None, raw=False):
         req = urllib.request.Request("http://127.0.0.1:8317/v8/management/" + path,
             headers={"Authorization": "Bearer " + self.management_key(), "Content-Type": "application/json"},
             data=json.dumps(data).encode() if data is not None else None, method=method)
         try:
             with urllib.request.urlopen(req, timeout=25) as response:
-                return json.load(response)
+                return response.read() if raw else json.load(response)
         except urllib.error.HTTPError as exc:
             # Do not relay raw upstream bodies, which may contain account details or auth material.
-            raise ValueError(f"Proxy returned HTTP {exc.code}. Check the original panel for details.") from None
+            raise ProxyError(exc.code, exc.read()[:2048]) from None
+
+    def account(self, idx):
+        with self.lock:
+            return next((f for f in self.files if f["auth_index"] == idx), None)
 
     def read_files(self):
         result = self.request("credentials")
@@ -417,6 +440,72 @@ class Handler(BaseHTTPRequestHandler):
                     self.hub.wake.set()
             # OAuth status can include credential records. Return only status and a generic error.
             self.send(200, {"status": result.get("status", "ok"), "error": "Sign-in failed or expired. Start again." if result.get("error") else None})
+        elif path in {"/api/account/relogin", "/api/account/cooldown", "/api/account/remove"} and self.command == "POST":
+            idx = str(body.get("id", ""))
+            raw = self.hub.account(idx)
+            if raw is None:
+                self.send(404, {"error": "Account no longer exists. Refresh the dashboard."})
+                return
+            if path.endswith("relogin"):
+                # Re-authorizes the same credential file; the proxy keeps its settings.
+                result = self.hub.request("oauth/auth-url", {"provider": raw["provider"], "auth_index": idx, "is_webui": True}, "POST")
+                with self.hub.lock:
+                    self.hub.oauth[result["state"]] = {"provider": raw["provider"], "session": session,
+                                                       "created": time.time(), "account": idx}
+                self.send(200, {k: result[k] for k in ["url", "state"]})
+            elif path.endswith("cooldown"):
+                self.hub.request("routing/cooldown/reset", {"auth_index": idx}, "POST")
+                self.hub.wake.set()
+                self.send(200, {"status": "ok"})
+            else:
+                name = str(raw.get("name") or "")
+                if not name or "/" in name or "\\" in name or ".." in name:
+                    raise ValueError("This account's credential file cannot be removed here.")
+                # One named file only; the proxy's all=true mode is never used.
+                self.hub.request("credentials?" + urllib.parse.urlencode({"name": name}), method="DELETE")
+                self.hub.read_files()
+                with self.hub.lock:
+                    self.hub.quotas.pop(idx, None)
+                self.hub.store.forget(idx)
+                self.send(200, {"status": "ok"})
+        elif path == "/api/logs/errors" and self.command == "GET":
+            result = self.hub.request("observability/logs/errors")
+            files = [{k: f.get(k) for k in ["name", "size", "modified"]} for f in result.get("files", [])
+                     if ERROR_LOG_NAME.match(str(f.get("name", "")))]
+            self.send(200, {"files": files})
+        elif path == "/api/logs/errors/file" and self.command == "GET":
+            name = urllib.parse.parse_qs(url.query).get("name", [""])[0]
+            if not ERROR_LOG_NAME.match(name):
+                raise ValueError("Unknown log file.")
+            try:
+                data = self.hub.request("observability/logs/errors/" + urllib.parse.quote(name), raw=True)
+            except ProxyError as exc:
+                if exc.status == 404:
+                    self.send(404, {"error": "This log file no longer exists."})
+                    return
+                raise
+            self.send(200, {"name": name, "text": data[:ERROR_LOG_LIMIT].decode("utf-8", "replace"),
+                            "truncated": len(data) > ERROR_LOG_LIMIT})
+        elif path == "/api/logs/activity" and self.command == "GET":
+            query = urllib.parse.parse_qs(url.query)
+            params = {"limit": min(max(int(query.get("limit", ["300"])[0]), 1), 500)}
+            if query.get("after", [""])[0]:
+                params["after"] = int(float(query["after"][0]))
+            if query.get("cursor", [""])[0]:
+                params["cursor"] = query["cursor"][0]
+            try:
+                result = self.hub.request("observability/logs?" + urllib.parse.urlencode(params))
+            except ProxyError as exc:
+                if exc.status == 400 and b"logging to file disabled" in exc.body:
+                    self.send(200, {"enabled": False, "lines": []})
+                    return
+                raise
+            self.send(200, {"enabled": True, "lines": result.get("lines") or [],
+                            "latest": result.get("latest-timestamp"), "next_cursor": result.get("next-cursor")})
+        elif path == "/api/logs/activity/enable" and self.command == "POST":
+            # The only proxy setting this dashboard changes, and only on an explicit click.
+            self.hub.request("config/observability/logs/logging-to-file", True, "PUT")
+            self.send(200, {"enabled": True})
         else:
             self.send(404, {"error": "Page not found."})
 

@@ -6,6 +6,11 @@
     <meta name="color-scheme" content="dark" />
     <title>prox · Batman</title>
     <link
+      rel="icon"
+      type="image/svg+xml"
+      href='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none"%3E%3Crect width="32" height="32" rx="8" fill="%231c1c1c"/%3E%3Crect x=".5" y=".5" width="31" height="31" rx="7.5" stroke="%23fff" stroke-opacity=".12"/%3E%3Cpath d="M8 9.5c4.5 0 5 6.5 9.5 6.5M8 22.5c4.5 0 5-6.5 9.5-6.5M8 16h9.5" stroke="%23fafafa" stroke-opacity=".7" stroke-width="2.25" stroke-linecap="round"/%3E%3Cpath d="M17.5 16h4" stroke="%23e8b17d" stroke-width="2.5" stroke-linecap="round"/%3E%3Ccircle cx="23.5" cy="16" r="2.75" fill="%23e8b17d"/%3E%3C/svg%3E'
+    />
+    <link
       rel="preload"
       href="/dashboard/assets/geist-sans.woff2"
       as="font"
@@ -247,6 +252,17 @@
       .ghost {
         background: transparent;
         color: var(--foreground);
+      }
+      .destructive {
+        background: rgb(255 100 103 / 60%);
+        color: #fff;
+      }
+      .destructive:hover {
+        background: rgb(255 100 103 / 70%);
+      }
+      a.button[aria-disabled="true"] {
+        opacity: 0.5;
+        pointer-events: none;
       }
       .ghost:hover {
         background: rgb(38 38 38 / 50%);
@@ -766,7 +782,7 @@
       .pool {
         --pool-color: var(--chart-1);
         margin-bottom: 16px;
-        padding: 24px 24px 8px; /* + 16px accordion padding = 24px */
+        padding: 24px;
         border: 1px solid var(--border);
         border-radius: var(--radius-xl);
         background: var(--card);
@@ -1023,67 +1039,31 @@
         color: var(--muted-foreground);
       }
 
-      /* Account breakdown */
-      .pool details {
+      /* Account breakdown: always visible under each chart. */
+      .breakdown {
         margin-top: 16px;
+        padding-top: 16px;
         border-top: 1px solid var(--border);
       }
-      /* shadcn Accordion trigger: label left, meta and chevron right. */
-      .pool summary {
+      .breakdown-head {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 12px;
-        padding: 16px 0;
-        border-radius: var(--radius-md);
-        list-style: none;
+        margin-bottom: 12px;
         font-size: 14px;
         line-height: 20px;
+      }
+      .breakdown-title {
         font-weight: 500;
-        cursor: pointer;
-      }
-      .pool summary:hover .summary-label {
-        text-decoration: underline;
-        text-underline-offset: 4px;
-      }
-      .summary-label {
-        flex: 1;
       }
       .summary-meta {
         color: var(--muted-foreground);
-        font-weight: 400;
         font-variant-numeric: tabular-nums;
-      }
-      .pool summary::-webkit-details-marker {
-        display: none;
-      }
-      .pool summary .chevron {
-        color: var(--muted-foreground);
-        transform: rotate(90deg);
-        transition: transform var(--duration-ui) var(--ease-out);
-      }
-      .pool details[open] summary .chevron {
-        transform: rotate(-90deg);
-      }
-      @supports (interpolate-size: allow-keywords) {
-        .pool details::details-content {
-          interpolate-size: allow-keywords;
-          height: 0;
-          opacity: 0;
-          overflow: clip;
-          transition:
-            height var(--duration-ui) var(--ease-out),
-            opacity var(--duration-ui) var(--ease-out),
-            content-visibility var(--duration-ui) allow-discrete;
-        }
-        .pool details[open]::details-content {
-          height: auto;
-          opacity: 1;
-        }
       }
       .mini-accounts {
         display: grid;
         gap: 12px;
-        padding: 4px 0 16px;
       }
       .mini-account {
         display: grid;
@@ -1221,8 +1201,244 @@
         width: 56px;
         font-size: 13px;
       }
-      .account-row > button {
+      .account-status > button {
+        flex-shrink: 0;
+      }
+      .account-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
         justify-self: end;
+      }
+      .row-menu {
+        color: var(--muted-foreground);
+      }
+      .row-menu:hover,
+      .row-menu[aria-expanded="true"] {
+        background: var(--accent);
+        color: var(--foreground);
+      }
+
+      /* shadcn DropdownMenu */
+      .menu {
+        position: fixed;
+        z-index: 60;
+        display: grid;
+        min-width: 192px;
+        padding: 4px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--popover);
+        box-shadow: var(--shadow-lg);
+        transform-origin: top right;
+        transition:
+          opacity var(--duration-fast) ease,
+          transform var(--duration-fast) var(--ease-out);
+      }
+      @starting-style {
+        .menu:not([hidden]) {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+      }
+      .menu-item {
+        justify-content: flex-start;
+        gap: 8px;
+        width: 100%;
+        height: 32px;
+        padding: 0 8px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--foreground);
+        font-size: 14px;
+        font-weight: 400;
+        text-align: left;
+      }
+      .menu-item .icon {
+        color: var(--muted-foreground);
+      }
+      .menu-item:hover,
+      .menu-item:focus-visible {
+        background: var(--accent);
+        box-shadow: none;
+        outline: none;
+      }
+      .menu-item:active {
+        transform: none;
+      }
+      .menu-item[aria-disabled="true"] {
+        opacity: 0.5;
+        pointer-events: none;
+      }
+      .menu-item.danger,
+      .menu-item.danger .icon {
+        color: var(--destructive);
+      }
+      .menu-item.danger:hover,
+      .menu-item.danger:focus-visible {
+        background: rgb(255 100 103 / 20%);
+      }
+      .menu-separator {
+        height: 1px;
+        margin: 4px -4px;
+        background: var(--border);
+      }
+
+      /* Logs page */
+      .logs {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+      }
+      .logs-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .logs-toolbar p {
+        font-size: 14px;
+        color: var(--muted-foreground);
+      }
+      .logs-content {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+      }
+      .logs-loading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: var(--muted-foreground);
+      }
+      .log-list,
+      .log-viewer {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--card);
+        overflow: hidden;
+      }
+      .log-row {
+        display: grid;
+        grid-template-columns: 16px 152px minmax(0, 1fr) auto 16px;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        height: auto;
+        padding: 10px 16px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: var(--foreground);
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 400;
+        text-align: left;
+      }
+      .log-row + .log-row {
+        border-top: 1px solid var(--border);
+      }
+      .log-row:hover {
+        background: rgb(255 255 255 / 2%);
+      }
+      .log-row[aria-current="true"] {
+        background: rgb(255 255 255 / 4%);
+      }
+      .log-row:active {
+        transform: none;
+      }
+      .log-row:focus-visible {
+        box-shadow: inset 0 0 0 2px rgb(115 115 115 / 60%);
+      }
+      .log-row .icon {
+        color: var(--muted-foreground);
+      }
+      .log-time {
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+      }
+      .log-name,
+      .log-viewer-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: var(--font-mono);
+        font-size: 13px;
+      }
+      .log-name,
+      .log-size {
+        color: var(--muted-foreground);
+      }
+      .log-size {
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+      .log-viewer-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 48px;
+        padding: 8px 8px 8px 16px;
+        border-bottom: 1px solid var(--border);
+        font-size: 14px;
+        line-height: 20px;
+      }
+      .log-viewer-title {
+        flex: 1;
+        min-width: 0;
+        font-weight: 500;
+      }
+      .log-text {
+        max-height: 60vh;
+        margin: 0;
+        padding: 12px 16px;
+        overflow: auto;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        line-height: 18px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        user-select: text;
+      }
+      .log-tail {
+        height: 60vh;
+      }
+      .log-note {
+        padding: 8px 16px;
+        border-top: 1px solid var(--border);
+        font-size: 12px;
+        line-height: 16px;
+        color: var(--muted-foreground);
+      }
+      .live-dot {
+        width: 8px;
+        height: 8px;
+        margin: 0 4px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        background: var(--success);
+        box-shadow: 0 0 0 3px rgb(74 222 128 / 15%);
+      }
+      .live-dot.paused {
+        background: var(--muted-foreground);
+        box-shadow: none;
+      }
+      .live-label {
+        font-weight: 500;
+      }
+      .live-hint {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 13px;
+        color: var(--muted-foreground);
+      }
+      .state-card p:last-child {
+        margin-bottom: 0;
       }
       /* shadcn Switch */
       button.switch {
@@ -1634,7 +1850,7 @@
           min-width: 0;
         }
         .pool {
-          padding: 16px 16px 0;
+          padding: 16px;
         }
         .pool-top select {
           order: 1;
@@ -1702,9 +1918,21 @@
           grid-row: 1;
           grid-column: 1;
         }
-        .account-row > button {
+        .account-row .account-actions {
           grid-row: 1;
           grid-column: 2;
+        }
+        .log-row {
+          grid-template-columns: 16px minmax(0, 1fr) auto 16px;
+        }
+        .log-row .log-name {
+          display: none;
+        }
+        .live-hint {
+          display: none;
+        }
+        .live-label {
+          flex: 1;
         }
         .account-row .account-quota,
         .account-row .account-status {
@@ -2181,6 +2409,41 @@
         <symbol id="i-chevron" viewBox="0 0 24 24">
           <path d="m9 5 7 7-7 7" />
         </symbol>
+        <symbol id="i-more" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="1" />
+          <circle cx="19" cy="12" r="1" />
+          <circle cx="5" cy="12" r="1" />
+        </symbol>
+        <symbol id="i-login" viewBox="0 0 24 24">
+          <path
+            d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"
+          />
+        </symbol>
+        <symbol id="i-reset" viewBox="0 0 24 24">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" />
+        </symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24">
+          <path
+            d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"
+          />
+        </symbol>
+        <symbol id="i-logs" viewBox="0 0 24 24">
+          <path
+            d="M15 12h-5M15 8h-5M19 17V5a2 2 0 0 0-2-2H4M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"
+          />
+        </symbol>
+        <symbol id="i-file" viewBox="0 0 24 24">
+          <path
+            d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7ZM14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"
+          />
+        </symbol>
+        <symbol id="i-pause" viewBox="0 0 24 24">
+          <rect x="14" y="4" width="4" height="16" rx="1" />
+          <rect x="6" y="4" width="4" height="16" rx="1" />
+        </symbol>
+        <symbol id="i-play" viewBox="0 0 24 24">
+          <path d="M6 3l14 9-14 9V3Z" />
+        </symbol>
         <symbol id="i-check" viewBox="0 0 24 24">
           <path d="M20 6 9 17l-5-5" />
         </symbol>
@@ -2290,8 +2553,11 @@
               ><svg class="icon" aria-hidden="true">
                 <use href="#i-accounts" /></svg
               ><span>Accounts</span
-              ><span class="sidebar-badge" id="nav-account-count"></span
-            ></a>
+              ><span class="sidebar-badge" id="nav-account-count"></span></a
+            ><a class="sidebar-item" href="#logs" data-page="logs"
+              ><svg class="icon" aria-hidden="true"><use href="#i-logs" /></svg
+              ><span>Logs</span></a
+            >
           </div>
         </nav>
         <div class="sidebar-footer">
@@ -2337,7 +2603,63 @@
         <div id="global-error" class="notice error" role="alert" hidden></div>
         <div id="page-body"></div>
       </main>
+      <div
+        id="account-menu"
+        class="menu"
+        role="menu"
+        aria-label="Account actions"
+        hidden
+      >
+        <button
+          class="menu-item"
+          role="menuitem"
+          tabindex="-1"
+          data-action="relogin"
+        >
+          <svg class="icon" aria-hidden="true"><use href="#i-login" /></svg
+          ><span>Sign in again</span>
+        </button>
+        <button
+          class="menu-item"
+          role="menuitem"
+          tabindex="-1"
+          data-action="cooldown"
+        >
+          <svg class="icon" aria-hidden="true"><use href="#i-reset" /></svg
+          ><span>Reset cooldown</span>
+        </button>
+        <div class="menu-separator" role="separator"></div>
+        <button
+          class="menu-item danger"
+          role="menuitem"
+          tabindex="-1"
+          data-action="remove"
+        >
+          <svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg
+          ><span>Remove account</span>
+        </button>
+      </div>
     </div>
+    <dialog
+      id="confirm-dialog"
+      role="alertdialog"
+      aria-labelledby="confirm-title"
+      aria-describedby="confirm-description"
+    >
+      <header class="dialog-header">
+        <h2 id="confirm-title">Remove account?</h2>
+        <p class="dialog-description" id="confirm-description">
+          The proxy stops using this login and deletes its credential file. This
+          can’t be undone.
+        </p>
+      </header>
+      <footer class="dialog-footer">
+        <button type="button" class="outline" id="confirm-cancel">Cancel</button
+        ><button type="button" class="destructive" id="confirm-remove">
+          Remove
+        </button>
+      </footer>
+    </dialog>
     <dialog
       id="oauth-dialog"
       aria-labelledby="oauth-title"
@@ -2504,7 +2826,24 @@
         session: false,
         oauth: null,
         oauthTimer: null,
+        oauthMode: "add",
         loadBusy: false,
+        logs: {
+          tab: "errors",
+          files: null,
+          error: "",
+          open: null,
+          text: null,
+          truncated: false,
+          activity: {
+            enabled: null,
+            lines: [],
+            cursor: null,
+            paused: false,
+            error: "",
+          },
+          timer: 0,
+        },
       };
       let refreshTimer;
       const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
@@ -2590,7 +2929,10 @@
           if (current.nodeType === Node.TEXT_NODE) {
             if (current.nodeValue !== fresh.nodeValue)
               current.nodeValue = fresh.nodeValue;
-          } else if (current.nodeType === Node.ELEMENT_NODE) {
+          } else if (
+            current.nodeType === Node.ELEMENT_NODE &&
+            !current.hasAttribute("data-live")
+          ) {
             const inspected = current.closest("[data-chart]");
             if (
               !inspected ||
@@ -2741,7 +3083,7 @@
         if (unsupported.length)
           return `This plan cannot use ${unsupported.map((c) => c.model_key).join(", ")}.`;
         if (a.disabled) return "Excluded from account selection.";
-        if (a.requires_sign_in) return "Sign in again from the original panel.";
+        if (a.requires_sign_in) return "The login expired.";
         if (a.quota_error) return a.quota_error;
         if (a.unavailable)
           return "The proxy will retry eligible requests after cooldown.";
@@ -3040,14 +3382,14 @@
         const restricted = accounts.filter(
           (a) => status(a)[0] === "Model restriction",
         ).length;
-        return `<section class="pool ${p === "antigravity" ? "agy" : ""}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span><label class="sr-only" for="window-${p}">Quota window for ${pName(p)}</label><select id="window-${p}" class="sm" data-window="${p}" ${list.length ? "" : "disabled"}>${list.length ? list.map((w) => `<option value="${esc(w.id)}" ${metric === w.id ? "selected" : ""}>${esc(w.label)}</option>`).join("") : "<option>Quota unavailable</option>"}</select></div><div class="pool-total"><div><div class="big-number">${morph(items.length ? fmtPct(sum) : "—")}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${morph(empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history")}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${morph(next ? esc(relative(next)) : "Not reported")}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${morph(rate !== null ? fmtPct(rate) + "/h" : "—")}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<details ${state.page === "accounts" ? "open" : ""}><summary><span class="summary-label">Account breakdown</span><span class="summary-meta">${morph(`${items.length}/${accounts.length} quotas measured`)}</span>${icon("chevron", "chevron")}</summary><div class="mini-accounts">${accounts
+        return `<section class="pool ${p === "antigravity" ? "agy" : ""}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span><label class="sr-only" for="window-${p}">Quota window for ${pName(p)}</label><select id="window-${p}" class="sm" data-window="${p}" ${list.length ? "" : "disabled"}>${list.length ? list.map((w) => `<option value="${esc(w.id)}" ${metric === w.id ? "selected" : ""}>${esc(w.label)}</option>`).join("") : "<option>Quota unavailable</option>"}</select></div><div class="pool-total"><div><div class="big-number">${morph(items.length ? fmtPct(sum) : "—")}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${morph(empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history")}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${morph(next ? esc(relative(next)) : "Not reported")}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${morph(rate !== null ? fmtPct(rate) + "/h" : "—")}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<div class="breakdown"><div class="breakdown-head"><span class="breakdown-title">Accounts</span><span class="summary-meta">${morph(`${items.length}/${accounts.length} quotas measured`)}</span></div><div class="mini-accounts">${accounts
           .map((a, i) => {
             const w = a.windows.find((w) => w.id === metric),
               [s, c] = status(a);
             const label = accountLabel(a, i);
             return `<div class="mini-account" data-account="${esc(a.id)}"><span class="mini-name"><span class="mini-label" title="${esc(label)}">${esc(label)}</span><span class="mini-plan">${esc(planLabel(a.plan))}</span></span><span class="tag ${c}">${morph(s)}</span><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="mini-value">${morph(w ? fmtPct(w.remaining) : "—")}</span></div>`;
           })
-          .join("")}</div></details></section>`;
+          .join("")}</div></div></section>`;
       }
       function planLabel(plan) {
         return (
@@ -3094,17 +3436,24 @@
                 a.windows.find((w) => /flash/i.test(w.label)) ||
                 a.windows[0];
             const label = accountLabel(a, i);
-            return `<article class="account-row ${a.provider === "codex" ? "" : "agy"}" data-account="${esc(a.id)}"><div class="account-identity">${providerIcon(a.provider)}<span class="account-label" title="${esc(label)}">${esc(label)}</span><span class="account-sub">${esc([planLabel(a.plan), pName(a.provider)].filter((v, n, all) => v && all.indexOf(v) === n).join(" · "))}</span></div><div class="account-quota"><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="quota-value">${morph(w ? fmtPct(w.remaining) : "—")}</span><span class="account-meta">${morph(esc(age(a.quota_at)) + (a.quota_error ? " · last known" : ""))}</span></div><div class="account-status"><span class="tag ${c}">${morph(s)}</span><span class="account-reason" title="${esc(statusReason(a))}">${morph(esc(statusReason(a)))}</span></div><button class="switch" role="switch" aria-checked="${!a.disabled}" aria-label="Include ${esc(label)} in rotation" title="${a.disabled ? "Paused: excluded from rotation" : "In rotation"}" data-pause="${esc(a.id)}" data-disabled="${!a.disabled}"><span class="switch-thumb"></span></button></article>`;
+            return `<article class="account-row ${a.provider === "codex" ? "" : "agy"}" data-account="${esc(a.id)}"><div class="account-identity">${providerIcon(a.provider)}<span class="account-label" title="${esc(label)}">${esc(label)}</span><span class="account-sub">${esc([planLabel(a.plan), pName(a.provider)].filter((v, n, all) => v && all.indexOf(v) === n).join(" · "))}</span></div><div class="account-quota"><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="quota-value">${morph(w ? fmtPct(w.remaining) : "—")}</span><span class="account-meta">${morph(esc(age(a.quota_at)) + (a.quota_error ? " · last known" : ""))}</span></div><div class="account-status"><span class="tag ${c}">${morph(s)}</span><span class="account-reason" title="${esc(statusReason(a))}">${morph(esc(statusReason(a)))}</span>${a.requires_sign_in ? `<button class="outline sm" data-relogin="${esc(a.id)}">Sign in again</button>` : ""}</div><div class="account-actions"><button class="switch" role="switch" aria-checked="${!a.disabled}" aria-label="Include ${esc(label)} in rotation" title="${a.disabled ? "Paused: excluded from rotation" : "In rotation"}" data-pause="${esc(a.id)}" data-disabled="${!a.disabled}"><span class="switch-thumb"></span></button><button class="ghost icon-btn sm row-menu" data-menu="${esc(a.id)}" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu" aria-label="More actions for ${esc(label)}">${icon("more")}</button></div></article>`;
           })
           .join(
             "",
           )}</div><footer class="footnote"><span>${state.data.accounts.reduce((s, a) => s + a.success, 0).toLocaleString()} successful requests</span></footer>`;
       }
 
+      // The logs container is JS-owned (data-live); the snapshot patch leaves it alone.
+      function logsPage() {
+        return `<div class="logs" id="logs-live" data-live></div>`;
+      }
+
       function render(animate = false) {
         if (!state.data) return;
         const body = $("#page-body");
-        state.page = ["quotas", "accounts"].includes(location.hash.slice(1))
+        state.page = ["quotas", "accounts", "logs"].includes(
+          location.hash.slice(1),
+        )
           ? location.hash.slice(1)
           : "quotas";
         morphText(
@@ -3112,6 +3461,7 @@
           {
             quotas: "Quota management",
             accounts: "Accounts",
+            logs: "Logs",
           }[state.page],
         );
         const count = state.data.accounts.length,
@@ -3135,11 +3485,15 @@
           state.data.refreshing ? "Refreshing…" : "Refresh all quotas",
         );
         const next = document.createElement("template");
-        if (!count) {
+        if (!count && state.page !== "logs") {
           next.innerHTML = `<div class="state-card"><h2>${state.data.error ? "Waiting for the proxy" : "Your account pool starts here"}</h2><p>${state.data.error ? "The connection will be checked automatically." : "Add a Codex or Antigravity account to start tracking its quotas."}</p><button class="primary" data-add>${icon("plus")}Add login</button></div>`;
         } else
           next.innerHTML =
-            state.page === "quotas" ? quotaPage() : accountsPage();
+            state.page === "quotas"
+              ? quotaPage()
+              : state.page === "accounts"
+                ? accountsPage()
+                : logsPage();
         const selection = JSON.stringify([
           state.provider,
           state.view,
@@ -3152,6 +3506,9 @@
         const selectionChanged = renderedSelection !== selection;
         if (selectionChanged) $$("[data-chart]", body).forEach(clearChart);
         patchChildren(body, next.content);
+        if (state.page === "logs") ensureLogs(pageChanged);
+        else stopLogs();
+        syncMenu();
         updateIndicators();
         // Draw each chart's data in from the left the first time it mounts.
         $$("[data-chart]", body).forEach((plot) => {
@@ -3319,6 +3676,30 @@
           location.hash = b.dataset.go;
         } else if (b.hasAttribute("data-add")) {
           openOAuth(b.dataset.add);
+        } else if (b.dataset.menu) {
+          if (menuTrigger === b) closeMenu();
+          else openMenu(b, e.detail === 0);
+        } else if (b.dataset.relogin) {
+          relogin(b.dataset.relogin);
+        } else if (b.dataset.logsTab) {
+          selectLogsTab(b.dataset.logsTab);
+        } else if (b.dataset.logName) {
+          openLog(b.dataset.logName);
+        } else if (b.hasAttribute("data-log-close")) {
+          const name = state.logs.open;
+          state.logs.open = null;
+          renderLogsContent();
+          $(`[data-log-name="${CSS.escape(name)}"]`)?.focus();
+        } else if (b.hasAttribute("data-log-copy")) {
+          copyWithFeedback(b, state.logs.text || "", "Copy log");
+        } else if (b.hasAttribute("data-logs-enable")) {
+          enableActivity(b);
+        } else if (b.hasAttribute("data-logs-pause")) {
+          const activity = state.logs.activity;
+          activity.paused = !activity.paused;
+          updateLiveHead();
+          if (activity.paused) stopLogs();
+          else fetchActivity();
         } else if (b.dataset.copy) {
           copyWithFeedback(b, state.data.endpoint, "Copy API endpoint");
         } else if (b.dataset.pause) {
@@ -3515,6 +3896,379 @@
         if (plot && !plot.contains(e.relatedTarget)) clearChart(plot);
       });
 
+      // ---- Account actions (shadcn DropdownMenu) ----
+      const menu = $("#account-menu");
+      let menuTrigger = null;
+      const accountById = (id) => state.data?.accounts.find((a) => a.id === id);
+      const labelFor = (a) => accountLabel(a, state.data.accounts.indexOf(a));
+      const canResetCooldown = (a) =>
+        Boolean(
+          a.unavailable ||
+          a.cooldowns?.length ||
+          (a.cooldown_until && a.cooldown_until > Date.now() / 1000),
+        );
+      const menuItems = () =>
+        $$('.menu-item:not([aria-disabled="true"])', menu);
+      function positionMenu() {
+        if (!menuTrigger) return;
+        const r = menuTrigger.getBoundingClientRect(),
+          w = menu.offsetWidth,
+          h = menu.offsetHeight;
+        const below = r.bottom + 4 + h <= innerHeight - 8;
+        menu.style.top = `${below ? r.bottom + 4 : r.top - 4 - h}px`;
+        menu.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.right - w))}px`;
+        menu.style.transformOrigin = below ? "top right" : "bottom right";
+      }
+      function openMenu(trigger, focusFirst) {
+        const a = accountById(trigger.dataset.menu);
+        if (!a) return;
+        if (menuTrigger) closeMenu(false);
+        menuTrigger = trigger;
+        menu.dataset.account = a.id;
+        $('[data-action="cooldown"]', menu).setAttribute(
+          "aria-disabled",
+          String(!canResetCooldown(a)),
+        );
+        menu.hidden = false;
+        trigger.setAttribute("aria-expanded", "true");
+        positionMenu();
+        if (focusFirst) menuItems()[0]?.focus();
+      }
+      function closeMenu(returnFocus = true) {
+        if (!menuTrigger) return;
+        const trigger = menuTrigger;
+        menuTrigger = null;
+        menu.hidden = true;
+        if (trigger.isConnected) {
+          trigger.setAttribute("aria-expanded", "false");
+          if (returnFocus) trigger.focus();
+        }
+      }
+      // The 30 s patch re-renders rows; keep an open menu attached to its trigger.
+      function syncMenu() {
+        if (!menuTrigger) return;
+        const trigger = $(
+          `[data-menu="${CSS.escape(menu.dataset.account || "")}"]`,
+        );
+        if (!trigger) return closeMenu(false);
+        menuTrigger = trigger;
+        trigger.setAttribute("aria-expanded", "true");
+        positionMenu();
+      }
+      menu.addEventListener("keydown", (e) => {
+        const items = menuItems(),
+          i = items.indexOf(document.activeElement);
+        const target = {
+          ArrowDown: i + 1,
+          ArrowUp: i - 1,
+          Home: 0,
+          End: items.length - 1,
+        }[e.key];
+        if (target !== undefined) {
+          e.preventDefault();
+          items[(target + items.length) % items.length]?.focus();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          closeMenu();
+        } else if (e.key === "Tab") closeMenu(false);
+      });
+      menu.addEventListener("click", (e) => {
+        const item = e.target.closest(".menu-item");
+        if (!item || item.getAttribute("aria-disabled") === "true") return;
+        const id = menu.dataset.account,
+          action = item.dataset.action;
+        closeMenu(action === "cooldown");
+        if (action === "relogin") relogin(id);
+        else if (action === "cooldown") resetCooldown(id);
+        else if (action === "remove") confirmRemove(id);
+      });
+      document.addEventListener(
+        "pointerdown",
+        (e) => {
+          if (
+            menuTrigger &&
+            !menu.contains(e.target) &&
+            !menuTrigger.contains(e.target)
+          )
+            closeMenu(false);
+        },
+        true,
+      );
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && menuTrigger) closeMenu();
+      });
+      addEventListener("scroll", positionMenu, true);
+      addEventListener("resize", positionMenu);
+      $("#page-body").addEventListener("keydown", (e) => {
+        const trigger = e.target.closest?.("[data-menu]");
+        if (!trigger || !["ArrowDown", "ArrowUp"].includes(e.key)) return;
+        e.preventDefault();
+        openMenu(trigger, true);
+      });
+
+      async function resetCooldown(id) {
+        const a = accountById(id);
+        try {
+          await api("account/cooldown", { id });
+          notify(
+            "Cooldown cleared",
+            "success",
+            `${a ? labelFor(a) : "The account"} is back in rotation.`,
+          );
+          await load();
+        } catch (e) {
+          notify("Couldn't reset the cooldown", "error", e.message);
+        }
+      }
+
+      let removeTarget = null;
+      function confirmRemove(id) {
+        const a = accountById(id);
+        if (!a) return;
+        removeTarget = id;
+        $("#confirm-title").textContent = `Remove ${labelFor(a)}?`;
+        setBusy($("#confirm-remove"), false);
+        $("#confirm-dialog").showModal();
+        $("#confirm-cancel").focus();
+      }
+      $("#confirm-cancel").addEventListener("click", () =>
+        $("#confirm-dialog").close(),
+      );
+      $("#confirm-dialog").addEventListener("close", () => {
+        const trigger =
+          removeTarget && $(`[data-menu="${CSS.escape(removeTarget)}"]`);
+        removeTarget = null;
+        trigger?.focus();
+      });
+      $("#confirm-remove").addEventListener("click", async () => {
+        const id = removeTarget,
+          a = accountById(id);
+        if (!id) return;
+        setBusy($("#confirm-remove"), true, "Removing…");
+        try {
+          await api("account/remove", { id });
+          removeTarget = null;
+          $("#confirm-dialog").close();
+          notify(
+            "Account removed",
+            "success",
+            `${a ? labelFor(a) : "The login"} is no longer in the pool.`,
+          );
+          await load();
+        } catch (e) {
+          setBusy($("#confirm-remove"), false);
+          notify("Couldn't remove the account", "error", e.message);
+        }
+      });
+
+      // ---- Logs ----
+      const fmtSize = (n) =>
+        n < 1024
+          ? `${n} B`
+          : n < 1048576
+            ? `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB`
+            : `${(n / 1048576).toFixed(1)} MB`;
+      const logsHints = {
+        errors: "Failed requests, newest first. The proxy keeps the last 10.",
+        activity:
+          "Requests, retries and account switches as the proxy logs them.",
+      };
+      function ensureLogs(entering) {
+        const root = $("#logs-live");
+        if (!root) return;
+        if (!root.firstChild) {
+          root.innerHTML = `<div class="logs-toolbar"><div class="segmented" role="group" aria-label="Log type"><button data-logs-tab="errors" ${choice(state.logs.tab === "errors")}>Errors</button><button data-logs-tab="activity" ${choice(state.logs.tab === "activity")}>Activity</button></div><p id="logs-hint">${logsHints[state.logs.tab]}</p></div><div class="logs-content" id="logs-content"></div>`;
+          renderLogsContent();
+        }
+        if (entering) loadLogsTab();
+      }
+      function loadLogsTab() {
+        stopLogs();
+        if (state.logs.tab === "errors") loadErrors();
+        else fetchActivity(true);
+      }
+      function selectLogsTab(tab) {
+        state.logs.tab = tab;
+        $$("[data-logs-tab]").forEach((button) => {
+          const active = button.dataset.logsTab === tab;
+          button.classList.toggle("active", active);
+          button.setAttribute("aria-pressed", active);
+          button.tabIndex = active ? 0 : -1;
+        });
+        updateIndicators();
+        // A wrapping sentence: plain text (Torph keeps a single measured line).
+        $("#logs-hint").textContent = logsHints[tab];
+        renderLogsContent();
+        loadLogsTab();
+      }
+      function stopLogs() {
+        clearTimeout(state.logs.timer);
+        state.logs.timer = 0;
+      }
+      function renderLogsContent() {
+        const box = $("#logs-content");
+        if (!box) return;
+        const logs = state.logs,
+          activity = logs.activity;
+        const loading = (text) =>
+          `<div class="logs-loading"><span class="loading-mark"></span>${text}</div>`;
+        const failure = (text) =>
+          `<div class="notice error">${icon("warning")}<span>${esc(text)}</span></div>`;
+        if (logs.tab === "errors") {
+          if (logs.error) box.innerHTML = failure(logs.error);
+          else if (!logs.files) box.innerHTML = loading("Loading logs…");
+          else if (!logs.files.length)
+            box.innerHTML = `<div class="state-card"><h2>No failed requests recorded</h2><p>When a request fails, the proxy saves its details here. It keeps the last 10.</p></div>`;
+          else
+            box.innerHTML = `<div class="log-list">${logs.files
+              .map(
+                (f) =>
+                  `<button class="log-row" data-log-name="${esc(f.name)}" aria-current="${logs.open === f.name}">${icon("file")}<span class="log-time">${esc(dateLabel(f.modified))}</span><span class="log-name">${esc(f.name)}</span><span class="log-size">${fmtSize(f.size)}</span>${icon("chevron")}</button>`,
+              )
+              .join("")}</div>${
+              logs.open
+                ? `<section class="log-viewer" aria-label="Log ${esc(logs.open)}"><header class="log-viewer-head"><span class="log-viewer-title" title="${esc(logs.open)}">${esc(logs.open)}</span><button class="ghost icon-btn sm copy-button" data-log-copy aria-label="Copy log" ${logs.text === null ? "disabled" : ""}><span class="copy-icons">${icon("copy", "copy-idle")}${icon("check", "copy-done")}</span></button><button class="ghost icon-btn sm" data-log-close aria-label="Close log">${icon("close")}</button></header>${
+                    logs.text === null
+                      ? `<div class="log-text">${loading("Loading log…")}</div>`
+                      : `<pre class="log-text" tabindex="0">${esc(logs.text)}</pre>${logs.truncated ? '<p class="log-note">Showing the first 256 KB.</p>' : ""}`
+                  }</section>`
+                : ""
+            }`;
+          return;
+        }
+        if (activity.error && activity.enabled === null)
+          box.innerHTML = failure(activity.error);
+        else if (activity.enabled === null)
+          box.innerHTML = loading("Loading activity…");
+        else if (!activity.enabled)
+          box.innerHTML = `<div class="state-card"><h2>Activity log is off</h2><p>The proxy isn’t writing its activity log to disk. Turn it on to follow requests, retries and account switches here. This changes one proxy setting.</p><button class="primary" data-logs-enable>Enable activity log</button></div>`;
+        else {
+          box.innerHTML = `<section class="log-viewer"><header class="log-viewer-head"><span class="live-dot"></span><span class="live-label"></span><span class="live-hint">Updates every 5 seconds</span><button class="outline sm" data-logs-pause></button></header><pre class="log-text log-tail" tabindex="0" id="activity-text">${esc(activity.lines.join("\n"))}</pre></section>`;
+          updateLiveHead();
+          const pre = $("#activity-text");
+          pre.scrollTop = pre.scrollHeight;
+        }
+      }
+      function updateLiveHead() {
+        const paused = state.logs.activity.paused,
+          button = $("[data-logs-pause]");
+        if (!button) return;
+        $(".live-dot").classList.toggle("paused", paused);
+        $(".live-label").textContent = paused ? "Paused" : "Live";
+        button.innerHTML = `${icon(paused ? "play" : "pause")}${paused ? "Resume" : "Pause"}`;
+      }
+      async function loadErrors() {
+        try {
+          const r = await api("logs/errors");
+          state.logs.files = r.files || [];
+          state.logs.error = "";
+          if (
+            state.logs.open &&
+            !state.logs.files.some((f) => f.name === state.logs.open)
+          )
+            state.logs.open = null;
+        } catch (e) {
+          state.logs.error = e.message;
+        }
+        if (state.logs.tab === "errors") renderLogsContent();
+      }
+      async function openLog(name) {
+        state.logs.open = name;
+        state.logs.text = null;
+        renderLogsContent();
+        $(`[data-log-name="${CSS.escape(name)}"]`)?.focus();
+        try {
+          const r = await api(
+            `logs/errors/file?name=${encodeURIComponent(name)}`,
+          );
+          if (state.logs.open !== name) return;
+          state.logs.text = r.text || "";
+          state.logs.truncated = Boolean(r.truncated);
+        } catch (e) {
+          if (state.logs.open !== name) return;
+          state.logs.text = `Couldn't load this log: ${e.message}`;
+          state.logs.truncated = false;
+        }
+        const focused = document.activeElement?.dataset?.logName;
+        renderLogsContent();
+        if (focused) $(`[data-log-name="${CSS.escape(focused)}"]`)?.focus();
+        $(".log-viewer")?.scrollIntoView({
+          block: "nearest",
+          behavior: motionAllowed() ? "smooth" : "auto",
+        });
+      }
+      async function fetchActivity(initial = false) {
+        const activity = state.logs.activity;
+        stopLogs();
+        if (state.page !== "logs" || state.logs.tab !== "activity") return;
+        if (initial) {
+          activity.cursor = null;
+          activity.lines = [];
+        }
+        if (!initial && document.hidden) return scheduleActivity();
+        try {
+          const r = await api(
+            `logs/activity?limit=300${activity.cursor ? `&cursor=${encodeURIComponent(activity.cursor)}` : ""}`,
+          );
+          if (state.logs.tab !== "activity") return;
+          const wasLive = activity.enabled === true;
+          activity.enabled = Boolean(r.enabled);
+          activity.error = "";
+          if (r.next_cursor) activity.cursor = r.next_cursor;
+          const fresh = r.lines || [];
+          if (!activity.enabled || initial || !wasLive) {
+            activity.lines = fresh.slice(-2000);
+            renderLogsContent();
+          } else if (fresh.length) appendActivity(fresh);
+        } catch (e) {
+          activity.error = e.message;
+          if (activity.enabled === null) renderLogsContent();
+        }
+        scheduleActivity();
+      }
+      function appendActivity(lines) {
+        const activity = state.logs.activity,
+          pre = $("#activity-text");
+        activity.lines.push(...lines);
+        if (!pre) return;
+        const atBottom =
+          pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 8;
+        if (activity.lines.length > 2000) {
+          activity.lines = activity.lines.slice(-2000);
+          pre.textContent = activity.lines.join("\n");
+        } else pre.append((pre.textContent ? "\n" : "") + lines.join("\n"));
+        if (atBottom) pre.scrollTop = pre.scrollHeight;
+      }
+      function scheduleActivity() {
+        const activity = state.logs.activity;
+        stopLogs();
+        if (
+          state.page === "logs" &&
+          state.logs.tab === "activity" &&
+          activity.enabled &&
+          !activity.paused
+        )
+          state.logs.timer = setTimeout(fetchActivity, 5000);
+      }
+      async function enableActivity(button) {
+        setBusy(button, true, "Enabling…");
+        try {
+          await api("logs/activity/enable", {});
+          notify(
+            "Activity log enabled",
+            "success",
+            "New proxy activity appears here.",
+          );
+          state.logs.activity.enabled = null;
+          renderLogsContent();
+          fetchActivity(true);
+        } catch (e) {
+          setBusy(button, false);
+          notify("Couldn't enable the activity log", "error", e.message);
+        }
+      }
+
       const oauthDescriptions = {
         choose:
           "Sign in once. The proxy adds the account to its pool automatically.",
@@ -3575,8 +4329,19 @@
         ),
       );
       $("#add-login").addEventListener("click", () => openOAuth());
-      function openOAuth(provider) {
+      function resetOAuthDialog(mode) {
+        clearTimeout(state.oauthTimer);
         state.oauth = null;
+        state.oauthMode = mode;
+        oauthTicket++;
+        $("#oauth-title").textContent =
+          mode === "relogin" ? "Sign in again" : "Add login";
+        $("#oauth-url").removeAttribute("aria-disabled");
+        $("#oauth-copy").disabled = false;
+      }
+      let oauthTicket = 0;
+      function openOAuth(provider) {
+        resetOAuthDialog("add");
         const radio =
           provider && $(`#oauth-providers input[value="${provider}"]`);
         if (radio) radio.checked = true;
@@ -3592,6 +4357,7 @@
       }
       async function closeOAuth() {
         clearTimeout(state.oauthTimer);
+        oauthTicket++;
         $("#oauth-dialog").close();
         if (state.oauth) {
           try {
@@ -3620,7 +4386,13 @@
             clearTimeout(state.oauthTimer);
             state.oauth = null;
             $("#oauth-dialog").close();
-            notify("Account connected", "success", "Refreshing quotas.");
+            notify(
+              state.oauthMode === "relogin"
+                ? "Signed in again"
+                : "Account connected",
+              "success",
+              "Refreshing quotas.",
+            );
             await load();
             setTimeout(load, 2000);
             return;
@@ -3640,6 +4412,58 @@
         }
         state.oauthTimer = setTimeout(pollOAuth, 2000);
       }
+      // Show the link/callback step for a started OAuth session.
+      function showOAuthFlow(r, description) {
+        const url = new URL(r.url);
+        if (url.protocol !== "https:")
+          throw Error("Unexpected sign-in address. Use the original panel.");
+        state.oauth = r;
+        $("#oauth-url").href = url.href;
+        $("#oauth-url").removeAttribute("aria-disabled");
+        $("#oauth-copy").disabled = false;
+        $("#oauth-link").textContent = url.href;
+        $("#oauth-choose").hidden = true;
+        $("#oauth-flow").hidden = false;
+        $("#oauth-description").textContent = description;
+        $("#oauth-status").innerHTML =
+          '<span class="loading-mark"></span>Waiting for sign-in';
+        pollOAuth();
+      }
+      async function relogin(id) {
+        const a = accountById(id);
+        if (!a) return;
+        const description = `Sign in as ${labelFor(a)} to restore this login.`;
+        resetOAuthDialog("relogin");
+        const ticket = oauthTicket;
+        setCallbackError("");
+        $("#oauth-error").hidden = true;
+        $("#oauth-callback").value = "";
+        setBusy($("#oauth-submit"), false);
+        $("#oauth-description").textContent = description;
+        $("#oauth-choose").hidden = true;
+        $("#oauth-flow").hidden = false;
+        $("#oauth-url").removeAttribute("href");
+        $("#oauth-url").setAttribute("aria-disabled", "true");
+        $("#oauth-copy").disabled = true;
+        $("#oauth-link").textContent = "Preparing sign-in link…";
+        $("#oauth-status").innerHTML =
+          '<span class="loading-mark"></span>Preparing sign-in';
+        $("#oauth-dialog").showModal();
+        try {
+          const r = await api("account/relogin", { id });
+          // The dialog may have been closed while the link was being prepared.
+          if (ticket !== oauthTicket || !$("#oauth-dialog").open) {
+            api("oauth/cancel", { state: r.state }).catch(() => {});
+            return;
+          }
+          showOAuthFlow(r, description);
+        } catch (e) {
+          if (ticket !== oauthTicket) return;
+          oauthError(e.message);
+          $("#oauth-link").textContent = "Sign-in link unavailable";
+          $("#oauth-status").textContent = "Couldn't start sign-in";
+        }
+      }
       $("#oauth-start").addEventListener("click", async () => {
         setBusy($("#oauth-start"), true, "Starting…");
         $("#oauth-error").hidden = true;
@@ -3647,19 +4471,8 @@
           const r = await api("oauth/start", {
             provider: chosenProvider(),
           });
-          const url = new URL(r.url);
-          if (url.protocol !== "https:")
-            throw Error("Unexpected sign-in address. Use the original panel.");
-          state.oauth = r;
-          $("#oauth-url").href = url.href;
-          $("#oauth-link").textContent = url.href;
-          $("#oauth-choose").hidden = true;
-          $("#oauth-flow").hidden = false;
-          $("#oauth-description").textContent = oauthDescriptions.flow;
-          $("#oauth-status").innerHTML =
-            '<span class="loading-mark"></span>Waiting for sign-in';
+          showOAuthFlow(r, oauthDescriptions.flow);
           setBusy($("#oauth-start"), false);
-          pollOAuth();
         } catch (e) {
           oauthError(e.message);
           setBusy($("#oauth-start"), false);

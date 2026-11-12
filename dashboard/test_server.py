@@ -7,7 +7,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from server import Handler, Hub, Store, ThreadingHTTPServer, parse_antigravity, parse_codex, safe_account
+from server import ERROR_LOG_LIMIT, Handler, Hub, ProxyError, Store, ThreadingHTTPServer, parse_antigravity, parse_codex, safe_account
 
 
 class QuotaTests(unittest.TestCase):
@@ -148,6 +148,119 @@ class HTTPTests(unittest.TestCase):
             self.assertEqual(self.request("oauth/callback", {"state": "state-a", "redirect_url": "http://localhost/callback?state=wrong&code=abc"}, cookie=cookie)[0], 400)
             request.assert_not_called()
             self.assertEqual(self.request("oauth/callback", {"state": "state-a", "redirect_url": "http://localhost/callback?state=state-a&code=abc"}, cookie=cookie)[0], 200)
+
+
+    # --- Account actions and logs ---------------------------------------------------
+
+    def test_relogin_targets_existing_credential_and_binds_state(self):
+        cookie = self.login()
+        token = cookie.split("=", 1)[1]
+        with patch.object(self.hub, "request", return_value={"url": "https://auth.example/x", "state": "re-1", "status": "ok"}) as request:
+            status, data, _ = self.request("account/relogin", {"id": "a"}, cookie=cookie)
+        self.assertEqual(status, 200)
+        self.assertEqual(data, {"url": "https://auth.example/x", "state": "re-1"})
+        request.assert_called_once_with("oauth/auth-url", {"provider": "codex", "auth_index": "a", "is_webui": True}, "POST")
+        self.assertEqual(self.hub.oauth["re-1"]["account"], "a")
+        self.assertEqual(self.hub.oauth["re-1"]["session"], token)
+
+    def test_account_actions_reject_unknown_accounts(self):
+        cookie = self.login()
+        with patch.object(self.hub, "request") as request:
+            for action in ["relogin", "cooldown", "remove"]:
+                self.assertEqual(self.request(f"account/{action}", {"id": "missing"}, cookie=cookie)[0], 404)
+        request.assert_not_called()
+
+    def test_cooldown_reset_uses_auth_index_and_refreshes(self):
+        cookie = self.login()
+        self.hub.wake.clear()
+        with patch.object(self.hub, "request", return_value={"status": "ok"}) as request:
+            status, data, _ = self.request("account/cooldown", {"id": "a"}, cookie=cookie)
+        self.assertEqual((status, data), (200, {"status": "ok"}))
+        request.assert_called_once_with("routing/cooldown/reset", {"auth_index": "a"}, "POST")
+        self.assertTrue(self.hub.wake.is_set())
+
+    def test_remove_deletes_one_named_file_and_forgets_latest(self):
+        cookie = self.login()
+        self.hub.quotas["a"] = {"observed_at": time.time(), "windows": []}
+        self.hub.store.save("a", "codex", self.hub.quotas["a"])
+        with patch.object(self.hub, "request", return_value={"status": "ok"}) as request, patch.object(self.hub, "read_files"):
+            status, data, _ = self.request("account/remove", {"id": "a"}, cookie=cookie)
+        self.assertEqual((status, data), (200, {"status": "ok"}))
+        request.assert_called_once_with("credentials?name=a.json", method="DELETE")
+        self.assertNotIn("all", request.call_args.args[0])
+        self.assertNotIn("a", self.hub.quotas)
+        self.assertNotIn("a", self.hub.store.load())
+
+    def test_remove_refuses_unsafe_file_names(self):
+        cookie = self.login()
+        original = self.hub.files
+        self.hub.files = [{"auth_index": "a", "name": "../a.json", "provider": "codex"}]
+        try:
+            with patch.object(self.hub, "request") as request:
+                self.assertEqual(self.request("account/remove", {"id": "a"}, cookie=cookie)[0], 400)
+            request.assert_not_called()
+        finally:
+            self.hub.files = original
+
+    def test_error_log_list_and_file(self):
+        cookie = self.login()
+        listing = {"files": [{"name": "error-1.log", "size": 10, "modified": 5, "path": "/secret"},
+                             {"name": "../etc/passwd", "size": 1, "modified": 1}]}
+        with patch.object(self.hub, "request", return_value=listing):
+            status, data, _ = self.request("logs/errors", cookie=cookie)
+        self.assertEqual((status, data), (200, {"files": [{"name": "error-1.log", "size": 10, "modified": 5}]}))
+        with patch.object(self.hub, "request") as request:
+            self.assertEqual(self.request("logs/errors/file?name=../x.log", cookie=cookie)[0], 400)
+        request.assert_not_called()
+        big = b"POST /v1/responses\n" + b"x" * ERROR_LOG_LIMIT
+        with patch.object(self.hub, "request", return_value=big) as request:
+            status, data, _ = self.request("logs/errors/file?name=error-1.log", cookie=cookie)
+        request.assert_called_once_with("observability/logs/errors/error-1.log", raw=True)
+        self.assertEqual(status, 200)
+        self.assertTrue(data["truncated"])
+        self.assertTrue(data["text"].startswith("POST /v1/responses"))
+        self.assertEqual(len(data["text"]), ERROR_LOG_LIMIT)
+        with patch.object(self.hub, "request", side_effect=ProxyError(404, b"{}")):
+            self.assertEqual(self.request("logs/errors/file?name=error-1.log", cookie=cookie)[0], 404)
+
+    def test_activity_log_reports_disabled_and_passes_paging(self):
+        cookie = self.login()
+        with patch.object(self.hub, "request", side_effect=ProxyError(400, b'{"error":"logging to file disabled"}')):
+            status, data, _ = self.request("logs/activity", cookie=cookie)
+        self.assertEqual((status, data), (200, {"enabled": False, "lines": []}))
+        result = {"lines": ["[2026-11-13 03:00:00] ok"], "line-count": 1, "latest-timestamp": 1794500000, "next-cursor": "c2"}
+        with patch.object(self.hub, "request", return_value=result) as request:
+            status, data, _ = self.request("logs/activity?after=1794499999&limit=9999", cookie=cookie)
+        request.assert_called_once_with("observability/logs?limit=500&after=1794499999")
+        self.assertEqual(data, {"enabled": True, "lines": result["lines"], "latest": 1794500000, "next_cursor": "c2"})
+        with patch.object(self.hub, "request", side_effect=ProxyError(500, b"boom")):
+            self.assertEqual(self.request("logs/activity", cookie=cookie)[0], 400)
+
+    def test_enable_activity_log_sets_only_logging_to_file(self):
+        cookie = self.login()
+        with patch.object(self.hub, "request", return_value=None) as request:
+            status, data, _ = self.request("logs/activity/enable", {}, cookie=cookie)
+        self.assertEqual((status, data), (200, {"enabled": True}))
+        request.assert_called_once_with("config/observability/logs/logging-to-file", True, "PUT")
+
+    def test_mutations_require_csrf_header(self):
+        cookie = self.login()
+        conn = http.client.HTTPConnection("127.0.0.1", self.server.server_port)
+        with patch.object(self.hub, "request") as request:
+            conn.request("POST", "/dashboard/api/account/remove", body=json.dumps({"id": "a"}),
+                         headers={"Host": "localhost:8318", "Cookie": cookie, "Content-Type": "application/json"})
+            self.assertEqual(conn.getresponse().status, 403)
+        conn.close()
+        request.assert_not_called()
+
+
+class CooldownTests(unittest.TestCase):
+    def test_cooldown_until_is_latest_retry(self):
+        raw = {"auth_index": "a", "provider": "codex", "cooldowns": [
+            {"reason": "quota", "retry_at": "2026-11-13T03:00:00Z"},
+            {"reason": "quota", "retry_at": "2026-11-13T04:00:00Z"}]}
+        self.assertEqual(safe_account(raw)["cooldown_until"], 1794542400.0)
+        self.assertIsNone(safe_account({"auth_index": "b", "provider": "codex"})["cooldown_until"])
 
 
 if __name__ == "__main__":

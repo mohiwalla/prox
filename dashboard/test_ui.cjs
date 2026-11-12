@@ -18,6 +18,28 @@ const assert = require("assert/strict");
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
+  // Registered first, so every specific mock below takes precedence. Anything
+  // that falls through here would have changed a real account or the proxy config.
+  const escaped = [];
+  const guard = (route) => {
+    if (route.request().method() === "GET") return route.fallback();
+    escaped.push(`${route.request().method()} ${route.request().url()}`);
+    return route.abort();
+  };
+  await page.route("**/dashboard/api/account/**", guard);
+  await page.route("**/dashboard/api/logs/activity/enable", guard);
+  const until = async (check) => {
+    for (let i = 0; i < 60 && !check(); i++) await page.waitForTimeout(50);
+  };
+  // Record a mutating endpoint's JSON bodies and answer with a fixture.
+  const mock = async (pattern, json) => {
+    const bodies = [];
+    await page.route(pattern, (route) => {
+      bodies.push(route.request().postDataJSON());
+      return route.fulfill({ json });
+    });
+    return bodies;
+  };
   const url =
     process.env.DASHBOARD_URL ||
     "https://batman.tailc343ff.ts.net:8317/dashboard/";
@@ -44,6 +66,12 @@ const assert = require("assert/strict");
   await page.locator('[data-pool="codex"]').waitFor();
   await page.evaluate(() => document.fonts.ready);
   assert.equal(await page.locator("[data-pool]").count(), 2);
+  // The per-account breakdown is always visible: no accordion to open.
+  assert.equal(await page.locator("[data-pool] details").count(), 0);
+  assert.equal(
+    await page.locator('[data-pool="codex"] .mini-account').first().isVisible(),
+    true,
+  );
   const counts = await page.evaluate(() => ({
     accounts: dashboard.state.data.accounts.length,
     measured: dashboard.state.data.accounts.filter((a) => a.windows.length)
@@ -229,6 +257,194 @@ const assert = require("assert/strict");
       .evaluate((el) => getComputedStyle(el).userSelect),
     "none",
   );
+  // Account row menu: keyboard open, arrow focus, Escape returns focus.
+  await page.locator('[data-page="accounts"]').click();
+  await page.locator(".account-row").first().waitFor();
+  const accountIds = await page.evaluate(() =>
+    dashboard.state.data.accounts.map((a) => a.id),
+  );
+  const rowMenu = (i) =>
+    page.locator(".account-row").nth(i).locator('[aria-haspopup="menu"]');
+  const menu = page.locator('[role="menu"]');
+  const menuItem = (name) =>
+    menu.locator('[role="menuitem"]').filter({ hasText: name });
+  await rowMenu(0).focus();
+  await page.keyboard.press("Enter");
+  await menu.waitFor();
+  for (const name of ["Sign in again", "Reset cooldown", "Remove account"])
+    assert.equal(await menuItem(name).count(), 1, `Menu has ${name}`);
+  await page.keyboard.press("ArrowDown");
+  assert.equal(
+    await page.evaluate(() => document.activeElement.getAttribute("role")),
+    "menuitem",
+    "Arrow keys move focus into the menu",
+  );
+  await page.keyboard.press("Escape");
+  await menu.waitFor({ state: "hidden" });
+  assert.equal(
+    await rowMenu(0).evaluate((b) => document.activeElement === b),
+    true,
+    "Escape returns focus to the menu trigger",
+  );
+
+  // Reset cooldown is offered for a cooling-down account and posts its id.
+  const cooldownBodies = await mock("**/dashboard/api/account/cooldown", {
+    status: "ok",
+  });
+  await page.evaluate(() => {
+    // Browser-only fixture; the next snapshot restores the real state.
+    const a = dashboard.state.data.accounts[0];
+    a.unavailable = true;
+    a.cooldowns = [{ reason: "quota", model_key: "test" }];
+    a.cooldown_until = Date.now() / 1000 + 600;
+    dashboard.render();
+  });
+  await rowMenu(0).click();
+  await menuItem("Reset cooldown").click();
+  await until(() => cooldownBodies.length);
+  assert.deepEqual(cooldownBodies, [{ id: accountIds[0] }]);
+
+  // Sign in again opens the OAuth dialog directly in its flow step.
+  const reloginUrl = "https://auth.example.test/authorize?state=test-state";
+  const reloginBodies = await mock("**/dashboard/api/account/relogin", {
+    url: reloginUrl,
+    state: "test-state",
+  });
+  await mock("**/dashboard/api/oauth/status", { status: "wait" });
+  await mock("**/dashboard/api/oauth/cancel", { status: "ok" });
+  await rowMenu(0).click();
+  await menuItem("Sign in again").click();
+  await page.locator("#oauth-flow:not([hidden])").waitFor();
+  // The link step shows "Preparing sign-in link…" until the URL arrives.
+  await page.waitForFunction(
+    (url) => document.querySelector("#oauth-link")?.textContent === url,
+    reloginUrl,
+  );
+  assert.deepEqual(reloginBodies, [{ id: accountIds[0] }]);
+  assert.equal(await page.locator("#oauth-link").textContent(), reloginUrl);
+  assert.equal(
+    (await page.locator("#oauth-title").textContent()).trim(),
+    "Sign in again",
+  );
+  await page.locator("#oauth-close").click();
+  await page.waitForFunction(
+    () => !document.querySelector("#oauth-dialog").open,
+  );
+
+  // Accounts that need it get an inline Sign in again button too.
+  await page.evaluate(() => {
+    dashboard.state.data.accounts.at(-1).requires_sign_in = true;
+    dashboard.render();
+  });
+  assert.equal(
+    await page
+      .locator(".account-row")
+      .last()
+      .getByRole("button", { name: "Sign in again", exact: true })
+      .isVisible(),
+    true,
+  );
+
+  // Remove asks for confirmation; Cancel sends nothing, Remove posts the id.
+  const removeBodies = await mock("**/dashboard/api/account/remove", {
+    status: "ok",
+  });
+  const confirm = page.locator('[role="alertdialog"]').or(
+    page.locator("dialog[open]").filter({
+      has: page.getByRole("button", { name: "Remove", exact: true }),
+    }),
+  );
+  const lastRow = counts.accounts - 1;
+  await rowMenu(lastRow).click();
+  await menuItem("Remove account").click();
+  await confirm.first().waitFor();
+  await confirm.first().getByRole("button", { name: "Cancel" }).click();
+  await confirm.first().waitFor({ state: "hidden" });
+  assert.deepEqual(removeBodies, [], "Cancel does not remove the account");
+  await rowMenu(lastRow).click();
+  await menuItem("Remove account").click();
+  await confirm.first().waitFor();
+  await confirm
+    .first()
+    .getByRole("button", { name: "Remove", exact: true })
+    .click();
+  await until(() => removeBodies.length);
+  assert.deepEqual(removeBodies, [{ id: accountIds[lastRow] }]);
+  await page.evaluate(() => load());
+
+  // Logs page: Errors list and viewer, Activity enabled and disabled states.
+  const errorName = "error-2026-11-13T01-00-00-test.log";
+  await page.route("**/dashboard/api/logs/errors", (route) =>
+    route.fulfill({
+      json: {
+        files: [
+          {
+            name: errorName,
+            size: 2048,
+            modified: Math.floor(Date.now() / 1000),
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/dashboard/api/logs/errors/file*", (route) =>
+    route.fulfill({
+      json: {
+        name: errorName,
+        text: "POST /v1/responses\n429 Too Many Requests",
+        truncated: false,
+      },
+    }),
+  );
+  let activityEnabled = true;
+  await page.route("**/dashboard/api/logs/activity*", (route) =>
+    route.fulfill({
+      json: activityEnabled
+        ? {
+            enabled: true,
+            lines: ["activity line one", "activity line two"],
+            latest: Math.floor(Date.now() / 1000),
+          }
+        : { enabled: false, lines: [] },
+    }),
+  );
+  const enableBodies = await mock("**/dashboard/api/logs/activity/enable", {
+    enabled: true,
+  });
+  const logsTab = (name) =>
+    page.locator("#page-body .segmented button").filter({ hasText: name });
+  await page.locator('[data-page="logs"]').click();
+  await page.waitForFunction(
+    () => document.querySelector("#page-title").textContent.trim() === "Logs",
+  );
+  await logsTab("Errors").click();
+  const errorItem = page
+    .locator(`[data-log-name="${errorName}"]`)
+    .or(page.locator("#page-body button", { hasText: errorName }))
+    .first();
+  await errorItem.click();
+  await page
+    .locator("#page-body pre", { hasText: "429 Too Many Requests" })
+    .waitFor();
+  await logsTab("Activity").click();
+  await page
+    .locator("#page-body pre", { hasText: "activity line two" })
+    .waitFor();
+  activityEnabled = false;
+  await logsTab("Errors").click();
+  await logsTab("Activity").click();
+  const enable = page.getByRole("button", { name: "Enable activity log" });
+  await enable.waitFor();
+  activityEnabled = true;
+  await enable.click();
+  await page
+    .locator("#page-body pre", { hasText: "activity line two" })
+    .waitFor();
+  assert.equal(enableBodies.length, 1, "Enable posts once, on click only");
+  await page.unroute("**/dashboard/api/logs/activity*");
+  await page.unroute("**/dashboard/api/logs/errors");
+  await page.unroute("**/dashboard/api/logs/errors/file*");
+
   // One-time setup info lives in the README, not the sidebar.
   assert.equal(await page.locator('[data-page="connection"]').count(), 0);
   await page.locator('[data-page="quotas"]').click();
@@ -358,13 +574,6 @@ const assert = require("assert/strict");
   );
   assert.ok(indicators, "Selection indicators settle on their active controls");
 
-  const summary = page.locator('[data-pool="codex"] summary');
-  await summary.click();
-  await settle();
-  assert.equal(
-    await page.locator('[data-pool="codex"] details').getAttribute("open"),
-    "",
-  );
   // Read a sample, then fetch a new snapshot with exactly the same live nodes.
   await chart.focus();
   await page.keyboard.press("ArrowLeft");
@@ -373,6 +582,9 @@ const assert = require("assert/strict");
     const select = document.querySelector("#window-codex");
     const button = document.querySelector('[data-filter="all"]');
     const tooltip = plot.querySelector(".chart-tooltip");
+    const breakdown = document.querySelector(
+      '[data-pool="codex"] .mini-account',
+    );
     const inspected = tooltip.textContent;
     await load();
     const inspectionPreserved =
@@ -388,8 +600,7 @@ const assert = require("assert/strict");
       inspectionPreserved,
       selectPreserved: select.isConnected && document.activeElement === select,
       buttonPreserved: button.isConnected,
-      disclosurePreserved: document.querySelector('[data-pool="codex"] details')
-        .open,
+      breakdownPreserved: breakdown.isConnected && breakdown.checkVisibility(),
       // Torph morphs real text changes (ages, values); nothing else may move.
       quiet:
         document
@@ -407,7 +618,7 @@ const assert = require("assert/strict");
     inspectionPreserved: true,
     selectPreserved: true,
     buttonPreserved: true,
-    disclosurePreserved: true,
+    breakdownPreserved: true,
     quiet: true,
   });
 
@@ -572,6 +783,7 @@ const assert = require("assert/strict");
     (c) => c.name === "batman_dashboard",
   );
   assert.ok(cookie.httpOnly && cookie.secure && cookie.sameSite === "Strict");
+  assert.deepEqual(escaped, [], "No real account or config mutation escaped");
   console.log(
     JSON.stringify({
       passed: true,
@@ -590,6 +802,14 @@ const assert = require("assert/strict");
         "emails shown by default",
         "sign-in dialog and right-aligned footer",
         "add login providers and toasts",
+        "breakdown visible without interaction",
+        "account menu keyboard and focus return",
+        "reset cooldown (mocked)",
+        "sign in again opens flow step (mocked)",
+        "inline sign in again",
+        "remove with confirmation (mocked)",
+        "logs: errors viewer and activity states (mocked)",
+        "no mutation reached the real proxy",
         "no connection page",
         "390px layout",
         "mobile navigation",
