@@ -1,0 +1,427 @@
+#!/usr/bin/env python3
+"""Private quota dashboard. Account tokens stay inside CLIProxyAPI."""
+import concurrent.futures
+from contextlib import contextmanager
+import copy
+import hashlib
+import hmac
+import http.cookies
+import json
+import math
+import os
+from pathlib import Path
+import secrets
+import sqlite3
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+ROOT = Path(__file__).resolve().parent
+DATA = Path(os.environ.get("DASHBOARD_DATA", str(ROOT / "data")))
+CREDENTIALS = Path.home() / "cliproxyapi/credentials.json"
+PUBLIC_HOST = "batman.tailc343ff.ts.net:8317"
+PROVIDERS = {"codex", "antigravity"}
+
+
+def timestamp(value):
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+def number(value):
+    try:
+        value = float(value)
+        return value if math.isfinite(value) else None
+    except (TypeError, ValueError):
+        return None
+
+
+def window(key, label, used=None, remaining=None, reset=None, period=None):
+    fraction = number(remaining)
+    used = number(used)
+    if fraction is None and used is not None:
+        fraction = 1 - used / 100
+    if fraction is None:
+        return None
+    return {"id": key, "label": label, "remaining": round(max(0, min(1, fraction)) * 100, 3),
+            "reset_at": timestamp(reset), "period": number(period)}
+
+
+def parse_codex(data):
+    windows = []
+    for group, title in [("rate_limit", "Usage"), ("code_review_rate_limit", "Code review")]:
+        for slot in ["primary_window", "secondary_window"]:
+            value = (data.get(group) or {}).get(slot)
+            if not isinstance(value, dict):
+                continue
+            period = number(value.get("limit_window_seconds"))
+            duration = f"{period / 86400:g} days" if period and period >= 86400 else f"{(period or 0) / 3600:g} hours"
+            item = window(f"{group}:{slot}", f"{title} · {duration}", used=value.get("used_percent"),
+                          reset=value.get("reset_at"), period=period)
+            if item:
+                windows.append(item)
+    return {"plan": str(data.get("plan_type") or "Unknown"), "windows": windows}
+
+
+def parse_antigravity(data):
+    windows = []
+    for key, model in (data.get("models") or {}).items():
+        quota = model.get("quotaInfo") or {}
+        # Hide internal autocomplete models; keep named models the account actually reports.
+        if not model.get("displayName"):
+            continue
+        item = window(key, model["displayName"], remaining=quota.get("remainingFraction"),
+                      reset=quota.get("resetTime"))
+        if item:
+            windows.append(item)
+    return {"plan": "Antigravity", "windows": sorted(windows, key=lambda w: w["label"])}
+
+
+def safe_account(raw, quota=None):
+    # Deliberately enumerate fields. Never relay raw credentials, id_token, paths or headers.
+    cooldowns = [{k: c.get(k) for k in ["scope", "model_key", "reason", "retry_at", "http_status"]}
+                 for c in raw.get("cooldowns", [])]
+    plan = (quota or {}).get("plan") or raw.get("id_token", {}).get("plan_type") or "Unknown"
+    return {"id": raw["auth_index"], "provider": raw.get("provider", raw.get("type")),
+            "email": raw.get("email") or raw.get("label") or "", "name": raw.get("name", ""),
+            "plan": plan, "disabled": bool(raw.get("disabled")), "status": raw.get("status", "unknown"),
+            "unavailable": bool(raw.get("unavailable")), "requires_sign_in": bool(raw.get("requires_sign_in")),
+            "cooldowns": cooldowns, "success": raw.get("success", 0), "failed": raw.get("failed", 0),
+            "windows": (quota or {}).get("windows", []), "quota_at": (quota or {}).get("observed_at"),
+            "quota_error": (quota or {}).get("error"), "last_refresh": raw.get("last_refresh")}
+
+
+class Store:
+    def __init__(self, path):
+        self.path = path
+        with self.connect() as db:
+            db.execute("CREATE TABLE IF NOT EXISTS samples (ts REAL, account TEXT, provider TEXT, metric TEXT, remaining REAL, reset_at REAL, period REAL, PRIMARY KEY(ts,account,metric))")
+            db.execute("CREATE INDEX IF NOT EXISTS samples_time ON samples(ts)")
+            db.execute("CREATE TABLE IF NOT EXISTS latest (account TEXT PRIMARY KEY, data TEXT)")
+
+    @contextmanager
+    def connect(self):
+        connection = sqlite3.connect(self.path, timeout=15)
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
+    def load(self):
+        with self.connect() as db:
+            return {row[0]: json.loads(row[1]) for row in db.execute("SELECT account,data FROM latest")}
+
+    def save(self, account, provider, quota):
+        with self.connect() as db:
+            db.execute("INSERT OR REPLACE INTO latest VALUES (?,?)", (account, json.dumps(quota)))
+            for w in quota.get("windows", []):
+                db.execute("INSERT OR REPLACE INTO samples VALUES (?,?,?,?,?,?,?)", (
+                    quota["observed_at"], account, provider, w["id"], w["remaining"], w["reset_at"], w["period"]))
+            db.execute("DELETE FROM samples WHERE ts < ?", (time.time() - 30 * 86400,))
+
+    def history(self, hours=24):
+        with self.connect() as db:
+            rows = db.execute("SELECT ts,account,provider,metric,remaining,reset_at,period FROM samples WHERE ts>=? ORDER BY ts", (time.time() - hours * 3600,)).fetchall()
+        return [dict(zip(["ts", "account", "provider", "metric", "remaining", "reset_at", "period"], r)) for r in rows]
+
+
+class Hub:
+    def __init__(self, store):
+        self.store = store
+        self.lock = threading.RLock()
+        self.refresh_lock = threading.Lock()
+        self.quotas = store.load()
+        self.files = []
+        self.error = None
+        self.updated = None
+        self.refreshing = False
+        self.wake = threading.Event()
+        self.sessions = {}
+        self.oauth = {}
+        self.login_attempts = {}
+
+    @staticmethod
+    def management_key():
+        return json.loads(CREDENTIALS.read_text())["management_key"]
+
+    def request(self, path, data=None, method=None):
+        req = urllib.request.Request("http://127.0.0.1:8317/v8/management/" + path,
+            headers={"Authorization": "Bearer " + self.management_key(), "Content-Type": "application/json"},
+            data=json.dumps(data).encode() if data is not None else None, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=25) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as exc:
+            # Do not relay raw upstream bodies, which may contain account details or auth material.
+            raise ValueError(f"Proxy returned HTTP {exc.code}. Check the original panel for details.") from None
+
+    def read_files(self):
+        result = self.request("credentials")
+        files = [f for f in result.get("files", []) if f.get("provider") in PROVIDERS]
+        with self.lock:
+            self.files, self.updated, self.error = files, time.time(), None
+        return files
+
+    def fetch_quota(self, raw):
+        headers = {"Authorization": "Bearer $TOKEN$", "Content-Type": "application/json"}
+        if raw["provider"] == "codex":
+            account_id = raw.get("id_token", {}).get("chatgpt_account_id")
+            if account_id:
+                headers["Chatgpt-Account-Id"] = account_id
+            headers["User-Agent"] = "codex-tui/0.149.1"
+            payload = {"method": "GET", "url": "https://chatgpt.com/backend-api/wham/usage", "header": headers}
+        else:
+            headers["User-Agent"] = "antigravity/hub/2.23.0 linux/amd64"
+            payload = {"method": "POST", "url": "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
+                       "header": headers, "data": json.dumps({"project": raw.get("project_id", "")})}
+        payload["auth_index"] = raw["auth_index"]
+        response = self.request("requests/api-call", payload)
+        if not 200 <= response.get("status_code", 0) < 300:
+            raise ValueError(f"Quota request returned HTTP {response.get('status_code', 'unknown')}. Try refreshing or signing in again.")
+        data = json.loads(response.get("body", "{}"))
+        parsed = parse_codex(data) if raw["provider"] == "codex" else parse_antigravity(data)
+        if not parsed["windows"]:
+            raise ValueError("The provider returned no quota windows.")
+        parsed["observed_at"] = time.time()
+        return parsed
+
+    def refresh_one(self, raw, observed_at=None):
+        idx = raw["auth_index"]
+        if raw.get("disabled"):
+            return
+        try:
+            quota = self.fetch_quota(raw)
+            if observed_at is not None:
+                quota["observed_at"] = observed_at
+            self.store.save(idx, raw["provider"], quota)
+        except Exception as exc:
+            with self.lock:
+                quota = copy.deepcopy(self.quotas.get(idx, {"windows": []}))
+            quota["error"] = str(exc) if isinstance(exc, ValueError) else "Quota refresh failed. Check the connection and retry."
+        with self.lock:
+            self.quotas[idx] = quota
+
+    def refresh(self):
+        if not self.refresh_lock.acquire(blocking=False):
+            return
+        with self.lock:
+            self.refreshing = True
+        try:
+            files = self.read_files()
+            observed_at = time.time()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                list(pool.map(lambda raw: self.refresh_one(raw, observed_at), files))
+        except Exception:
+            with self.lock:
+                self.error = "Cannot reach CLIProxyAPI. Check that the proxy service is running."
+        finally:
+            with self.lock:
+                self.refreshing = False
+            self.refresh_lock.release()
+
+    def collect(self):
+        last_quota = 0
+        while True:
+            requested = self.wake.is_set()
+            self.wake.clear()
+            if requested or time.monotonic() - last_quota >= 300:
+                self.refresh()
+                last_quota = time.monotonic()
+            else:
+                try:
+                    self.read_files()
+                except Exception:
+                    with self.lock:
+                        self.error = "Cannot reach CLIProxyAPI. Showing the last recorded state."
+            self.wake.wait(30)
+
+    def snapshot(self, hours):
+        with self.lock:
+            accounts = [safe_account(f, self.quotas.get(f["auth_index"])) for f in self.files]
+            result = {"accounts": accounts, "updated_at": self.updated, "refreshing": self.refreshing,
+                      "error": self.error, "now": time.time(), "endpoint": f"https://{PUBLIC_HOST}/v1"}
+        result["history"] = self.store.history(hours)
+        return result
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "BatmanDashboard"
+
+    def log_message(self, *args):
+        pass  # Never log keys, OAuth URLs, email addresses, or cookies.
+
+    @property
+    def hub(self):
+        return self.server.hub
+
+    def send(self, status, body, content_type="application/json", cookie=None):
+        payload = json.dumps(body).encode() if content_type == "application/json" else body
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+        if cookie:
+            self.send_header("Set-Cookie", cookie)
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def session(self):
+        try:
+            cookies = http.cookies.SimpleCookie(self.headers.get("Cookie", ""))
+            token = cookies["batman_dashboard"].value
+        except (KeyError, http.cookies.CookieError):
+            return None
+        with self.hub.lock:
+            expiry = self.hub.sessions.get(token, 0)
+            return token if expiry > time.time() else None
+
+    def route(self):
+        host = self.headers.get("Host", "")
+        if host not in {PUBLIC_HOST, "127.0.0.1:8318", "localhost:8318"}:
+            self.send(403, {"error": "Unrecognized host."})
+            return
+        url = urllib.parse.urlsplit(self.path)
+        path = url.path.removeprefix("/dashboard").rstrip("/") or "/"
+        if self.command == "GET" and path == "/":
+            self.send(200, (ROOT / "index.html").read_bytes(), "text/html; charset=utf-8")
+            return
+        if self.command == "POST":
+            origin = self.headers.get("Origin")
+            if (origin and origin not in {f"https://{host}", f"http://{host}"}) or self.headers.get("X-Dashboard-Request") != "1":
+                self.send(403, {"error": "Reload the dashboard and try again."})
+                return
+        if path == "/api/session" and self.command == "GET":
+            self.send(200, {"authenticated": bool(self.session())})
+            return
+        body = {}
+        if self.command == "POST":
+            length = int(self.headers.get("Content-Length", "0"))
+            if length < 0 or length > 16384:
+                self.send(413, {"error": "Request is too large."})
+                return
+            body = json.loads(self.rfile.read(length) or b"{}")
+            if not isinstance(body, dict):
+                raise ValueError("Expected a JSON object.")
+        secure = "; Secure" if host == PUBLIC_HOST else ""
+        if path == "/api/login" and self.command == "POST":
+            now = time.time()
+            with self.hub.lock:
+                attempts = [t for t in self.hub.login_attempts.get(self.client_address[0], []) if t > now - 300]
+                if len(attempts) >= 10:
+                    self.send(429, {"error": "Too many attempts. Try again in five minutes."})
+                    return
+                self.hub.login_attempts[self.client_address[0]] = attempts + [now]
+            supplied = str(body.get("key", ""))
+            if not hmac.compare_digest(hashlib.sha256(supplied.encode()).digest(), hashlib.sha256(self.hub.management_key().encode()).digest()):
+                self.send(401, {"error": "Management key not recognized."})
+                return
+            token = secrets.token_urlsafe(32)
+            with self.hub.lock:
+                self.hub.sessions = {k: v for k, v in self.hub.sessions.items() if v > now}
+                self.hub.sessions[token] = now + 12 * 3600
+                self.hub.login_attempts.pop(self.client_address[0], None)
+            self.send(200, {"ok": True}, cookie=f"batman_dashboard={token}; Path=/dashboard; HttpOnly; SameSite=Strict; Max-Age=43200{secure}")
+            return
+        session = self.session()
+        if not session:
+            self.send(401, {"error": "Sign in with your management key."})
+            return
+        if path == "/api/logout" and self.command == "POST":
+            with self.hub.lock:
+                self.hub.sessions.pop(session, None)
+            self.send(200, {"ok": True}, cookie=f"batman_dashboard=; Path=/dashboard; Max-Age=0; HttpOnly; SameSite=Strict{secure}")
+        elif path == "/api/snapshot" and self.command == "GET":
+            hours = int(urllib.parse.parse_qs(url.query).get("hours", ["24"])[0])
+            self.send(200, self.hub.snapshot(min(max(hours, 1), 24 * 30)))
+        elif path == "/api/refresh" and self.command == "POST":
+            self.hub.wake.set()
+            self.send(202, {"ok": True})
+        elif path == "/api/account/status" and self.command == "POST":
+            idx = str(body.get("id", ""))
+            if not isinstance(body.get("disabled"), bool):
+                raise ValueError("Choose whether the account should be paused.")
+            with self.hub.lock:
+                raw = next((f for f in self.hub.files if f["auth_index"] == idx), None)
+            if raw is None:
+                raise ValueError("Account no longer exists. Refresh the dashboard.")
+            self.hub.request("credentials/status", {"name": raw["name"], "auth_index": idx, "disabled": body["disabled"]}, "PATCH")
+            self.hub.read_files()
+            self.hub.wake.set()
+            self.send(200, {"ok": True})
+        elif path == "/api/oauth/start" and self.command == "POST":
+            provider = body.get("provider")
+            if provider not in PROVIDERS:
+                raise ValueError("Choose Codex or Antigravity.")
+            result = self.hub.request("oauth/auth-url", {"provider": provider, "is_webui": True})
+            with self.hub.lock:
+                self.hub.oauth[result["state"]] = {"provider": provider, "session": session, "created": time.time()}
+            self.send(200, {k: result[k] for k in ["url", "state"]})
+        elif path in {"/api/oauth/status", "/api/oauth/callback", "/api/oauth/cancel"} and self.command == "POST":
+            state = str(body.get("state", ""))
+            with self.hub.lock:
+                pending = self.hub.oauth.get(state)
+            if not pending or pending["session"] != session or time.time() - pending["created"] > 600:
+                raise ValueError("This sign-in has expired. Start again.")
+            if path.endswith("callback"):
+                callback = str(body.get("redirect_url", ""))
+                parsed = urllib.parse.urlsplit(callback)
+                query = urllib.parse.parse_qs(parsed.query)
+                if parsed.hostname not in {"localhost", "127.0.0.1", "::1"} or query.get("state", [None])[0] != state or not query.get("code"):
+                    raise ValueError("The callback does not match this sign-in.")
+                result = self.hub.request("oauth/callback", {"provider": pending["provider"], "state": state, "redirect_url": callback})
+            elif path.endswith("cancel"):
+                result = self.hub.request("oauth/session?" + urllib.parse.urlencode({"state": state}), method="DELETE")
+                with self.hub.lock:
+                    self.hub.oauth.pop(state, None)
+            else:
+                result = self.hub.request("oauth/status?" + urllib.parse.urlencode({"state": state}))
+                if result.get("status") == "ok":
+                    self.hub.wake.set()
+            # OAuth status can include credential records. Return only status and a generic error.
+            self.send(200, {"status": result.get("status", "ok"), "error": "Sign-in failed or expired. Start again." if result.get("error") else None})
+        else:
+            self.send(404, {"error": "Page not found."})
+
+    def do_GET(self):
+        self.handle_route()
+
+    def do_POST(self):
+        self.handle_route()
+
+    def handle_route(self):
+        try:
+            self.route()
+        except (ValueError, KeyError, json.JSONDecodeError):
+            self.send(400, {"error": "The request could not be completed. Refresh and try again, or check the original panel."})
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception:
+            self.send(502, {"error": "Cannot reach the proxy. Check the connection and try again."})
+
+
+def main():
+    os.umask(0o077)
+    DATA.mkdir(parents=True, exist_ok=True, mode=0o700)
+    hub = Hub(Store(DATA / "quota.sqlite"))
+    server = ThreadingHTTPServer(("127.0.0.1", 8318), Handler)
+    server.daemon_threads = True
+    server.hub = hub
+    threading.Thread(target=hub.collect, daemon=True).start()
+    print("Dashboard listening on 127.0.0.1:8318", flush=True)
+    server.serve_forever()
+
+
+if __name__ == "__main__":
+    main()

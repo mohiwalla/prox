@@ -1,0 +1,16 @@
+[Unit]
+Description=Batman CLIProxyAPI quota dashboard
+After=network-online.target cliproxyapi.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/mohiwalla/cliproxyapi/dashboard
+ExecStart=/usr/bin/python3 /home/mohiwalla/cliproxyapi/dashboard/server.py
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target
