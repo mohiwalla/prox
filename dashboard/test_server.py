@@ -7,6 +7,7 @@ import time
 import unittest
 from unittest.mock import patch
 
+import server as dashboard_server
 from server import ERROR_LOG_LIMIT, Handler, Hub, ProxyError, Store, ThreadingHTTPServer, parse_antigravity, parse_codex, safe_account
 
 
@@ -96,9 +97,9 @@ class HTTPTests(unittest.TestCase):
         cls.thread.join()
         cls.folder.cleanup()
 
-    def request(self, path, body=None, cookie=None, origin=None, host="localhost:8318"):
+    def request(self, path, body=None, cookie=None, origin=None, host="localhost:8318", extra=None):
         conn = http.client.HTTPConnection("127.0.0.1", self.server.server_port)
-        headers = {"Host": host, "X-Dashboard-Request": "1", "Content-Type": "application/json"}
+        headers = {"Host": host, "X-Dashboard-Request": "1", "Content-Type": "application/json", **(extra or {})}
         if cookie:
             headers["Cookie"] = cookie
         if origin:
@@ -126,10 +127,27 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request("snapshot", cookie=cookie)[0], 401)
 
     def test_public_cookie_is_secure_and_not_script_readable(self):
-        code, _, cookie = self.request("login", {"key": "test-only-key"}, host="batman.tailc343ff.ts.net:8317")
+        with patch.object(dashboard_server, "PUBLIC_HOSTS", ["proxy.example.test"]):
+            code, _, cookie = self.request("login", {"key": "test-only-key"}, host="proxy.example.test")
         self.assertEqual(code, 200)
         for flag in ["HttpOnly", "Secure", "SameSite=Strict", "Path=/dashboard"]:
             self.assertIn(flag, cookie)
+
+    def test_only_configured_public_hosts_are_served(self):
+        with patch.object(dashboard_server, "PUBLIC_HOSTS", ["proxy.example.test", "box.tail.ts.net:8317"]):
+            self.assertEqual(self.request("session", host="proxy.example.test")[0], 200)
+            self.assertEqual(self.request("session", host="box.tail.ts.net:8317")[0], 200)
+            self.assertEqual(self.request("session", host="evil.example")[0], 403)
+
+    def test_sign_in_rate_limit_uses_forwarded_visitor_address(self):
+        self.hub.login_attempts.clear()
+        attacker = {"CF-Connecting-IP": "203.0.113.9"}
+        for _ in range(10):
+            self.request("login", {"key": "wrong"}, extra=attacker)
+        self.assertEqual(self.request("login", {"key": "test-only-key"}, extra=attacker)[0], 429)
+        # The tunnel's loopback address isn't locked out for everyone else.
+        self.assertEqual(self.request("login", {"key": "test-only-key"}, extra={"CF-Connecting-IP": "198.51.100.4"})[0], 200)
+        self.hub.login_attempts.clear()
 
     def test_pause_calls_only_selected_account(self):
         cookie = self.login()

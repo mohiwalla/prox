@@ -42,7 +42,7 @@ const assert = require("assert/strict");
   };
   const url =
     process.env.DASHBOARD_URL ||
-    "https://batman.tailc343ff.ts.net:8317/dashboard/";
+    "http://localhost:8318/dashboard/";
   if (process.env.DASHBOARD_SOURCE)
     await page.route(url, (route) =>
       route.fulfill({

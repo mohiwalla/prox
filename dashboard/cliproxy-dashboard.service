@@ -1,5 +1,5 @@
 [Unit]
-Description=Batman CLIProxyAPI quota dashboard
+Description=prox quota dashboard for CLIProxyAPI
 After=network-online.target cliproxyapi.service
 
 [Service]
@@ -8,6 +8,8 @@ WorkingDirectory=/home/mohiwalla/cliproxyapi/dashboard
 ExecStart=/usr/bin/python3 /home/mohiwalla/cliproxyapi/dashboard/server.py
 Restart=on-failure
 RestartSec=3
+# Public host names, comma-separated (set in a drop-in, e.g. hosts.conf):
+# Environment=DASHBOARD_HOSTS=proxy.example.com,box.tailnet.ts.net:8317
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true

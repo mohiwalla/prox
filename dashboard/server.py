@@ -25,7 +25,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROOT = Path(__file__).resolve().parent
 DATA = Path(os.environ.get("DASHBOARD_DATA", str(ROOT / "data")))
 CREDENTIALS = Path.home() / "cliproxyapi/credentials.json"
-PUBLIC_HOST = "batman.tailc343ff.ts.net:8317"
+# Public host[:port] names the dashboard answers on, comma-separated (e.g. a Tailscale
+# name and a Cloudflare Tunnel hostname). The first one is advertised as the API endpoint.
+PUBLIC_HOSTS = [h.strip() for h in os.environ.get("DASHBOARD_HOSTS", "").split(",") if h.strip()]
+LOCAL_HOSTS = {"127.0.0.1:8318", "localhost:8318"}
 PROVIDERS = {"codex", "antigravity"}  # providers with quota readers
 QUOTA_INTERVAL = 30  # seconds between live quota checks
 HISTORY_POINTS = 720  # most points per series sent to the browser
@@ -286,7 +289,7 @@ class Hub:
         with self.lock:
             accounts = [safe_account(f, self.quotas.get(f["auth_index"])) for f in self.files]
             result = {"accounts": accounts, "updated_at": self.updated, "refreshing": self.refreshing,
-                      "error": self.error, "now": time.time(), "endpoint": f"https://{PUBLIC_HOST}/v1"}
+                      "error": self.error, "now": time.time(), "endpoint": f"https://{(PUBLIC_HOSTS or ['localhost:8317'])[0]}/v1"}
         result["history"] = self.store.history(hours)
         result["history_bucket"] = self.store.bucket(hours)
         return result
@@ -320,6 +323,15 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    def client_ip(self):
+        # Tailscale Serve and Cloudflare Tunnel both connect from loopback; rate-limit
+        # sign-in by the visitor's address they forward instead of by the tunnel.
+        if self.client_address[0] in {"127.0.0.1", "::1"}:
+            forwarded = self.headers.get("CF-Connecting-IP") or self.headers.get("X-Forwarded-For", "").split(",")[0]
+            if forwarded.strip():
+                return forwarded.strip()
+        return self.client_address[0]
+
     def session(self):
         try:
             cookies = http.cookies.SimpleCookie(self.headers.get("Cookie", ""))
@@ -332,7 +344,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def route(self):
         host = self.headers.get("Host", "")
-        if host not in {PUBLIC_HOST, "127.0.0.1:8318", "localhost:8318"}:
+        if host not in LOCAL_HOSTS and host not in PUBLIC_HOSTS:
             self.send(403, {"error": "Unrecognized host."})
             return
         url = urllib.parse.urlsplit(self.path)
@@ -363,15 +375,15 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length) or b"{}")
             if not isinstance(body, dict):
                 raise ValueError("Expected a JSON object.")
-        secure = "; Secure" if host == PUBLIC_HOST else ""
+        secure = "" if host in LOCAL_HOSTS else "; Secure"
         if path == "/api/login" and self.command == "POST":
             now = time.time()
             with self.hub.lock:
-                attempts = [t for t in self.hub.login_attempts.get(self.client_address[0], []) if t > now - 300]
+                attempts = [t for t in self.hub.login_attempts.get(self.client_ip(), []) if t > now - 300]
                 if len(attempts) >= 10:
                     self.send(429, {"error": "Too many attempts. Try again in five minutes."})
                     return
-                self.hub.login_attempts[self.client_address[0]] = attempts + [now]
+                self.hub.login_attempts[self.client_ip()] = attempts + [now]
             supplied = str(body.get("key", ""))
             if not hmac.compare_digest(hashlib.sha256(supplied.encode()).digest(), hashlib.sha256(self.hub.management_key().encode()).digest()):
                 self.send(401, {"error": "Management key not recognized."})
@@ -380,7 +392,7 @@ class Handler(BaseHTTPRequestHandler):
             with self.hub.lock:
                 self.hub.sessions = {k: v for k, v in self.hub.sessions.items() if v > now}
                 self.hub.sessions[token] = now + 12 * 3600
-                self.hub.login_attempts.pop(self.client_address[0], None)
+                self.hub.login_attempts.pop(self.client_ip(), None)
             self.send(200, {"ok": True}, cookie=f"batman_dashboard={token}; Path=/dashboard; HttpOnly; SameSite=Strict; Max-Age=43200{secure}")
             return
         session = self.session()
