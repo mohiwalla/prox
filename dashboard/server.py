@@ -296,7 +296,7 @@ class Hub:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "BatmanDashboard"
+    server_version = "prox"
 
     def log_message(self, *args):
         pass  # Never log keys, OAuth URLs, email addresses, or cookies.
@@ -335,7 +335,7 @@ class Handler(BaseHTTPRequestHandler):
     def session(self):
         try:
             cookies = http.cookies.SimpleCookie(self.headers.get("Cookie", ""))
-            token = cookies["batman_dashboard"].value
+            token = cookies["prox_session"].value
         except (KeyError, http.cookies.CookieError):
             return None
         with self.hub.lock:
@@ -393,7 +393,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.hub.sessions = {k: v for k, v in self.hub.sessions.items() if v > now}
                 self.hub.sessions[token] = now + 12 * 3600
                 self.hub.login_attempts.pop(self.client_ip(), None)
-            self.send(200, {"ok": True}, cookie=f"batman_dashboard={token}; Path=/dashboard; HttpOnly; SameSite=Strict; Max-Age=43200{secure}")
+            self.send(200, {"ok": True}, cookie=f"prox_session={token}; Path=/dashboard; HttpOnly; SameSite=Strict; Max-Age=43200{secure}")
             return
         session = self.session()
         if not session:
@@ -402,7 +402,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/logout" and self.command == "POST":
             with self.hub.lock:
                 self.hub.sessions.pop(session, None)
-            self.send(200, {"ok": True}, cookie=f"batman_dashboard=; Path=/dashboard; Max-Age=0; HttpOnly; SameSite=Strict{secure}")
+            self.send(200, {"ok": True}, cookie=f"prox_session=; Path=/dashboard; Max-Age=0; HttpOnly; SameSite=Strict{secure}")
         elif path == "/api/snapshot" and self.command == "GET":
             hours = int(urllib.parse.parse_qs(url.query).get("hours", ["24"])[0])
             self.send(200, self.hub.snapshot(min(max(hours, 1), 24 * 30)))
