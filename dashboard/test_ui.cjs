@@ -40,9 +40,7 @@ const assert = require("assert/strict");
     });
     return bodies;
   };
-  const url =
-    process.env.DASHBOARD_URL ||
-    "http://localhost:8318/dashboard/";
+  const url = process.env.DASHBOARD_URL || "http://localhost:8318/dashboard/";
   if (process.env.DASHBOARD_SOURCE)
     await page.route(url, (route) =>
       route.fulfill({
@@ -105,6 +103,36 @@ const assert = require("assert/strict");
   await page.locator('[data-filter="antigravity"]').click();
   assert.equal(await page.locator("[data-pool]").count(), 1);
   await page.locator("#window-antigravity").selectOption({ index: 1 });
+  // Chart choices persist across a reload.
+  const chosenWindow = await page.locator("#window-antigravity").inputValue();
+  await page.locator("#forecast").selectOption("off");
+  await page.reload();
+  await page.locator("[data-pool]").first().waitFor();
+  assert.equal(
+    await page.locator("[data-pool]").count(),
+    1,
+    "Provider filter persists",
+  );
+  assert.equal(
+    await page.locator("#window-antigravity").inputValue(),
+    chosenWindow,
+  );
+  assert.equal(await page.locator("#forecast").inputValue(), "off");
+  await page.locator("#forecast").selectOption("on");
+  // A provider with a single quota window shows a label instead of a select.
+  assert.equal(
+    await page.evaluate(() =>
+      [...document.querySelectorAll("[data-pool]")].every((pool) => {
+        const n = dashboard.state.data.accounts
+          .filter((a) => a.provider === pool.dataset.pool)
+          .flatMap((a) => a.windows.map((w) => w.id));
+        return new Set(n).size > 1
+          ? !!pool.querySelector("select[data-window]")
+          : !!pool.querySelector(".pool-window");
+      }),
+    ),
+    true,
+  );
   await page.locator('[data-filter="all"]').click();
   await page.locator('[data-burn="1"]').click();
   assert.equal(
@@ -579,7 +607,7 @@ const assert = require("assert/strict");
   await page.keyboard.press("ArrowLeft");
   const quietRefresh = await page.evaluate(async () => {
     const plot = document.querySelector('[data-chart="codex"]');
-    const select = document.querySelector("#window-codex");
+    const select = document.querySelector("#window-antigravity");
     const button = document.querySelector('[data-filter="all"]');
     const tooltip = plot.querySelector(".chart-tooltip");
     const breakdown = document.querySelector(
@@ -802,6 +830,7 @@ const assert = require("assert/strict");
         "emails shown by default",
         "sign-in dialog and right-aligned footer",
         "add login providers and toasts",
+        "persisted chart choices",
         "breakdown visible without interaction",
         "account menu keyboard and focus return",
         "reset cooldown (mocked)",
