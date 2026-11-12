@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "description": "Builds assets/vendor.js: the real Sonner toaster (with React) and Torph's TextMorph.",
+  "scripts": {
+    "build": "esbuild vendor-entry.js --bundle --minify --format=iife --define:process.env.NODE_ENV='\"production\"' --outfile=../assets/vendor.js"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "sonner": "2.0.7",
+    "torph": "0.1.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10"
+  }
+}

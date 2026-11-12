@@ -879,47 +879,89 @@
       .reset-label {
         fill: var(--muted-foreground);
       }
+      /* Chart inspection: shadcn-style tooltip that follows the point on the line. */
       .chart-crosshair {
         pointer-events: none;
+        transition: opacity 150ms ease;
+      }
+      .chart-crosshair[hidden],
+      .chart-tooltip[hidden] {
+        display: revert !important;
+        opacity: 0;
+        visibility: hidden;
+        transition:
+          opacity 150ms ease,
+          visibility 0s 150ms;
       }
       .chart-crosshair line {
-        stroke: rgb(255 255 255 / 35%);
-        stroke-dasharray: 3 4;
+        stroke: rgb(255 255 255 / 20%);
       }
+      .chart-crosshair line,
       .chart-crosshair circle {
+        transition: transform 140ms var(--ease-out);
+      }
+      .chart-crosshair[hidden] line,
+      .chart-crosshair[hidden] circle {
+        transition: none;
+      }
+      .chart-crosshair .dot {
         fill: var(--pool-color);
         stroke: var(--card);
         stroke-width: 2;
       }
+      .chart-crosshair .halo {
+        fill: var(--pool-color);
+        opacity: 0.2;
+      }
       .chart-tooltip {
         position: absolute;
-        top: 32px;
+        top: 0;
         left: 0;
-        will-change: transform;
         z-index: 4;
-        min-width: 160px;
+        display: grid;
+        gap: 4px;
+        min-width: 136px;
         padding: 6px 10px;
         border: 1px solid var(--border);
         border-radius: var(--radius-md);
-        background: var(--popover);
-        box-shadow: var(--shadow-lg);
+        background: var(--background);
+        box-shadow: 0 8px 24px rgb(0 0 0 / 40%);
         font-size: 12px;
         line-height: 16px;
         white-space: nowrap;
         pointer-events: none;
+        will-change: transform;
+        transition:
+          transform 140ms var(--ease-out),
+          opacity 150ms ease;
       }
-      .chart-tooltip strong {
-        display: block;
-        margin: 4px 0 2px;
-        font-size: 14px;
-        line-height: 20px;
+      .tip-label {
+        font-weight: 500;
+      }
+      .tip-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted-foreground);
+      }
+      .tip-swatch {
+        width: 10px;
+        height: 10px;
+        flex-shrink: 0;
+        border-radius: 2px;
+        background: var(--pool-color);
+      }
+      .tip-swatch.dashed {
+        border: 1.5px dashed var(--pool-color);
+        background: transparent;
+      }
+      .tip-row strong {
+        margin-left: auto;
+        padding-left: 16px;
+        color: var(--foreground);
+        font-family: var(--font-mono);
         font-weight: 500;
         font-variant-numeric: tabular-nums;
-      }
-      .chart-tooltip time,
-      .chart-tooltip small {
-        font-size: 12px;
-        color: var(--muted-foreground);
       }
       .chart-empty {
         position: absolute;
@@ -1319,96 +1361,11 @@
 
       /* Toast (sonner) */
 
-      /* Toasts: a small Sonner-style toaster with rich colors. */
-      .toaster {
-        --toast-width: 356px;
-        --toast-gap: 14px;
-        position: fixed;
-        right: 24px;
-        bottom: 24px;
-        z-index: 100;
-        width: var(--toast-width);
+      /* Sonner (assets/vendor.js): match the app font; toasts aren't selectable. */
+      [data-sonner-toaster] {
+        font-family: var(--font-sans) !important;
         user-select: none;
         -webkit-user-select: none;
-      }
-      #toaster {
-        position: relative;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-        transition: height 400ms ease;
-      }
-      .toast {
-        position: absolute;
-        right: 0;
-        bottom: 0;
-        left: 0;
-        display: flex;
-        align-items: flex-start;
-        gap: 8px;
-        padding: 14px 16px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-md);
-        background: var(--popover);
-        color: var(--foreground);
-        box-shadow: 0 4px 12px rgb(0 0 0 / 35%);
-        font-size: 13px;
-        line-height: 18px;
-        transform-origin: bottom center;
-        touch-action: pan-y;
-        cursor: default;
-        transition:
-          transform 400ms ease,
-          opacity 400ms ease,
-          height 400ms ease;
-      }
-      .toast > * {
-        transition: opacity 400ms ease;
-      }
-      .toaster:not([data-expanded]) .toast:not([data-front]) > * {
-        opacity: 0;
-      }
-      .toast[data-swiping] {
-        transition: none;
-      }
-      .toast-icon {
-        display: flex;
-        flex-shrink: 0;
-        width: 16px;
-        height: 18px;
-        align-items: center;
-      }
-      .toast-icon svg {
-        width: 16px;
-        height: 16px;
-      }
-      .toast-title {
-        font-weight: 500;
-      }
-      .toast-description {
-        margin-top: 2px;
-        opacity: 0.8;
-        font-weight: 400;
-      }
-      .toast[data-type="success"] {
-        background: hsl(150 100% 6%);
-        border-color: hsl(147 100% 12%);
-        color: hsl(150 86% 65%);
-      }
-      .toast[data-type="info"] {
-        background: hsl(215 100% 6%);
-        border-color: hsl(223 43% 17%);
-        color: hsl(216 87% 65%);
-      }
-      .toast[data-type="warning"] {
-        background: hsl(64 100% 6%);
-        border-color: hsl(60 100% 9%);
-        color: hsl(46 87% 65%);
-      }
-      .toast[data-type="error"] {
-        background: hsl(358 76% 10%);
-        border-color: hsl(357 89% 16%);
-        color: hsl(358 100% 81%);
       }
 
       /* Login */
@@ -1764,12 +1721,6 @@
         }
         .dialog-footer button {
           width: 100%;
-        }
-        .toaster {
-          right: 16px;
-          bottom: 16px;
-          left: 16px;
-          width: auto;
         }
       }
 
@@ -2387,9 +2338,6 @@
         <div id="page-body"></div>
       </main>
     </div>
-    <section class="toaster" aria-label="Notifications">
-      <ol id="toaster"></ol>
-    </section>
     <dialog
       id="oauth-dialog"
       aria-labelledby="oauth-title"
@@ -2475,6 +2423,7 @@
       </div>
       <p id="oauth-error" class="form-error" role="alert" hidden></p>
     </dialog>
+    <script src="/dashboard/assets/vendor.js"></script>
     <script>
       "use strict";
       const $ = (s, r = document) => r.querySelector(s),
@@ -2515,6 +2464,33 @@
       const pName = (p) => PROVIDERS[p]?.name || p;
       const providerIcon = (p) =>
         `<span class="provider-icon" aria-hidden="true"><svg><use href="#brand-${PROVIDERS[p]?.mark || "codex"}"/></svg></span>`;
+      // Text that changes in place morphs with Torph (assets/vendor.js).
+      const morph = (text) => `<span data-morph>${text}</span>`;
+      const morphs = new WeakMap();
+      function morphText(el, text) {
+        text = String(text);
+        if (!window.TextMorph || reducedMotion.matches) {
+          morphs.delete(el);
+          if (el.textContent !== text) el.textContent = text;
+          return;
+        }
+        let entry = morphs.get(el);
+        if (!entry) {
+          entry = {
+            text: el.textContent,
+            morph: new TextMorph({
+              element: el,
+              duration: 400,
+              ease: "cubic-bezier(0.19, 1, 0.22, 1)",
+            }),
+          };
+          morphs.set(el, entry);
+          entry.morph.update(entry.text);
+        }
+        if (entry.text === text) return;
+        entry.text = text;
+        entry.morph.update(text);
+      }
       const state = {
         data: null,
         provider: "all",
@@ -2630,8 +2606,13 @@
                 (name === "open" && current.tagName === "DETAILS") ||
                 (name === "data-inspected-at" &&
                   current.hasAttribute("data-chart"));
+              const morphing = current.hasAttribute("data-morph");
               for (const attr of [...current.attributes])
-                if (!local(attr.name) && !fresh.hasAttribute(attr.name))
+                if (
+                  !morphing &&
+                  !local(attr.name) &&
+                  !fresh.hasAttribute(attr.name)
+                )
                   current.removeAttribute(attr.name);
               for (const attr of [...fresh.attributes])
                 if (
@@ -2639,7 +2620,8 @@
                   current.getAttribute(attr.name) !== attr.value
                 )
                   current.setAttribute(attr.name, attr.value);
-              patchChildren(current, fresh);
+              if (morphing) morphText(current, fresh.textContent);
+              else patchChildren(current, fresh);
             }
           }
           cursor = current.nextSibling;
@@ -2666,135 +2648,6 @@
       }
       document.fonts.ready.then(updateIndicators);
       let renderedPage, renderedSelection;
-      const toastIcons = {
-        success:
-          '<path fill-rule="evenodd" clip-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"/>',
-        info: '<path fill-rule="evenodd" clip-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z"/>',
-        warning:
-          '<path fill-rule="evenodd" clip-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"/>',
-        error:
-          '<path fill-rule="evenodd" clip-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z"/>',
-      };
-      // Sonner-style toaster: newest in front, older ones tucked behind it;
-      // hover expands the stack and pauses dismissal; swipe right to dismiss.
-      const toasts = [],
-        TOAST_GAP = 14,
-        TOAST_VISIBLE = 3;
-      let toasterHovered = false;
-      function layoutToasts() {
-        const list = $("#toaster"),
-          expanded = toasterHovered && toasts.length > 1;
-        $(".toaster").toggleAttribute("data-expanded", expanded);
-        let offset = 0;
-        const frontHeight = toasts[0]?.el.offsetHeight || 0;
-        toasts.forEach((toast, i) => {
-          const { el } = toast,
-            height = el.scrollHeight;
-          el.toggleAttribute("data-front", i === 0);
-          el.style.zIndex = String(toasts.length - i);
-          let y, scale, opacity;
-          if (!toast.mounted) {
-            y = "100%";
-            scale = 1;
-            opacity = 0;
-          } else if (expanded) {
-            y = `${-offset}px`;
-            scale = 1;
-            opacity = i < TOAST_VISIBLE ? 1 : 0;
-          } else {
-            y = `${-TOAST_GAP * i}px`;
-            scale = 1 - 0.05 * i;
-            opacity = i < TOAST_VISIBLE ? 1 : 0;
-          }
-          el.style.height =
-            expanded || i === 0 ? `${height}px` : `${frontHeight}px`;
-          el.style.transform = `translate3d(${toast.dx || 0}px, ${y}, 0) scale(${scale})`;
-          el.style.opacity = String(opacity);
-          offset += height + TOAST_GAP;
-        });
-        list.style.height = `${expanded ? Math.max(0, offset - TOAST_GAP) : frontHeight}px`;
-        $(".toaster").style.pointerEvents = toasts.length ? "" : "none";
-      }
-      function runToast(toast) {
-        clearTimeout(toast.timer);
-        toast.started = Date.now();
-        toast.timer = setTimeout(() => dismissToast(toast), toast.remaining);
-      }
-      function pauseToast(toast) {
-        clearTimeout(toast.timer);
-        toast.remaining -= Date.now() - toast.started;
-      }
-      function dismissToast(toast) {
-        const i = toasts.indexOf(toast);
-        if (i < 0) return;
-        clearTimeout(toast.timer);
-        toasts.splice(i, 1);
-        const { el } = toast;
-        el.style.opacity = "0";
-        el.style.transform =
-          i === 0
-            ? `translate3d(${toast.dx || 0}px, 100%, 0)`
-            : `${el.style.transform} translateY(40%)`;
-        setTimeout(() => el.remove(), 400);
-        if (!toasts.length) toasterHovered = false;
-        layoutToasts();
-      }
-      function notify(title, type = "info", description = "") {
-        const el = document.createElement("li");
-        el.className = "toast";
-        el.dataset.type = type;
-        el.setAttribute("role", type === "error" ? "alert" : "status");
-        el.innerHTML = `<span class="toast-icon"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">${toastIcons[type] || toastIcons.info}</svg></span><div><div class="toast-title"></div>${description ? '<div class="toast-description"></div>' : ""}</div>`;
-        $(".toast-title", el).textContent = title;
-        if (description) $(".toast-description", el).textContent = description;
-        const toast = {
-          el,
-          mounted: false,
-          remaining: type === "error" ? 6000 : 4000,
-        };
-        toasts.unshift(toast);
-        $("#toaster").append(el);
-        layoutToasts();
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => {
-            toast.mounted = true;
-            layoutToasts();
-          }),
-        );
-        if (!toasterHovered) runToast(toast);
-        // Swipe right to dismiss.
-        el.addEventListener("pointerdown", (e) => {
-          const startX = e.clientX;
-          el.setPointerCapture(e.pointerId);
-          el.dataset.swiping = "";
-          const move = (ev) => {
-            toast.dx = Math.max(0, ev.clientX - startX);
-            layoutToasts();
-          };
-          const up = () => {
-            el.removeEventListener("pointermove", move);
-            delete el.dataset.swiping;
-            if ((toast.dx || 0) > 45) dismissToast(toast);
-            else {
-              toast.dx = 0;
-              layoutToasts();
-            }
-          };
-          el.addEventListener("pointermove", move);
-          el.addEventListener("pointerup", up, { once: true });
-          el.addEventListener("pointercancel", up, { once: true });
-        });
-      }
-      $(".toaster").addEventListener("mouseenter", () => {
-        toasterHovered = true;
-        toasts.forEach(pauseToast);
-        layoutToasts();
-      });
-      $(".toaster").addEventListener("mouseleave", () => {
-        toasterHovered = false;
-        toasts.forEach(runToast);
-        layoutToasts();
-      });
       async function api(path, body) {
         const res = await fetch(
           new URL("/dashboard/api/" + path, location.origin),
@@ -2907,7 +2760,7 @@
         ]
           .map(
             ([p, n]) =>
-              `<button data-filter="${p}" ${choice(state.provider === p)}>${p === "all" ? icon("all") : providerIcon(p)}${n}<span class="count">${filteredAccounts(p).length}</span></button>`,
+              `<button data-filter="${p}" ${choice(state.provider === p)}>${p === "all" ? icon("all") : providerIcon(p)}${n}<span class="count">${morph(filteredAccounts(p).length)}</span></button>`,
           )
           .join("")}</div>`;
       }
@@ -2946,6 +2799,8 @@
           .filter((o) => o.w);
       }
       function drainFor(a, metric, now) {
+        // Longer ranges arrive downsampled; treat gaps up to ~2.5 buckets as continuous.
+        const gap = Math.max(900, 2.5 * (state.data.history_bucket || 0));
         const rows = state.data.history
           .filter(
             (r) =>
@@ -2967,7 +2822,7 @@
           const prev = rows[i - 1],
             next = rows[i];
           if (
-            next.ts - prev.ts > 900 ||
+            next.ts - prev.ts > gap ||
             next.remaining > prev.remaining + 0.5 ||
             (prev.reset_at &&
               prev.reset_at > prev.ts &&
@@ -3144,7 +2999,7 @@
         const annotation = latest
           ? `<circle cx="${x(latest.ts)}" cy="${y(latest.value)}" r="4" fill="var(--pool-color)" stroke="var(--card)" stroke-width="2"/><text class="current-value" x="${x(latest.ts) + 9}" y="${Math.max(top + 12, y(latest.value) - 9)}">${esc(fmtPct(latest.value))}</text>`
           : "";
-        return `<figure class="plot" tabindex="0" data-chart="${p}" aria-label="${pName(p)} quota history and forecast. Use left and right arrows to inspect recorded samples."><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${points.length} recorded samples${forecast.length ? ", estimated future usage" : ""}"><defs><linearGradient id="fill-${p}" x1="0" x2="0" y1="0" y2="1"><stop stop-color="var(--pool-color)" stop-opacity=".16"/><stop offset="1" stop-color="var(--pool-color)" stop-opacity="0"/></linearGradient></defs>${ticks}${resetMarks}<line x1="${x(now)}" x2="${x(now)}" y1="${top - 4}" y2="${H - bottom + 2}" stroke="#686868"/><text class="axis-now" x="${x(now)}" y="16" text-anchor="middle">Now</text><g class="chart-data">${area}${points.length > 1 ? `<path d="${path(points)}" stroke="var(--pool-color)" stroke-width="2.25" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${forecast.length ? `<path d="${path(forecast)}" stroke="var(--pool-color)" stroke-opacity=".8" stroke-width="2" stroke-dasharray="6 5" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${annotation}</g><g class="chart-crosshair" hidden><line y1="${top}" y2="${H - bottom}"/><circle r="4"/></g></svg><div class="chart-tooltip" hidden></div>${points.length < 2 ? '<div class="chart-empty"><strong>History starts here</strong><p>Quotas are recorded every 5 minutes, even with this page closed. Your usage curve will build over time.</p></div>' : ""}<figcaption class="chart-caption"><span>Pool</span><span class="legend"><i class="legend-line"></i>Recorded</span><span class="legend"><i class="legend-line dashed"></i>Projected</span><span class="chart-inspect" aria-live="polite">${forecast.length ? "Estimate from recent usage" : !state.forecast ? "Forecast hidden" : "Forecast needs 10+ minutes of recent samples"}</span></figcaption></figure>`;
+        return `<figure class="plot" tabindex="0" data-chart="${p}" aria-label="${pName(p)} quota history and forecast. Use left and right arrows to inspect recorded samples."><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${points.length} recorded samples${forecast.length ? ", estimated future usage" : ""}"><defs><linearGradient id="fill-${p}" x1="0" x2="0" y1="0" y2="1"><stop stop-color="var(--pool-color)" stop-opacity=".16"/><stop offset="1" stop-color="var(--pool-color)" stop-opacity="0"/></linearGradient></defs>${ticks}${resetMarks}<line x1="${x(now)}" x2="${x(now)}" y1="${top - 4}" y2="${H - bottom + 2}" stroke="#686868"/><text class="axis-now" x="${x(now)}" y="16" text-anchor="middle">Now</text><g class="chart-data">${area}${points.length > 1 ? `<path d="${path(points)}" stroke="var(--pool-color)" stroke-width="2.25" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${forecast.length ? `<path d="${path(forecast)}" stroke="var(--pool-color)" stroke-opacity=".8" stroke-width="2" stroke-dasharray="6 5" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${annotation}</g><g class="chart-crosshair" hidden><line x1="0" x2="0" y1="${top}" y2="${H - bottom}"/><circle class="halo" r="9"/><circle class="dot" r="4"/></g></svg><div class="chart-tooltip" hidden></div>${points.length < 2 ? '<div class="chart-empty"><strong>History starts here</strong><p>Quotas are recorded every 30 seconds, even with this page closed. Your usage curve will build over time.</p></div>' : ""}<figcaption class="chart-caption"><span>Pool</span><span class="legend"><i class="legend-line"></i>Recorded</span><span class="legend"><i class="legend-line dashed"></i>Projected</span><span class="chart-inspect" aria-live="polite">${forecast.length ? "Estimate from recent usage" : !state.forecast ? "Forecast hidden" : "Forecast needs 10+ minutes of recent samples"}</span></figcaption></figure>`;
       }
 
       function ratePlot(p, accounts, metric) {
@@ -3152,7 +3007,7 @@
           items = usableWindows(accounts, metric);
         const rates = items.map(({ a }) => drainFor(a, metric, now));
         const ready = rates.every((r) => r !== null) && rates.length;
-        return `<div class="rate-card"><div class="big-number">${ready ? fmtPct(rates.reduce((s, r) => s + r, 0)) : "—"}<small>/ hour</small></div><p>${ready ? `Measured consumption over the last ${state.burn} hours. Quota reset increases are excluded.` : "Drain rate will appear after at least 10 minutes of samples. No usage rate is assumed before then."}</p></div>`;
+        return `<div class="rate-card"><div class="big-number">${morph(ready ? fmtPct(rates.reduce((s, r) => s + r, 0)) : "—")}<small>/ hour</small></div><p>${ready ? `Measured consumption over the last ${state.burn} hours. Quota reset increases are excluded.` : "Drain rate will appear after at least 10 minutes of samples. No usage rate is assumed before then."}</p></div>`;
       }
       function pool(p) {
         const accounts = filteredAccounts(p);
@@ -3185,12 +3040,12 @@
         const restricted = accounts.filter(
           (a) => status(a)[0] === "Model restriction",
         ).length;
-        return `<section class="pool ${p === "antigravity" ? "agy" : ""}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span><label class="sr-only" for="window-${p}">Quota window for ${pName(p)}</label><select id="window-${p}" class="sm" data-window="${p}" ${list.length ? "" : "disabled"}>${list.length ? list.map((w) => `<option value="${esc(w.id)}" ${metric === w.id ? "selected" : ""}>${esc(w.label)}</option>`).join("") : "<option>Quota unavailable</option>"}</select></div><div class="pool-total"><div><div class="big-number">${items.length ? fmtPct(sum) : "—"}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history"}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${next ? esc(relative(next)) : "Not reported"}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${rate !== null ? fmtPct(rate) + "/h" : "—"}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<details ${state.page === "accounts" ? "open" : ""}><summary><span class="summary-label">Account breakdown</span><span class="summary-meta">${items.length}/${accounts.length} quotas measured</span>${icon("chevron", "chevron")}</summary><div class="mini-accounts">${accounts
+        return `<section class="pool ${p === "antigravity" ? "agy" : ""}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span><label class="sr-only" for="window-${p}">Quota window for ${pName(p)}</label><select id="window-${p}" class="sm" data-window="${p}" ${list.length ? "" : "disabled"}>${list.length ? list.map((w) => `<option value="${esc(w.id)}" ${metric === w.id ? "selected" : ""}>${esc(w.label)}</option>`).join("") : "<option>Quota unavailable</option>"}</select></div><div class="pool-total"><div><div class="big-number">${morph(items.length ? fmtPct(sum) : "—")}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${morph(empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history")}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${morph(next ? esc(relative(next)) : "Not reported")}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${morph(rate !== null ? fmtPct(rate) + "/h" : "—")}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<details ${state.page === "accounts" ? "open" : ""}><summary><span class="summary-label">Account breakdown</span><span class="summary-meta">${morph(`${items.length}/${accounts.length} quotas measured`)}</span>${icon("chevron", "chevron")}</summary><div class="mini-accounts">${accounts
           .map((a, i) => {
             const w = a.windows.find((w) => w.id === metric),
               [s, c] = status(a);
             const label = accountLabel(a, i);
-            return `<div class="mini-account" data-account="${esc(a.id)}"><span class="mini-name"><span class="mini-label" title="${esc(label)}">${esc(label)}</span><span class="mini-plan">${esc(planLabel(a.plan))}</span></span><span class="tag ${c}">${s}</span><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="mini-value">${w ? fmtPct(w.remaining) : "—"}</span></div>`;
+            return `<div class="mini-account" data-account="${esc(a.id)}"><span class="mini-name"><span class="mini-label" title="${esc(label)}">${esc(label)}</span><span class="mini-plan">${esc(planLabel(a.plan))}</span></span><span class="tag ${c}">${morph(s)}</span><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="mini-value">${morph(w ? fmtPct(w.remaining) : "—")}</span></div>`;
           })
           .join("")}</div></details></section>`;
       }
@@ -3239,7 +3094,7 @@
                 a.windows.find((w) => /flash/i.test(w.label)) ||
                 a.windows[0];
             const label = accountLabel(a, i);
-            return `<article class="account-row ${a.provider === "codex" ? "" : "agy"}" data-account="${esc(a.id)}"><div class="account-identity">${providerIcon(a.provider)}<span class="account-label" title="${esc(label)}">${esc(label)}</span><span class="account-sub">${esc([planLabel(a.plan), pName(a.provider)].filter((v, n, all) => v && all.indexOf(v) === n).join(" · "))}</span></div><div class="account-quota"><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="quota-value">${w ? fmtPct(w.remaining) : "—"}</span><span class="account-meta">${esc(age(a.quota_at))}${a.quota_error ? " · last known" : ""}</span></div><div class="account-status"><span class="tag ${c}">${s}</span><span class="account-reason" title="${esc(statusReason(a))}">${esc(statusReason(a))}</span></div><button class="switch" role="switch" aria-checked="${!a.disabled}" aria-label="Include ${esc(label)} in rotation" title="${a.disabled ? "Paused: excluded from rotation" : "In rotation"}" data-pause="${esc(a.id)}" data-disabled="${!a.disabled}"><span class="switch-thumb"></span></button></article>`;
+            return `<article class="account-row ${a.provider === "codex" ? "" : "agy"}" data-account="${esc(a.id)}"><div class="account-identity">${providerIcon(a.provider)}<span class="account-label" title="${esc(label)}">${esc(label)}</span><span class="account-sub">${esc([planLabel(a.plan), pName(a.provider)].filter((v, n, all) => v && all.indexOf(v) === n).join(" · "))}</span></div><div class="account-quota"><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="quota-value">${morph(w ? fmtPct(w.remaining) : "—")}</span><span class="account-meta">${morph(esc(age(a.quota_at)) + (a.quota_error ? " · last known" : ""))}</span></div><div class="account-status"><span class="tag ${c}">${morph(s)}</span><span class="account-reason" title="${esc(statusReason(a))}">${morph(esc(statusReason(a)))}</span></div><button class="switch" role="switch" aria-checked="${!a.disabled}" aria-label="Include ${esc(label)} in rotation" title="${a.disabled ? "Paused: excluded from rotation" : "In rotation"}" data-pause="${esc(a.id)}" data-disabled="${!a.disabled}"><span class="switch-thumb"></span></button></article>`;
           })
           .join(
             "",
@@ -3252,15 +3107,20 @@
         state.page = ["quotas", "accounts"].includes(location.hash.slice(1))
           ? location.hash.slice(1)
           : "quotas";
-        $("#page-title").textContent = {
-          quotas: "Quota management",
-          accounts: "Accounts",
-        }[state.page];
+        morphText(
+          $("#page-title"),
+          {
+            quotas: "Quota management",
+            accounts: "Accounts",
+          }[state.page],
+        );
         const count = state.data.accounts.length,
           measured = state.data.accounts.filter((a) => a.windows.length).length;
-        $("#page-meta").textContent =
-          `${count} account${count === 1 ? "" : "s"} · ${measured} quotas loaded`;
-        $("#nav-account-count").textContent = count;
+        morphText(
+          $("#page-meta"),
+          `${count} account${count === 1 ? "" : "s"} · ${measured} quotas loaded`,
+        );
+        morphText($("#nav-account-count"), count);
         $$("[data-page]").forEach((a) => {
           a.classList.toggle("active", a.dataset.page === state.page);
           if (a.dataset.page === state.page)
@@ -3270,9 +3130,10 @@
         $("#global-error").hidden = !state.data.error;
         $("#global-error").textContent = state.data.error || "";
         $("#refresh").disabled = state.data.refreshing;
-        $("#refresh .button-label").textContent = state.data.refreshing
-          ? "Refreshing…"
-          : "Refresh all quotas";
+        morphText(
+          $("#refresh .button-label"),
+          state.data.refreshing ? "Refreshing…" : "Refresh all quotas",
+        );
         const next = document.createElement("template");
         if (!count) {
           next.innerHTML = `<div class="state-card"><h2>${state.data.error ? "Waiting for the proxy" : "Your account pool starts here"}</h2><p>${state.data.error ? "The connection will be checked automatically." : "Add a Codex or Antigravity account to start tracking its quotas."}</p><button class="primary" data-add>${icon("plus")}Add login</button></div>`;
@@ -3506,23 +3367,37 @@
         const svg = $("svg", plot),
           group = $(".chart-crosshair", plot),
           line = $("line", group),
-          circle = $("circle", group),
+          halo = $(".halo", group),
+          dot = $(".dot", group),
           tooltip = $(".chart-tooltip", plot);
         const px = chart.x(point.ts),
-          py = chart.y(point.value);
-        group.hidden = false;
-        group.removeAttribute("hidden");
-        line.setAttribute("x1", px);
-        line.setAttribute("x2", px);
-        circle.setAttribute("cx", px);
-        circle.setAttribute("cy", py);
-        tooltip.innerHTML = `<time>${esc(dateLabel(point.ts))}</time><strong>${esc(fmtPct(point.value))} remaining</strong><small>${isFuture ? "Projected from recent usage" : "Recorded quota"}</small>`;
-        tooltip.hidden = false;
+          py = chart.y(point.value),
+          entering = group.hasAttribute("hidden");
+        tooltip.innerHTML = `<div class="tip-label">${esc(dateLabel(point.ts))}</div><div class="tip-row"><i class="tip-swatch${isFuture ? " dashed" : ""}"></i><span>${isFuture ? "Projected" : "Recorded"}</span><strong>${esc(fmtPct(point.value))}</strong></div>`;
+        // Sit beside the point: above it when there is room, flipped left near the edge.
         const width = svg.clientWidth,
-          tip = tooltip.offsetWidth,
-          at = (px / chart.W) * width,
-          left = at + 12 + tip > width ? at - 12 - tip : at + 12;
-        tooltip.style.transform = `translate3d(${Math.max(0, left)}px, 0, 0)`;
+          ax = (px / chart.W) * width,
+          ay = (py / chart.H) * svg.clientHeight,
+          tw = tooltip.offsetWidth,
+          th = tooltip.offsetHeight;
+        let left = ax + 16,
+          top = ay - th - 12;
+        if (left + tw > width) left = ax - 16 - tw;
+        if (top < 0) top = ay + 12;
+        // Appear in place (fade only); afterwards glide between positions.
+        const moving = [line, halo, dot, tooltip];
+        if (entering)
+          moving.forEach((el) => (el.style.transitionProperty = "opacity"));
+        line.style.transform = `translateX(${px}px)`;
+        halo.style.transform =
+          dot.style.transform = `translate(${px}px, ${py}px)`;
+        tooltip.style.transform = `translate3d(${Math.max(0, left)}px, ${top}px, 0)`;
+        group.removeAttribute("hidden");
+        tooltip.hidden = false;
+        if (entering) {
+          group.getBoundingClientRect();
+          moving.forEach((el) => (el.style.transitionProperty = ""));
+        }
         $(".chart-inspect", plot).textContent =
           `${dateLabel(point.ts)} · ${fmtPct(point.value)} ${isFuture ? "projected" : "recorded"}`;
       }

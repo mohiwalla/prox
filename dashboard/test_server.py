@@ -55,6 +55,18 @@ class QuotaTests(unittest.TestCase):
             self.assertEqual(len(store.history()), 1)
             self.assertIn("error", hub.quotas["a"])
 
+    def test_history_sends_latest_cycle_per_bucket(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = Store(Path(folder) / "history.sqlite")
+            base = (time.time() // 600) * 600 - 3600  # start of an old bucket
+            for offset in (0, 30, 60):
+                for account in ("a", "b"):
+                    store.save(account, "codex", {"observed_at": base + offset, "windows": [
+                        {"id": "primary", "label": "Weekly", "remaining": 90 - offset / 30, "reset_at": None, "period": 604800}]})
+            rows = [r for r in store.history(24) if r["ts"] < base + 120]
+            self.assertEqual({r["ts"] for r in rows}, {base + 60})
+            self.assertEqual({r["account"] for r in rows}, {"a", "b"})
+
     def test_history_survives_restart(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "history.sqlite"

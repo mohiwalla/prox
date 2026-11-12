@@ -31,7 +31,8 @@ management API. Codex reads `/backend-api/wham/usage`; Antigravity reads
 `v1internal:fetchAvailableModels`. It never runs model inference to check quotas.
 Tokens are substituted by CLIProxyAPI, not read by this service.
 
-History is recorded every five minutes into `data/quota.sqlite` (private permissions),
+History is recorded every 30 seconds into `data/quota.sqlite` (private permissions),
+sent to the browser downsampled to about 720 points per series (gzip-compressed),
 retained for 30 days, and survives service restarts. No history is invented before
 installation. Failed checks preserve their previous observation timestamp and show
 an error. Credential status updates every 30 seconds. Manual refresh triggers a new check.

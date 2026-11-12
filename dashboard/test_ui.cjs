@@ -225,7 +225,7 @@ const assert = require("assert/strict");
   await page.evaluate(() => notify("Test", "success"));
   assert.equal(
     await page
-      .locator('.toast[data-type="success"]')
+      .locator('[data-sonner-toast][data-type="success"]')
       .evaluate((el) => getComputedStyle(el).userSelect),
     "none",
   );
@@ -390,7 +390,17 @@ const assert = require("assert/strict");
       buttonPreserved: button.isConnected,
       disclosurePreserved: document.querySelector('[data-pool="codex"] details')
         .open,
-      quiet: document.getAnimations().length === 0,
+      // Torph morphs real text changes (ages, values); nothing else may move.
+      quiet:
+        document
+          .getAnimations()
+          .filter(
+            (a) =>
+              !(
+                a.effect?.target?.hasAttribute?.("torph-item") ||
+                a.effect?.target?.closest?.("[torph-root]")
+              ),
+          ).length === 0,
     };
   });
   assert.deepEqual(quietRefresh, {

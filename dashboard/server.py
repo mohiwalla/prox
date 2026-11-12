@@ -3,6 +3,7 @@
 import concurrent.futures
 from contextlib import contextmanager
 import copy
+import gzip
 import hashlib
 import hmac
 import http.cookies
@@ -25,6 +26,8 @@ DATA = Path(os.environ.get("DASHBOARD_DATA", str(ROOT / "data")))
 CREDENTIALS = Path.home() / "cliproxyapi/credentials.json"
 PUBLIC_HOST = "batman.tailc343ff.ts.net:8317"
 PROVIDERS = {"codex", "antigravity"}  # providers with quota readers
+QUOTA_INTERVAL = 30  # seconds between live quota checks
+HISTORY_POINTS = 720  # most points per series sent to the browser
 # Every OAuth flow CLIProxyAPI v8 exposes through /oauth/auth-url.
 OAUTH_PROVIDERS = {"claude", "codex", "antigravity", "xai", "kimi", "kimi-ai", "devin", "meta"}
 
@@ -130,9 +133,19 @@ class Store:
                     quota["observed_at"], account, provider, w["id"], w["remaining"], w["reset_at"], w["period"]))
             db.execute("DELETE FROM samples WHERE ts < ?", (time.time() - 30 * 86400,))
 
+    @staticmethod
+    def bucket(hours):
+        return max(120, hours * 3600 / HISTORY_POINTS)
+
     def history(self, hours=24):
+        # Keep every sample on disk, but send one refresh cycle per bucket: all accounts
+        # in a cycle share a timestamp, so pooled sums stay exact.
+        size = self.bucket(hours)
         with self.connect() as db:
-            rows = db.execute("SELECT ts,account,provider,metric,remaining,reset_at,period FROM samples WHERE ts>=? ORDER BY ts", (time.time() - hours * 3600,)).fetchall()
+            rows = db.execute(
+                "WITH b AS (SELECT MAX(ts) m FROM samples WHERE ts>=? GROUP BY CAST(ts/? AS INTEGER)) "
+                "SELECT ts,account,provider,metric,remaining,reset_at,period FROM samples JOIN b ON ts=b.m ORDER BY ts",
+                (time.time() - hours * 3600, size)).fetchall()
         return [dict(zip(["ts", "account", "provider", "metric", "remaining", "reset_at", "period"], r)) for r in rows]
 
 
@@ -235,7 +248,7 @@ class Hub:
         while True:
             requested = self.wake.is_set()
             self.wake.clear()
-            if requested or time.monotonic() - last_quota >= 300:
+            if requested or time.monotonic() - last_quota >= QUOTA_INTERVAL - 1:
                 self.refresh()
                 last_quota = time.monotonic()
             else:
@@ -252,6 +265,7 @@ class Hub:
             result = {"accounts": accounts, "updated_at": self.updated, "refreshing": self.refreshing,
                       "error": self.error, "now": time.time(), "endpoint": f"https://{PUBLIC_HOST}/v1"}
         result["history"] = self.store.history(hours)
+        result["history_bucket"] = self.store.bucket(hours)
         return result
 
 
@@ -269,6 +283,10 @@ class Handler(BaseHTTPRequestHandler):
         payload = json.dumps(body).encode() if content_type == "application/json" else body
         self.send_response(status)
         self.send_header("Content-Type", content_type)
+        if len(payload) > 1024 and "gzip" in self.headers.get("Accept-Encoding", ""):
+            payload = gzip.compress(payload, 6)
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Vary", "Accept-Encoding")
         self.send_header("Content-Length", str(len(payload)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
@@ -301,6 +319,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.command == "GET" and path in {"/assets/geist-sans.woff2", "/assets/geist-mono.woff2"}:
             self.send(200, (ROOT / path.lstrip("/")).read_bytes(), "font/woff2")
+            return
+        if self.command == "GET" and path == "/assets/vendor.js":
+            self.send(200, (ROOT / "assets/vendor.js").read_bytes(), "text/javascript; charset=utf-8")
             return
         if self.command == "POST":
             origin = self.headers.get("Origin")
