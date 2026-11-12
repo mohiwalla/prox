@@ -53,6 +53,7 @@
         --warning: #fcd34d;
         --chart-1: #82aafa;
         --chart-2: #e59a75;
+        --brand: #e8b17d;
         --radius-sm: 6px;
         --radius-md: 8px;
         --radius-lg: 10px;
@@ -344,10 +345,15 @@
       .tag {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
+        gap: 4px;
+        flex-shrink: 0;
         width: fit-content;
+        height: 20px;
         padding: 2px 8px;
+        overflow: hidden;
         border: 1px solid transparent;
-        border-radius: var(--radius-sm);
+        border-radius: 999px;
         background: var(--secondary);
         color: var(--secondary-foreground);
         font-size: 12px;
@@ -355,20 +361,27 @@
         font-weight: 500;
         white-space: nowrap;
       }
-      .tag.good {
-        color: var(--success);
-        background: rgb(34 197 94 / 12%);
-        border-color: rgb(34 197 94 / 20%);
-      }
+      .tag.good,
       .tag.warning {
-        color: var(--warning);
-        background: rgb(245 158 11 / 12%);
-        border-color: rgb(245 158 11 / 20%);
+        padding-left: 6px;
+        background: transparent;
+        border-color: var(--border);
+        color: var(--foreground);
+      }
+      .tag.good::before,
+      .tag.warning::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--success);
+      }
+      .tag.warning::before {
+        background: var(--warning);
       }
       .tag.bad {
+        background: rgb(255 100 103 / 20%);
         color: var(--destructive);
-        background: rgb(255 100 103 / 12%);
-        border-color: rgb(255 100 103 / 20%);
       }
 
       /* Brand */
@@ -392,17 +405,22 @@
         height: 32px;
       }
       .brand-text {
-        display: grid;
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
         min-width: 0;
+        font-size: 15px;
+        line-height: 20px;
+        white-space: nowrap;
       }
       .brand-text strong {
-        font-size: 14px;
-        line-height: 20px;
         font-weight: 600;
+        letter-spacing: -0.01em;
       }
-      .brand-text span {
-        font-size: 12px;
-        line-height: 16px;
+      .brand-dash {
+        color: var(--brand);
+      }
+      .brand-host {
         color: var(--muted-foreground);
       }
 
@@ -434,13 +452,10 @@
         overflow-y: auto;
       }
       .sidebar-group {
+        position: relative;
+        isolation: isolate;
         display: grid;
         gap: 4px;
-      }
-      .sidebar-separator {
-        height: 1px;
-        margin: 8px 0;
-        background: var(--border);
       }
       .sidebar-item {
         display: flex;
@@ -489,31 +504,6 @@
       .sidebar-footer {
         display: grid;
         gap: 4px;
-        padding-top: 8px;
-        border-top: 1px solid var(--border);
-      }
-      .sidebar-status {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        height: 32px;
-        padding: 0 8px;
-        font-size: 13px;
-        color: var(--foreground);
-      }
-      .status-dot {
-        width: 8px;
-        height: 8px;
-        margin: 0 4px;
-        flex-shrink: 0;
-        border-radius: 50%;
-        background: var(--success);
-      }
-      .sidebar-note {
-        padding: 0 8px 4px 32px;
-        font-size: 12px;
-        line-height: 16px;
-        color: var(--muted-foreground);
       }
 
       /* Shell */
@@ -662,7 +652,11 @@
       [data-motion-indicator="ready"]::before {
         transition: clip-path var(--duration-ui) var(--ease-in-out);
       }
-      [data-motion-indicator] button.active {
+      .sidebar-group[data-motion-indicator]::before {
+        background: var(--accent);
+      }
+      [data-motion-indicator] > .active,
+      [data-motion-indicator] > .active:hover {
         background: transparent;
       }
       .notice {
@@ -700,7 +694,7 @@
       .pool {
         --pool-color: var(--chart-1);
         margin-bottom: 16px;
-        padding: 24px 24px 8px;
+        padding: 24px 24px 8px; /* + 16px accordion padding = 24px */
         border: 1px solid var(--border);
         border-radius: var(--radius-xl);
         background: var(--card);
@@ -828,6 +822,8 @@
       .chart-tooltip {
         position: absolute;
         top: 32px;
+        left: 0;
+        will-change: transform;
         z-index: 4;
         min-width: 160px;
         padding: 6px 10px;
@@ -837,6 +833,7 @@
         box-shadow: var(--shadow-lg);
         font-size: 12px;
         line-height: 16px;
+        white-space: nowrap;
         pointer-events: none;
       }
       .chart-tooltip strong {
@@ -914,32 +911,44 @@
 
       /* Account breakdown */
       .pool details {
-        margin-top: 8px;
+        margin-top: 16px;
         border-top: 1px solid var(--border);
       }
+      /* shadcn Accordion trigger: label left, meta and chevron right. */
       .pool summary {
         display: flex;
         align-items: center;
-        gap: 8px;
-        min-height: 40px;
-        border-radius: var(--radius-sm);
+        gap: 12px;
+        padding: 16px 0;
+        border-radius: var(--radius-md);
         list-style: none;
         font-size: 14px;
-        color: var(--muted-foreground);
+        line-height: 20px;
+        font-weight: 500;
         cursor: pointer;
-        transition: color var(--duration-fast) ease;
       }
-      .pool summary:hover {
-        color: var(--foreground);
+      .pool summary:hover .summary-label {
+        text-decoration: underline;
+        text-underline-offset: 4px;
+      }
+      .summary-label {
+        flex: 1;
+      }
+      .summary-meta {
+        color: var(--muted-foreground);
+        font-weight: 400;
+        font-variant-numeric: tabular-nums;
       }
       .pool summary::-webkit-details-marker {
         display: none;
       }
       .pool summary .chevron {
+        color: var(--muted-foreground);
+        transform: rotate(90deg);
         transition: transform var(--duration-ui) var(--ease-out);
       }
       .pool details[open] summary .chevron {
-        transform: rotate(90deg);
+        transform: rotate(-90deg);
       }
       @supports (interpolate-size: allow-keywords) {
         .pool details::details-content {
@@ -1027,15 +1036,18 @@
         background: var(--card);
         overflow: hidden;
       }
+      /* Compact, single-line rows (shadcn Table density). */
       .account-row {
         --pool-color: var(--chart-1);
         display: grid;
         grid-template-columns:
-          minmax(200px, 1.4fr) minmax(160px, 1fr) minmax(200px, 1.4fr)
+          minmax(0, 1.5fr) minmax(180px, 1fr) minmax(0, 1.5fr)
           auto;
         align-items: center;
         gap: 24px;
-        padding: 16px;
+        padding: 10px 16px;
+        font-size: 14px;
+        line-height: 20px;
       }
       .account-row.agy,
       .meter.agy {
@@ -1044,55 +1056,56 @@
       .account-row + .account-row {
         border-top: 1px solid var(--border);
       }
-      .account-row .meter {
-        height: 8px;
+      .account-row:hover {
+        background: rgb(255 255 255 / 2%);
       }
-      .account-identity {
+      .account-identity,
+      .account-quota,
+      .account-status {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 8px;
         min-width: 0;
       }
       .account-identity .provider-icon {
-        width: 20px;
-        height: 20px;
+        width: 16px;
+        height: 16px;
+        margin-right: 4px;
       }
-      .account-identity > div {
-        min-width: 0;
-      }
-      .account-label {
+      .account-label,
+      .account-reason {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        font-size: 14px;
+      }
+      .account-label {
         font-weight: 500;
       }
-      .account-sub {
-        font-size: 13px;
+      .account-sub,
+      .account-meta,
+      .account-reason {
+        flex-shrink: 0;
         color: var(--muted-foreground);
       }
-      .quota-label {
-        margin-bottom: 8px;
-        font-size: 13px;
+      .account-reason {
+        flex-shrink: 1;
+      }
+      .account-quota {
+        gap: 12px;
+      }
+      .account-quota .meter {
+        flex: 1;
+        min-width: 64px;
+      }
+      .quota-value {
+        width: 44px;
+        text-align: right;
         font-weight: 500;
         font-variant-numeric: tabular-nums;
       }
       .account-meta {
-        margin-top: 8px;
-        font-size: 12px;
-        line-height: 16px;
-        color: var(--muted-foreground);
-      }
-      .account-status {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 4px;
-        min-width: 0;
-      }
-      .account-reason {
+        width: 56px;
         font-size: 13px;
-        color: var(--muted-foreground);
       }
       .account-row > button {
         justify-self: end;
@@ -1102,14 +1115,15 @@
       .connection-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
         gap: 16px;
       }
       .panel {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        gap: 16px;
-        padding: 24px;
+        gap: 12px;
+        padding: 20px;
         border: 1px solid var(--border);
         border-radius: var(--radius-xl);
         background: var(--card);
@@ -1122,7 +1136,7 @@
         color: var(--muted-foreground);
       }
       .panel p + p {
-        margin-top: -8px;
+        margin-top: -4px;
       }
       .codebox {
         display: flex;
@@ -1134,6 +1148,35 @@
         border: 1px solid var(--input);
         border-radius: var(--radius-md);
         background: var(--input-fill);
+      }
+      .copy-icons {
+        position: relative;
+        width: 16px;
+        height: 16px;
+      }
+      .copy-icons .icon {
+        position: absolute;
+        inset: 0;
+        transition:
+          opacity var(--duration-ui) var(--ease-out),
+          transform var(--duration-ui) var(--ease-out),
+          filter var(--duration-ui) var(--ease-out);
+      }
+      .copy-done {
+        color: var(--success);
+        opacity: 0;
+        transform: scale(0.5);
+        filter: blur(4px);
+      }
+      [data-motion-copied] .copy-idle {
+        opacity: 0;
+        transform: scale(0.5);
+        filter: blur(4px);
+      }
+      [data-motion-copied] .copy-done {
+        opacity: 1;
+        transform: scale(1);
+        filter: blur(0);
       }
       .codebox code {
         flex: 1;
@@ -1402,10 +1445,12 @@
           gap: 24px;
         }
         .account-row {
-          grid-template-columns:
-            minmax(160px, 1.2fr) minmax(140px, 1fr) minmax(160px, 1.2fr)
-            auto;
-          gap: 16px;
+          grid-template-columns: minmax(0, 1fr) minmax(160px, 1fr) auto;
+          gap: 8px 16px;
+        }
+        .account-row .account-status {
+          grid-row: 2;
+          grid-column: 1 / -1;
         }
         .connection-grid {
           grid-template-columns: minmax(0, 1fr);
@@ -1503,7 +1548,7 @@
           min-width: 0;
         }
         .pool {
-          padding: 16px 16px 4px;
+          padding: 16px 16px 0;
         }
         .pool-top select {
           order: 1;
@@ -1564,22 +1609,26 @@
         }
         .account-row {
           grid-template-columns: minmax(0, 1fr) auto;
-          gap: 12px 16px;
+          gap: 8px 12px;
+          padding: 12px;
         }
         .account-row .account-identity {
+          grid-row: 1;
+          grid-column: 1;
+        }
+        .account-row > button {
+          grid-row: 1;
+          grid-column: 2;
+        }
+        .account-row .account-quota,
+        .account-row .account-status {
           grid-column: 1 / -1;
         }
         .account-row .account-quota {
           grid-row: 2;
-          grid-column: 1;
-        }
-        .account-row > button {
-          grid-row: 2;
-          grid-column: 2;
         }
         .account-row .account-status {
           grid-row: 3;
-          grid-column: 1 / -1;
         }
         .panel {
           padding: 16px;
@@ -1989,6 +2038,9 @@
         <symbol id="i-chevron" viewBox="0 0 24 24">
           <path d="m9 5 7 7-7 7" />
         </symbol>
+        <symbol id="i-check" viewBox="0 0 24 24">
+          <path d="M20 6 9 17l-5-5" />
+        </symbol>
         <symbol id="i-copy" viewBox="0 0 24 24">
           <rect x="8" y="8" width="12" height="13" rx="2" />
           <path d="M15 8V3H3v13h5" />
@@ -2003,22 +2055,31 @@
           <circle cx="18" cy="18" r="2.5" />
           <path d="M6 9v6m12-6v6M9 6h6M9 18h6" />
         </symbol>
-        <symbol id="prox-brand" viewBox="0 0 36 36">
-          <rect width="36" height="36" rx="10" fill="#202020" />
+        <symbol id="prox-brand" viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="8" fill="#1c1c1c" />
+          <rect
+            x=".5"
+            y=".5"
+            width="31"
+            height="31"
+            rx="7.5"
+            stroke="#fff"
+            stroke-opacity=".08"
+          />
           <path
-            d="m9 10 10 8-10 8"
+            d="M8 9.5c4.5 0 5 6.5 9.5 6.5M8 22.5c4.5 0 5-6.5 9.5-6.5M8 16h9.5"
+            stroke="#fafafa"
+            stroke-opacity=".55"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+          <path
+            d="M17.5 16h4"
             stroke="#e8b17d"
-            stroke-width="4"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            fill="none"
-          />
-          <path
-            d="M8 18h21"
-            stroke="#e6e6e6"
-            stroke-width="3.5"
+            stroke-width="2.5"
             stroke-linecap="round"
           />
+          <circle cx="23.5" cy="16" r="2.75" fill="#e8b17d" />
         </symbol>
       </defs>
     </svg>
@@ -2028,7 +2089,9 @@
           <span class="brand-mark"
             ><svg aria-hidden="true"><use href="#prox-brand" /></svg></span
           ><span class="brand-text"
-            ><strong>prox</strong><span>Batman</span></span
+            ><strong>prox</strong
+            ><span class="brand-dash" aria-hidden="true">—</span
+            ><span class="brand-host">batman</span></span
           >
         </div>
         <header class="login-header">
@@ -2069,7 +2132,9 @@
             ><span class="brand-mark"
               ><svg aria-hidden="true"><use href="#prox-brand" /></svg></span
             ><span class="brand-text"
-              ><strong>prox</strong><span>Batman</span></span
+              ><strong>prox</strong
+              ><span class="brand-dash" aria-hidden="true">—</span
+              ><span class="brand-host">batman</span></span
             ></a
           >
         </div>
@@ -2088,24 +2153,16 @@
               ><span>Connection</span></a
             >
           </div>
-          <div class="sidebar-separator"></div>
-          <div class="sidebar-group">
-            <a
-              class="sidebar-item"
-              href="/management.html"
-              target="_blank"
-              rel="noopener"
-              ><svg class="icon" aria-hidden="true"><use href="#i-out" /></svg
-              ><span>Original panel</span></a
-            >
-          </div>
         </nav>
         <div class="sidebar-footer">
-          <div class="sidebar-status">
-            <span class="status-dot" id="connection-dot"></span
-            ><span id="connection-status">Connecting to Batman</span>
-          </div>
-          <p class="sidebar-note">Quota checks every 5 minutes</p>
+          <a
+            class="sidebar-item"
+            href="/management.html"
+            target="_blank"
+            rel="noopener"
+            ><svg class="icon" aria-hidden="true"><use href="#i-out" /></svg
+            ><span>Original panel</span></a
+          >
           <button id="logout" class="sidebar-item">
             <svg class="icon" aria-hidden="true"><use href="#i-logout" /></svg
             ><span>Sign out</span>
@@ -2374,8 +2431,8 @@
         }
       }
       function updateIndicators() {
-        $$(".provider-tabs, .segmented").forEach((group) => {
-          const active = $("button.active", group);
+        $$(".provider-tabs, .segmented, .sidebar-group").forEach((group) => {
+          const active = $(":scope > .active", group);
           if (!active) return;
           const x = active.offsetLeft,
             y = active.offsetTop,
@@ -2790,7 +2847,7 @@
         const restricted = accounts.filter(
           (a) => status(a)[0] === "Model restriction",
         ).length;
-        return `<section class="pool ${p === "antigravity" ? "agy" : ""}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span><label class="sr-only" for="window-${p}">Quota window for ${pName(p)}</label><select id="window-${p}" class="sm" data-window="${p}" ${list.length ? "" : "disabled"}>${list.length ? list.map((w) => `<option value="${esc(w.id)}" ${metric === w.id ? "selected" : ""}>${esc(w.label)}</option>`).join("") : "<option>Quota unavailable</option>"}</select></div><div class="pool-total"><div><div class="big-number">${items.length ? fmtPct(sum) : "—"}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history"}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${next ? esc(relative(next)) : "Not reported"}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${rate !== null ? fmtPct(rate) + "/h" : "—"}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<details ${state.page === "accounts" ? "open" : ""}><summary>${icon("chevron", "chevron")}Account breakdown<span class="grow"></span><span>${items.length}/${accounts.length} quotas measured</span></summary><div class="mini-accounts">${accounts
+        return `<section class="pool ${p === "antigravity" ? "agy" : ""}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span><label class="sr-only" for="window-${p}">Quota window for ${pName(p)}</label><select id="window-${p}" class="sm" data-window="${p}" ${list.length ? "" : "disabled"}>${list.length ? list.map((w) => `<option value="${esc(w.id)}" ${metric === w.id ? "selected" : ""}>${esc(w.label)}</option>`).join("") : "<option>Quota unavailable</option>"}</select></div><div class="pool-total"><div><div class="big-number">${items.length ? fmtPct(sum) : "—"}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history"}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${next ? esc(relative(next)) : "Not reported"}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${rate !== null ? fmtPct(rate) + "/h" : "—"}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<details ${state.page === "accounts" ? "open" : ""}><summary><span class="summary-label">Account breakdown</span><span class="summary-meta">${items.length}/${accounts.length} quotas measured</span>${icon("chevron", "chevron")}</summary><div class="mini-accounts">${accounts
           .map((a, i) => {
             const w = a.windows.find((w) => w.id === metric),
               [s, c] = status(a);
@@ -2846,14 +2903,14 @@
                 a.windows.find((w) => /flash/i.test(w.label)) ||
                 a.windows[0];
             const label = accountLabel(a, i);
-            return `<article class="account-row ${a.provider === "codex" ? "" : "agy"}" data-account="${esc(a.id)}"><div class="account-identity">${providerIcon(a.provider)}<div class="account-name"><div class="account-label" title="${esc(label)}">${esc(label)}</div><div class="account-sub">${esc([planLabel(a.plan), pName(a.provider)].filter((v, n, all) => v && all.indexOf(v) === n).join(" · "))}</div></div></div><div class="account-quota"><div class="quota-label">${w ? fmtPct(w.remaining) + " remaining" : "No quota reading"}</div><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><p class="account-meta">${esc(age(a.quota_at))}${a.quota_error ? " · last known" : ""}</p></div><div class="account-status"><span class="tag ${c}">${s}</span><p class="account-reason">${esc(statusReason(a))}</p></div><button data-pause="${esc(a.id)}" data-disabled="${!a.disabled}" class="outline sm">${a.disabled ? "Resume" : "Pause"}</button></article>`;
+            return `<article class="account-row ${a.provider === "codex" ? "" : "agy"}" data-account="${esc(a.id)}"><div class="account-identity">${providerIcon(a.provider)}<span class="account-label" title="${esc(label)}">${esc(label)}</span><span class="account-sub">${esc([planLabel(a.plan), pName(a.provider)].filter((v, n, all) => v && all.indexOf(v) === n).join(" · "))}</span></div><div class="account-quota"><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="quota-value">${w ? fmtPct(w.remaining) : "—"}</span><span class="account-meta">${esc(age(a.quota_at))}${a.quota_error ? " · last known" : ""}</span></div><div class="account-status"><span class="tag ${c}">${s}</span><span class="account-reason" title="${esc(statusReason(a))}">${esc(statusReason(a))}</span></div><button data-pause="${esc(a.id)}" data-disabled="${!a.disabled}" class="outline sm">${a.disabled ? "Resume" : "Pause"}</button></article>`;
           })
           .join(
             "",
           )}</div><footer class="footnote"><span>${state.data.accounts.reduce((s, a) => s + a.success, 0).toLocaleString()} successful requests</span></footer>`;
       }
       function connectionPage() {
-        return `<div class="connection-grid"><section class="panel"><h2>One endpoint for your accounts</h2><p>Use this private address from any device on your Tailscale network. Batman handles account selection and failover.</p><div class="codebox"><code>${esc(state.data.endpoint)}</code><button data-copy="endpoint" class="ghost icon-btn sm" aria-label="Copy API endpoint">${icon("copy")}</button></div><p>Clients use the API key. This dashboard uses the management key.</p><div class="panel-tags"><span class="tag good">Tailscale HTTPS</span><span class="tag">Batman</span></div></section><section class="panel"><h2>Already connected in T3 Code</h2><ol class="steps"><li>Open a thread on <strong>Batman</strong>.</li><li>Choose <strong>Codex Proxy</strong> for GPT models or <strong>Antigravity Proxy</strong> for AGY models.</li><li>Use it normally. Add accounts here whenever needed.</li></ol></section><section class="panel"><h2>Routing</h2><p>The existing proxy uses round-robin selection, session affinity, and automatic failover. Limits and model access depend on each account.</p><p>This dashboard observes quotas. It does not change the routing strategy.</p></section><section class="panel"><h2>Advanced settings</h2><p>Use the original panel for API keys, model settings, sign-in recovery, and proxy configuration.</p><a href="/management.html" target="_blank" rel="noopener" class="button outline sm">Open original panel ${icon("out")}</a></section></div>`;
+        return `<div class="connection-grid"><section class="panel"><h2>One endpoint for your accounts</h2><p>Use this private address from any device on your Tailscale network. Batman handles account selection and failover.</p><div class="codebox"><code>${esc(state.data.endpoint)}</code><button data-copy="endpoint" class="ghost icon-btn sm copy-button" aria-label="Copy API endpoint"><span class="copy-icons">${icon("copy", "copy-idle")}${icon("check", "copy-done")}</span></button></div><p>Clients use the API key. This dashboard uses the management key.</p><div class="panel-tags"><span class="tag good">Tailscale HTTPS</span><span class="tag">Batman</span></div></section><section class="panel"><h2>Already connected in T3 Code</h2><ol class="steps"><li>Open a thread on <strong>Batman</strong>.</li><li>Choose <strong>Codex Proxy</strong> for GPT models or <strong>Antigravity Proxy</strong> for AGY models.</li><li>Use it normally. Add accounts here whenever needed.</li></ol></section><section class="panel"><h2>Routing</h2><p>The existing proxy uses round-robin selection, session affinity, and automatic failover. Limits and model access depend on each account.</p><p>This dashboard observes quotas. It does not change the routing strategy.</p></section><section class="panel"><h2>Advanced settings</h2><p>Use the original panel for API keys, model settings, sign-in recovery, and proxy configuration.</p><a href="/management.html" target="_blank" rel="noopener" class="button outline sm">Open original panel ${icon("out")}</a></section></div>`;
       }
       function render(animate = false) {
         if (!state.data) return;
@@ -2879,12 +2936,6 @@
             a.setAttribute("aria-current", "page");
           else a.removeAttribute("aria-current");
         });
-        $("#connection-status").textContent = state.data.error
-          ? "Proxy disconnected"
-          : "Batman online";
-        $("#connection-dot").style.background = state.data.error
-          ? "var(--warning)"
-          : "var(--success)";
         $("#global-error").hidden = !state.data.error;
         $("#global-error").textContent = state.data.error || "";
         $("#refresh").disabled = state.data.refreshing;
@@ -3070,7 +3121,14 @@
         } else if (b.dataset.copy) {
           try {
             await navigator.clipboard.writeText(state.data.endpoint);
-            notify("Endpoint copied");
+            // data-motion-* survives the polling patch, so the check stays visible.
+            b.dataset.motionCopied = "";
+            b.setAttribute("aria-label", "Endpoint copied");
+            clearTimeout(b.copyTimer);
+            b.copyTimer = setTimeout(() => {
+              delete b.dataset.motionCopied;
+              b.setAttribute("aria-label", "Copy API endpoint");
+            }, 2000);
           } catch {
             notify("Select and copy the endpoint above");
           }
@@ -3105,7 +3163,7 @@
       function inspectChart(plot, point) {
         plot.dataset.inspectedAt = point.ts;
         const chart = state.charts[plot.dataset.chart],
-          isFuture = point.ts > state.data.now;
+          isFuture = point.projected ?? point.ts > state.data.now;
         const svg = $("svg", plot),
           group = $(".chart-crosshair", plot),
           line = $("line", group),
@@ -3121,14 +3179,11 @@
         circle.setAttribute("cy", py);
         tooltip.innerHTML = `<time>${esc(dateLabel(point.ts))}</time><strong>${esc(fmtPct(point.value))} remaining</strong><small>${isFuture ? "Projected from recent usage" : "Recorded quota"}</small>`;
         tooltip.hidden = false;
-        tooltip.style.left =
-          Math.max(
-            6,
-            Math.min(
-              svg.clientWidth - 175,
-              (px / chart.W) * svg.clientWidth + 12,
-            ),
-          ) + "px";
+        const width = svg.clientWidth,
+          tip = tooltip.offsetWidth,
+          at = (px / chart.W) * width,
+          left = at + 12 + tip > width ? at - 12 - tip : at + 12;
+        tooltip.style.transform = `translate3d(${Math.max(0, left)}px, 0, 0)`;
         $(".chart-inspect", plot).textContent =
           `${dateLabel(point.ts)} · ${fmtPct(point.value)} ${isFuture ? "projected" : "recorded"}`;
       }
@@ -3184,28 +3239,62 @@
         );
         inspectChart(plot, points[n]);
       });
-      function inspectPointer(e) {
-        const plot = e.target.closest("[data-chart]");
-        if (!plot) return;
-        const chart = state.charts[plot.dataset.chart],
-          rect = $("svg", plot).getBoundingClientRect();
-        const relative = ((e.clientX - rect.left) / rect.width) * chart.W;
-        const ts =
-          chart.start +
-          ((relative - chart.left) / (chart.W - chart.left - chart.right)) *
-            (chart.end - chart.start);
-        const points = [...chart.points, ...chart.forecast];
-        if (!points.length) return;
+      // Recorded history snaps to the nearest real sample; the projection is
+      // a drawn line, so the pointer can glide along it.
+      function seriesAt(chart, ts) {
+        const { points, forecast } = chart;
+        const first = (points[0] || forecast[0]).ts,
+          last = (forecast.at(-1) || points.at(-1)).ts;
+        ts = Math.min(last, Math.max(first, ts));
+        if (forecast.length && ts >= forecast[0].ts) {
+          const i = Math.max(
+            1,
+            forecast.findIndex((p) => p.ts >= ts),
+          );
+          if (forecast.length === 1) return { ...forecast[0], projected: true };
+          const a = forecast[i - 1],
+            b = forecast[i],
+            k = (ts - a.ts) / (b.ts - a.ts || 1);
+          return {
+            ts,
+            value: a.value + (b.value - a.value) * k,
+            projected: true,
+          };
+        }
         const nearest = points.reduce((a, b) =>
           Math.abs(a.ts - ts) < Math.abs(b.ts - ts) ? a : b,
         );
-        inspectChart(plot, nearest);
+        return { ...nearest, projected: false };
+      }
+      let scrubFrame = 0,
+        scrubEvent;
+      function inspectPointer(e) {
+        if (!e.target.closest("[data-chart]")) return;
+        scrubEvent = e;
+        scrubFrame ||= requestAnimationFrame(() => {
+          scrubFrame = 0;
+          const plot = scrubEvent.target.closest("[data-chart]"),
+            chart = plot?.isConnected && state.charts[plot.dataset.chart];
+          if (!chart || !(chart.points.length || chart.forecast.length)) return;
+          const rect = $("svg", plot).getBoundingClientRect();
+          const relative =
+            ((scrubEvent.clientX - rect.left) / rect.width) * chart.W;
+          const ts =
+            chart.start +
+            ((relative - chart.left) / (chart.W - chart.left - chart.right)) *
+              (chart.end - chart.start);
+          inspectChart(plot, seriesAt(chart, ts));
+        });
       }
       $("#page-body").addEventListener("pointermove", inspectPointer);
       $("#page-body").addEventListener("pointerdown", inspectPointer);
       $("#page-body").addEventListener("pointerout", (e) => {
         const plot = e.target.closest("[data-chart]");
-        if (plot && !plot.contains(e.relatedTarget)) clearChart(plot);
+        if (plot && !plot.contains(e.relatedTarget)) {
+          cancelAnimationFrame(scrubFrame);
+          scrubFrame = 0;
+          clearChart(plot);
+        }
       });
       $("#page-body").addEventListener("focusout", (e) => {
         const plot = e.target.closest("[data-chart]");
