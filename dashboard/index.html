@@ -42,6 +42,12 @@
         --chart-1: #82aafa;
         --chart-2: #e59a75;
         --radius: 12px;
+        --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+        --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+        --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+        --duration-fast: 120ms;
+        --duration-ui: 180ms;
+        --duration-panel: 240ms;
         --font-sans:
           Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         --font-mono: "Geist Mono", ui-monospace, monospace;
@@ -96,7 +102,14 @@
         align-items: center;
         justify-content: center;
         gap: 8px;
-        transition: background 0.15s;
+        transition:
+          background var(--duration-fast) ease,
+          color var(--duration-fast) ease,
+          border-color var(--duration-fast) ease,
+          transform var(--duration-fast) var(--ease-out);
+      }
+      button:active:not(:disabled):not(:focus-visible):not(.nav-scrim) {
+        transform: scale(0.97);
       }
       button:hover {
         background: #2b2b2b;
@@ -250,6 +263,9 @@
         gap: 12px;
         padding: 10px 12px;
         color: var(--muted-foreground);
+        transition:
+          background var(--duration-fast) ease,
+          color var(--duration-fast) ease;
       }
       .nav a:hover {
         background: #111;
@@ -605,8 +621,32 @@
       }
       .segmented button {
         transition:
-          background 0.16s,
-          color 0.16s;
+          background var(--duration-fast) ease,
+          color var(--duration-fast) ease,
+          transform var(--duration-fast) var(--ease-out);
+      }
+      .provider-tabs,
+      .segmented {
+        position: relative;
+        isolation: isolate;
+      }
+      [data-motion-indicator]::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: #262626;
+        clip-path: var(--indicator-clip);
+        pointer-events: none;
+      }
+      .provider-tabs[data-motion-indicator]::before {
+        background: var(--secondary);
+      }
+      [data-motion-indicator="ready"]::before {
+        transition: clip-path var(--duration-ui) var(--ease-in-out);
+      }
+      [data-motion-indicator] button.active {
+        background: transparent;
       }
       .sidebar .nav a {
         font-size: 13px;
@@ -681,6 +721,23 @@
       .pool summary .chevron {
         width: 14px;
         height: 14px;
+        transition: transform var(--duration-ui) var(--ease-out);
+      }
+      @supports (interpolate-size: allow-keywords) {
+        .pool details::details-content {
+          interpolate-size: allow-keywords;
+          height: 0;
+          opacity: 0;
+          overflow: clip;
+          transition:
+            height var(--duration-ui) var(--ease-out),
+            opacity var(--duration-ui) var(--ease-out),
+            content-visibility var(--duration-ui) allow-discrete;
+        }
+        .pool details[open]::details-content {
+          height: auto;
+          opacity: 1;
+        }
       }
       .mini-accounts {
         display: grid;
@@ -705,6 +762,9 @@
         height: 100%;
         background: var(--pool-color);
         border-radius: 4px;
+        width: 100%;
+        transform-origin: left;
+        transition: transform var(--duration-panel) var(--ease-out);
       }
       .tag {
         font-size: 11px;
@@ -867,6 +927,15 @@
         max-width: 90%;
         z-index: 100;
         font-size: 13px;
+        opacity: 1;
+        transition:
+          opacity var(--duration-ui) var(--ease-out),
+          transform var(--duration-ui) var(--ease-out),
+          display var(--duration-ui) allow-discrete;
+      }
+      .toast[hidden] {
+        opacity: 0;
+        transform: translate(-50%, 8px);
       }
       .login-screen {
         min-height: 100dvh;
@@ -936,6 +1005,17 @@
         width: 100%;
         height: 100%;
         padding: 0;
+        opacity: 1;
+        transition:
+          opacity var(--duration-panel) var(--ease-out),
+          display var(--duration-panel) allow-discrete;
+      }
+      .nav-scrim[hidden] {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .nav-scrim:hover {
+        background: #0009;
       }
       dialog {
         background: #151515;
@@ -946,10 +1026,52 @@
         width: min(500px, calc(100% - 28px));
         max-height: 90dvh;
         overflow: auto;
+        opacity: 0;
+        transform: scale(0.96);
+        transition:
+          opacity var(--duration-panel) var(--ease-out),
+          transform var(--duration-panel) var(--ease-out),
+          display var(--duration-panel) allow-discrete,
+          overlay var(--duration-panel) allow-discrete;
+      }
+      dialog[open] {
+        opacity: 1;
+        transform: scale(1);
       }
       dialog::backdrop {
         background: #000b;
         backdrop-filter: blur(4px);
+        opacity: 0;
+        transition:
+          opacity var(--duration-panel) var(--ease-out),
+          display var(--duration-panel) allow-discrete,
+          overlay var(--duration-panel) allow-discrete;
+      }
+      dialog[open]::backdrop {
+        opacity: 1;
+      }
+      dialog:not([open]),
+      dialog:not([open])::backdrop {
+        pointer-events: none;
+      }
+      @starting-style {
+        dialog[open] {
+          opacity: 0;
+          transform: scale(0.96);
+        }
+        dialog[open]::backdrop,
+        .nav-scrim {
+          opacity: 0;
+        }
+        .toast {
+          opacity: 0;
+          transform: translate(-50%, 8px);
+        }
+      }
+      html[data-input="keyboard"] {
+        --duration-fast: 0ms;
+        --duration-ui: 0ms;
+        --duration-panel: 0ms;
       }
       dialog h2 {
         font-size: 20px;
@@ -1129,7 +1251,7 @@
         .sidebar {
           width: 230px;
           transform: translateX(-100%);
-          transition: transform 0.2s;
+          transition: transform var(--duration-panel) var(--ease-drawer);
           box-shadow: 30px 0 80px #000a;
         }
         .sidebar.open {
@@ -1334,6 +1456,331 @@
       aria-hidden="true"
     >
       <defs>
+        <!-- Original provider marks from svgl.app; see assets/svgl-license.txt. -->
+        <symbol id="brand-codex" viewBox="0 0 24 24" fill="#fff">
+          <title>Codex</title>
+          <path
+            clip-rule="evenodd"
+            d="M8.086.457a6.105 6.105 0 013.046-.415c1.333.153 2.521.72 3.564 1.7a.117.117 0 00.107.029c1.408-.346 2.762-.224 4.061.366l.063.03.154.076c1.357.703 2.33 1.77 2.918 3.198.278.679.418 1.388.421 2.126a5.655 5.655 0 01-.18 1.631.167.167 0 00.04.155 5.982 5.982 0 011.578 2.891c.385 1.901-.01 3.615-1.183 5.14l-.182.22a6.063 6.063 0 01-2.934 1.851.162.162 0 00-.108.102c-.255.736-.511 1.364-.987 1.992-1.199 1.582-2.962 2.462-4.948 2.451-1.583-.008-2.986-.587-4.21-1.736a.145.145 0 00-.14-.032c-.518.167-1.04.191-1.604.185a5.924 5.924 0 01-2.595-.622 6.058 6.058 0 01-2.146-1.781c-.203-.269-.404-.522-.551-.821a7.74 7.74 0 01-.495-1.283 6.11 6.11 0 01-.017-3.064.166.166 0 00.008-.074.115.115 0 00-.037-.064 5.958 5.958 0 01-1.38-2.202 5.196 5.196 0 01-.333-1.589 6.915 6.915 0 01.188-2.132c.45-1.484 1.309-2.648 2.577-3.493.282-.188.55-.334.802-.438.286-.12.573-.22.861-.304a.129.129 0 00.087-.087A6.016 6.016 0 015.635 2.31C6.315 1.464 7.132.846 8.086.457zm-.804 7.85a.848.848 0 00-1.473.842l1.694 2.965-1.688 2.848a.849.849 0 001.46.864l1.94-3.272a.849.849 0 00.007-.854l-1.94-3.393zm5.446 6.24a.849.849 0 000 1.695h4.848a.849.849 0 000-1.696h-4.848z"
+          ></path>
+        </symbol>
+        <symbol id="brand-antigravity" viewBox="0 0 16 15" fill="none">
+          <mask
+            id="mask0_111_52"
+            style="mask-type: alpha"
+            maskUnits="userSpaceOnUse"
+            x="0"
+            y="0"
+            width="16"
+            height="15"
+          >
+            <path
+              d="M14.0777 13.984C14.945 14.6345 16.2458 14.2008 15.0533 13.0084C11.476 9.53949 12.2349 0 7.79033 0C3.34579 0 4.10461 9.53949 0.527295 13.0084C-0.773543 14.3092 0.635692 14.6345 1.50293 13.984C4.86344 11.7076 4.64663 7.69664 7.79033 7.69664C10.934 7.69664 10.7172 11.7076 14.0777 13.984Z"
+              fill="black"
+            />
+          </mask>
+          <g mask="url(#mask0_111_52)">
+            <g filter="url(#filter0_f_111_52)">
+              <path
+                d="M-0.658907 -3.2306C-0.922679 -0.906781 1.07986 1.22861 3.81388 1.53894C6.54791 1.84927 8.97811 0.217009 9.24188 -2.10681C9.50565 -4.43063 7.50312 -6.56602 4.76909 -6.87635C2.03506 -7.18667 -0.395135 -5.55442 -0.658907 -3.2306Z"
+                fill="#FFE432"
+              />
+            </g>
+            <g filter="url(#filter1_f_111_52)">
+              <path
+                d="M9.88233 4.36642C10.5673 7.31568 13.566 9.13902 16.5801 8.43896C19.5942 7.73891 21.4823 4.78056 20.7973 1.83131C20.1123 -1.11795 17.1136 -2.94128 14.0995 -2.24123C11.0854 -1.54118 9.19733 1.41717 9.88233 4.36642Z"
+                fill="#FC413D"
+              />
+            </g>
+            <g filter="url(#filter2_f_111_52)">
+              <path
+                d="M-8.05291 6.34512C-7.18736 9.38883 -3.28925 10.9473 0.653774 9.82598C4.5968 8.7047 7.09158 5.32829 6.22603 2.28458C5.36048 -0.759142 1.46236 -2.31758 -2.48066 -1.19629C-6.42368 -0.0750048 -8.91846 3.3014 -8.05291 6.34512Z"
+                fill="#00B95C"
+              />
+            </g>
+            <g filter="url(#filter3_f_111_52)">
+              <path
+                d="M-8.05291 6.34512C-7.18736 9.38883 -3.28925 10.9473 0.653774 9.82598C4.5968 8.7047 7.09158 5.32829 6.22603 2.28458C5.36048 -0.759142 1.46236 -2.31758 -2.48066 -1.19629C-6.42368 -0.0750048 -8.91846 3.3014 -8.05291 6.34512Z"
+                fill="#00B95C"
+              />
+            </g>
+            <g filter="url(#filter4_f_111_52)">
+              <path
+                d="M-4.92402 8.86746C-2.75421 11.0837 0.982691 10.9438 3.42257 8.55507C5.86246 6.1663 6.08139 2.43321 3.91158 0.216963C1.74177 -1.99928 -1.99513 -1.85942 -4.43501 0.529349C-6.87489 2.91812 -7.09383 6.65122 -4.92402 8.86746Z"
+                fill="#00B95C"
+              />
+            </g>
+            <g filter="url(#filter5_f_111_52)">
+              <path
+                d="M6.42819 17.2263C7.10197 20.1273 9.91278 21.953 12.7063 21.3042C15.4998 20.6553 17.2182 17.7777 16.5444 14.8767C15.8707 11.9757 13.0599 10.15 10.2663 10.7988C7.47281 11.4477 5.75441 14.3253 6.42819 17.2263Z"
+                fill="#3186FF"
+              />
+            </g>
+            <g filter="url(#filter6_f_111_52)">
+              <path
+                d="M1.66508 -5.94539C0.254213 -2.80254 1.7978 0.951609 5.11277 2.43973C8.42774 3.92785 12.2588 2.58642 13.6696 -0.556431C15.0805 -3.69928 13.5369 -7.45343 10.222 -8.94155C6.90699 -10.4297 3.07594 -9.08824 1.66508 -5.94539Z"
+                fill="#FBBC04"
+              />
+            </g>
+            <g filter="url(#filter7_f_111_52)">
+              <path
+                d="M-2.11428 24.3903C-5.52984 23.0496 0.307266 12.0177 1.75874 8.32038C3.21024 4.62304 7.15576 2.71272 10.5713 4.05357C13.9869 5.39442 18.0354 12.7796 16.5838 16.477C15.1323 20.1743 1.30129 25.7311 -2.11428 24.3903Z"
+                fill="#3186FF"
+              />
+            </g>
+            <g filter="url(#filter8_f_111_52)">
+              <path
+                d="M18.5814 10.6598C17.6669 11.727 15.2806 11.1828 13.2514 9.44417C11.2222 7.70556 10.3185 5.43097 11.2329 4.3637C12.1473 3.29646 14.5336 3.84069 16.5628 5.57928C18.592 7.31789 19.4958 9.59249 18.5814 10.6598Z"
+                fill="#749BFF"
+              />
+            </g>
+            <g filter="url(#filter9_f_111_52)">
+              <path
+                d="M11.7552 5.22715C15.5162 7.77124 19.8471 7.93838 21.4286 5.60045C23.0101 3.26253 21.2433 -0.695128 17.4823 -3.23922C13.7213 -5.78331 9.39044 -5.95044 7.80896 -3.61252C6.22747 -1.27459 7.99428 2.68306 11.7552 5.22715Z"
+                fill="#FC413D"
+              />
+            </g>
+            <g filter="url(#filter10_f_111_52)">
+              <path
+                d="M-0.592149 1.08896C-1.5239 3.33663 -1.21959 5.59799 0.0875457 6.13985C1.39468 6.68171 3.20966 5.29888 4.14141 3.05121C5.07316 0.803541 4.76885 -1.45782 3.46171 -1.99968C2.15458 -2.54154 0.339602 -1.15871 -0.592149 1.08896Z"
+                fill="#FFEE48"
+              />
+            </g>
+          </g>
+          <defs>
+            <filter
+              id="filter0_f_111_52"
+              x="-2.12817"
+              y="-8.35998"
+              width="12.8393"
+              height="11.383"
+              filterUnits="userSpaceOnUse"
+              color-interpolation-filters="sRGB"
+            >
+              <feFlood flood-opacity="0" result="BackgroundImageFix" />
+              <feBlend
+                mode="normal"
+                in="SourceGraphic"
+                in2="BackgroundImageFix"
+                result="shape"
+              />
+              <feGaussianBlur
+                stdDeviation="0.722959"
+                result="effect1_foregroundBlur_111_52"
+              />
+            </filter>
+            <filter
+              id="filter1_f_111_52"
+              x="2.75168"
+              y="-9.38089"
+              width="25.1763"
+              height="24.96"
+              filterUnits="userSpaceOnUse"
+              color-interpolation-filters="sRGB"
+            >
+              <feFlood flood-opacity="0" result="BackgroundImageFix" />
+              <feBlend
+                mode="normal"
+                in="SourceGraphic"
+                in2="BackgroundImageFix"
+                result="shape"
+              />
+              <feGaussianBlur
+                stdDeviation="3.49513"
+                result="effect1_foregroundBlur_111_52"
+              />
+            </filter>
+            <filter
+              id="filter2_f_111_52"
+              x="-14.1669"
+              y="-7.50196"
+              width="26.5068"
+              height="23.6338"
+              filterUnits="userSpaceOnUse"
+              color-interpolation-filters="sRGB"
+            >
+              <feFlood flood-opacity="0" result="BackgroundImageFix" />
+              <feBlend
+                mode="normal"
+                in="SourceGraphic"
+                in2="BackgroundImageFix"
+                result="shape"
+              />
+              <feGaussianBlur
+                stdDeviation="2.97119"
+                result="effect1_foregroundBlur_111_52"
+              />
+            </filter>
+            <filter
+              id="filter3_f_111_52"
+              x="-14.1669"
+              y="-7.50196"
+              width="26.5068"
+              height="23.6338"
+              filterUnits="userSpaceOnUse"
+              color-interpolation-filters="sRGB"
+            >
+              <feFlood flood-opacity="0" result="BackgroundImageFix" />
+              <feBlend
+                mode="normal"
+                in="SourceGraphic"
+                in2="BackgroundImageFix"
+                result="shape"
+              />
+              <feGaussianBlur
+                stdDeviation="2.97119"
+                result="effect1_foregroundBlur_111_52"
+              />
+            </filter>
+            <filter
+              id="filter4_f_111_52"
+              x="-12.3607"
+              y="-7.29981"
+              width="23.709"
+              height="23.6846"
+              filterUnits="userSpaceOnUse"
+              color-interpolation-filters="sRGB"
+            >
+              <feFlood flood-opacity="0" result="BackgroundImageFix" />
+              <feBlend
+                mode="normal"
+                in="SourceGraphic"
+                in2="BackgroundImageFix"
+                result="shape"
+              />
+              <feGaussianBlur
+                stdDeviation="2.97119"
+                result="effect1_foregroundBlur_111_52"
+              />
+            </filter>
+            <filter
+              id="filter5_f_111_52"
+              x="0.634962"
+              y="5.02095"
+              width="21.7027"
+              height="22.0616"
+              filterUnits="userSpaceOnUse"
+              color-interpolation-filters="sRGB"
+            >
+              <feFlood flood-opacity="0" result="BackgroundImageFix" />
+              <feBlend
+                mode="normal"
+                in="SourceGraphic"
+                in2="BackgroundImageFix"
+                result="shape"
+              />
+              <feGaussianBlur
+                stdDeviation="2.82351"
+                result="effect1_foregroundBlur_111_52"
+              />
+            </filter>
+            <filter
+              id="filter6_f_111_52"
+              x="-3.97547"
+              y="-14.6666"
+              width="23.2857"
+              height="22.8313"
+              filterUnits="userSpaceOnUse"
+              color-interpolation-filters="sRGB"
+            >
+              <feFlood flood-opacity="0" result="BackgroundImageFix" />
+              <feBlend
+                mode="normal"
+                in="SourceGraphic"
+                in2="BackgroundImageFix"
+                result="shape"
+              />
+              <feGaussianBlur
+                stdDeviation="2.5589"
+                result="effect1_foregroundBlur_111_52"
+              />
+            </filter>
+            <filter
+              id="filter7_f_111_52"
+              x="-7.7407"
+              y="-0.945408"
+              width="29.1982"
+              height="30.1105"
+              filterUnits="userSpaceOnUse"
+              color-interpolation-filters="sRGB"
+            >
+              <feFlood flood-opacity="0" result="BackgroundImageFix" />
+              <feBlend
+                mode="normal"
+                in="SourceGraphic"
+                in2="BackgroundImageFix"
+                result="shape"
+              />
+              <feGaussianBlur
+                stdDeviation="2.2852"
+                result="effect1_foregroundBlur_111_52"
+              />
+            </filter>
+            <filter
+              id="filter8_f_111_52"
+              x="6.78641"
+              y="-0.27231"
+              width="16.2415"
+              height="15.5681"
+              filterUnits="userSpaceOnUse"
+              color-interpolation-filters="sRGB"
+            >
+              <feFlood flood-opacity="0" result="BackgroundImageFix" />
+              <feBlend
+                mode="normal"
+                in="SourceGraphic"
+                in2="BackgroundImageFix"
+                result="shape"
+              />
+              <feGaussianBlur
+                stdDeviation="2.04485"
+                result="effect1_foregroundBlur_111_52"
+              />
+            </filter>
+            <filter
+              id="filter9_f_111_52"
+              x="3.77526"
+              y="-8.71693"
+              width="21.687"
+              height="19.4212"
+              filterUnits="userSpaceOnUse"
+              color-interpolation-filters="sRGB"
+            >
+              <feFlood flood-opacity="0" result="BackgroundImageFix" />
+              <feBlend
+                mode="normal"
+                in="SourceGraphic"
+                in2="BackgroundImageFix"
+                result="shape"
+              />
+              <feGaussianBlur
+                stdDeviation="1.72712"
+                result="effect1_foregroundBlur_111_52"
+              />
+            </filter>
+            <filter
+              id="filter10_f_111_52"
+              x="-5.40727"
+              y="-6.39238"
+              width="14.3639"
+              height="16.9254"
+              filterUnits="userSpaceOnUse"
+              color-interpolation-filters="sRGB"
+            >
+              <feFlood flood-opacity="0" result="BackgroundImageFix" />
+              <feBlend
+                mode="normal"
+                in="SourceGraphic"
+                in2="BackgroundImageFix"
+                result="shape"
+              />
+              <feGaussianBlur
+                stdDeviation="2.1376"
+                result="effect1_foregroundBlur_111_52"
+              />
+            </filter>
+          </defs>
+        </symbol>
         <symbol id="i-gauge" viewBox="0 0 24 24">
           <path d="M3 16a9 9 0 1 1 18 0M12 13l5-5M5 19h14" />
           <circle cx="12" cy="13" r="1.5" />
@@ -1581,9 +2028,7 @@
         `<svg class="icon ${extra}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
       const pName = (p) => (p === "codex" ? "Codex" : "Antigravity");
       const providerIcon = (p) =>
-        p === "codex"
-          ? '<span class="provider-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="1" y="1" width="22" height="22" rx="6" fill="#83aafa"/><path d="m7 8 4 4-4 4m6 0h4" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>'
-          : '<span class="provider-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 20 8-16h2l8 16" fill="none" stroke="#8ea6fb" stroke-width="3" stroke-linecap="round"/><path d="m7 12 5-9 5 9" fill="none" stroke="#ee9c71" stroke-width="3" stroke-linecap="round"/><path d="m3 20 5-9" stroke="#69c8e1" stroke-width="3" stroke-linecap="round"/></svg></span>';
+        `<span class="provider-icon" aria-hidden="true"><svg><use href="#brand-${p === "codex" ? "codex" : "antigravity"}"/></svg></span>`;
       const state = {
         data: null,
         provider: "all",
@@ -1601,6 +2046,157 @@
         loadBusy: false,
       };
       let toastTimer, refreshTimer;
+      const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+      document.documentElement.dataset.input = "pointer";
+      document.addEventListener(
+        "pointerdown",
+        () => {
+          document.documentElement.dataset.input = "pointer";
+        },
+        true,
+      );
+      document.addEventListener(
+        "keydown",
+        () => {
+          document.documentElement.dataset.input = "keyboard";
+        },
+        true,
+      );
+      const motionAllowed = () =>
+        !reducedMotion.matches &&
+        document.documentElement.dataset.input !== "keyboard";
+      reducedMotion.addEventListener("change", () => {
+        if (reducedMotion.matches)
+          document.getAnimations().forEach((animation) => animation.cancel());
+      });
+      const entrances = new WeakMap();
+      function enter(element, distance = 0) {
+        if (!element || !motionAllowed()) return;
+        const prior = entrances.get(element);
+        // Retarget from the current frame if another action interrupts this one.
+        const from =
+          prior && prior.playState === "running"
+            ? {
+                opacity: getComputedStyle(element).opacity,
+                transform: getComputedStyle(element).transform,
+              }
+            : { opacity: 0.5, transform: `translateY(${distance}px)` };
+        prior?.cancel();
+        entrances.set(
+          element,
+          element.animate([from, { opacity: 1, transform: "translateY(0)" }], {
+            duration: 180,
+            easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+          }),
+        );
+      }
+
+      // Keep live controls in place: polling must not dismiss a native select,
+      // lose keyboard focus, reset chart inspection, or collapse a disclosure.
+      function nodeKey(node) {
+        if (node.nodeType !== Node.ELEMENT_NODE) return "";
+        for (const attr of [
+          "id",
+          "data-pool",
+          "data-account",
+          "data-chart",
+          "data-filter",
+          "data-view",
+          "data-burn",
+          "data-hours",
+          "data-pause",
+        ])
+          if (node.hasAttribute(attr))
+            return `${attr}:${node.getAttribute(attr)}`;
+        if (node.classList.contains("segmented"))
+          return `segmented:${node.getAttribute("aria-label")}`;
+        return node.getAttribute("class")?.split(/\s/)[0] || "";
+      }
+      function patchChildren(parent, next) {
+        const unused = [...parent.childNodes];
+        const pairs = [...next.childNodes].map((fresh) => {
+          const key = nodeKey(fresh);
+          const current = unused.find(
+            (node) =>
+              node.nodeType === fresh.nodeType &&
+              node.nodeName === fresh.nodeName &&
+              nodeKey(node) === key,
+          );
+          if (current) unused.splice(unused.indexOf(current), 1);
+          return { fresh, current };
+        });
+        // Remove obsolete siblings before ordering: moving an otherwise stable
+        // focused control around a stale sibling would unnecessarily blur it.
+        unused.forEach((node) => node.remove());
+        let cursor = parent.firstChild;
+        for (const { fresh, current } of pairs) {
+          if (!current) {
+            parent.insertBefore(fresh.cloneNode(true), cursor);
+            continue;
+          }
+          if (current !== cursor) {
+            if (parent.moveBefore) parent.moveBefore(current, cursor);
+            else {
+              const focused = document.activeElement;
+              parent.insertBefore(current, cursor);
+              if (current.contains(focused))
+                focused.focus({ preventScroll: true });
+            }
+          }
+          if (current.nodeType === Node.TEXT_NODE) {
+            if (current.nodeValue !== fresh.nodeValue)
+              current.nodeValue = fresh.nodeValue;
+          } else if (current.nodeType === Node.ELEMENT_NODE) {
+            const inspected = current.closest("[data-chart]");
+            if (
+              !inspected ||
+              !current.matches(
+                ".chart-crosshair, .chart-tooltip, .chart-inspect",
+              ) ||
+              $(".chart-tooltip", inspected)?.hidden
+            ) {
+              const local = (name) =>
+                name.startsWith("data-motion-") ||
+                (name === "style" &&
+                  current.hasAttribute("data-motion-indicator")) ||
+                (name === "open" && current.tagName === "DETAILS") ||
+                (name === "data-inspected-at" &&
+                  current.hasAttribute("data-chart"));
+              for (const attr of [...current.attributes])
+                if (!local(attr.name) && !fresh.hasAttribute(attr.name))
+                  current.removeAttribute(attr.name);
+              for (const attr of [...fresh.attributes])
+                if (
+                  !local(attr.name) &&
+                  current.getAttribute(attr.name) !== attr.value
+                )
+                  current.setAttribute(attr.name, attr.value);
+              patchChildren(current, fresh);
+            }
+          }
+          cursor = current.nextSibling;
+        }
+      }
+      function updateIndicators() {
+        $$(".provider-tabs, .segmented").forEach((group) => {
+          const active = $("button.active", group);
+          if (!active) return;
+          const x = active.offsetLeft,
+            y = active.offsetTop;
+          group.style.setProperty(
+            "--indicator-clip",
+            `inset(${y}px ${group.clientWidth - x - active.offsetWidth}px ${group.clientHeight - y - active.offsetHeight}px ${x}px round ${group.classList.contains("segmented") ? 7 : 9}px)`,
+          );
+          if (!group.hasAttribute("data-motion-indicator")) {
+            group.dataset.motionIndicator = "initial";
+            requestAnimationFrame(() => {
+              if (group.isConnected) group.dataset.motionIndicator = "ready";
+            });
+          }
+        });
+      }
+      document.fonts.ready.then(updateIndicators);
+      let renderedPage, renderedSelection;
       function notify(text) {
         $("#toast").textContent = text;
         $("#toast").hidden = false;
@@ -1986,7 +2582,7 @@
           .map((a, i) => {
             const w = a.windows.find((w) => w.id === metric),
               [s, c] = status(a);
-            return `<div class="mini-account"><span style="overflow-wrap:anywhere">${esc(accountLabel(a, i))}<span class="muted" style="display:block;margin-top:3px">${esc(planLabel(a.plan))}</span></span><span class="tag ${c}">${s}</span><div class="meter"><span style="width:${w?.remaining || 0}%"></span></div><span style="text-align:right">${w ? fmtPct(w.remaining) : "—"}</span></div>`;
+            return `<div class="mini-account" data-account="${esc(a.id)}"><span style="overflow-wrap:anywhere">${esc(accountLabel(a, i))}<span class="muted" style="display:block;margin-top:3px">${esc(planLabel(a.plan))}</span></span><span class="tag ${c}">${s}</span><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span style="text-align:right">${w ? fmtPct(w.remaining) : "—"}</span></div>`;
           })
           .join("")}</div></details></section>`;
       }
@@ -2036,7 +2632,7 @@
                 a.windows.find((w) => w.id === "rate_limit:primary_window") ||
                 a.windows.find((w) => /flash/i.test(w.label)) ||
                 a.windows[0];
-            return `<article class="account-row"><div class="account-identity">${providerIcon(a.provider)}<div><div class="account-label">${esc(accountLabel(a, i))}</div><div class="small muted">${esc(planLabel(a.plan))} · ${pName(a.provider)}</div></div></div><div class="account-quota"><div class="quota-label">${w ? fmtPct(w.remaining) + " remaining" : "No quota reading"}</div><div class="meter" style="--pool-color:${a.provider === "codex" ? "var(--chart-1)" : "var(--chart-2)"}"><span style="width:${w?.remaining || 0}%"></span></div><p class="muted">${esc(age(a.quota_at))}${a.quota_error ? " · last known" : ""}</p></div><div class="account-status"><span class="tag ${c}">${s}</span><p class="muted">${esc(statusReason(a))}</p></div><button data-pause="${esc(a.id)}" data-disabled="${!a.disabled}" class="ghost">${a.disabled ? "Resume" : "Pause"}</button></article>`;
+            return `<article class="account-row" data-account="${esc(a.id)}"><div class="account-identity">${providerIcon(a.provider)}<div><div class="account-label">${esc(accountLabel(a, i))}</div><div class="small muted">${esc(planLabel(a.plan))} · ${pName(a.provider)}</div></div></div><div class="account-quota"><div class="quota-label">${w ? fmtPct(w.remaining) + " remaining" : "No quota reading"}</div><div class="meter" style="--pool-color:${a.provider === "codex" ? "var(--chart-1)" : "var(--chart-2)"}"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><p class="muted">${esc(age(a.quota_at))}${a.quota_error ? " · last known" : ""}</p></div><div class="account-status"><span class="tag ${c}">${s}</span><p class="muted">${esc(statusReason(a))}</p></div><button data-pause="${esc(a.id)}" data-disabled="${!a.disabled}" class="ghost">${a.disabled ? "Resume" : "Pause"}</button></article>`;
           })
           .join(
             "",
@@ -2045,12 +2641,9 @@
       function connectionPage() {
         return `<div class="connection-grid"><section class="panel"><h2>One endpoint for your accounts</h2><p>Use this private address from any device on your Tailscale network. Batman handles account selection and failover.</p><div class="codebox"><code>${esc(state.data.endpoint)}</code><button data-copy="endpoint" aria-label="Copy API endpoint">${icon("copy")}</button></div><p>Clients use the API key. This dashboard uses the management key.</p><div class="row"><span class="tag good">Tailscale HTTPS</span><span class="tag">Batman</span></div></section><section class="panel"><h2>Already connected in T3 Code</h2><ol class="steps"><li>Open a thread on <strong>Batman</strong>.</li><li>Choose <strong>Codex Proxy</strong> for GPT models or <strong>Antigravity Proxy</strong> for AGY models.</li><li>Use it normally. Add accounts here whenever needed.</li></ol></section><section class="panel"><h2>Routing</h2><p>The existing proxy uses round-robin selection, session affinity, and automatic failover. Limits and model access depend on each account.</p><p style="margin-top:12px">This dashboard observes quotas. It does not change the routing strategy.</p></section><section class="panel"><h2>Advanced settings</h2><p>Use the original panel for API keys, model settings, sign-in recovery, and proxy configuration.</p><a href="/management.html" target="_blank" rel="noopener" class="row" style="width:fit-content">Open original panel ${icon("out")}</a></section></div>`;
       }
-      function render() {
+      function render(animate = false) {
         if (!state.data) return;
-        const focused = document.activeElement?.id;
-        const open = $$("details[open]").map(
-          (d) => d.closest("[data-pool]")?.dataset.pool,
-        );
+        const body = $("#page-body");
         state.page = ["quotas", "accounts", "connection"].includes(
           location.hash.slice(1),
         )
@@ -2091,30 +2684,64 @@
         $("#refresh .button-label").textContent = state.data.refreshing
           ? "Refreshing…"
           : "Refresh all quotas";
+        const next = document.createElement("template");
         if (!count) {
-          $("#page-body").innerHTML =
-            `<div class="state-card"><h2>${state.data.error ? "Waiting for the proxy" : "Your account pool starts here"}</h2><p>${state.data.error ? "The connection will be checked automatically." : "Add a Codex or Antigravity account to start tracking its quotas."}</p><button class="primary" data-add>${icon("plus")}Add account</button></div>`;
+          next.innerHTML = `<div class="state-card"><h2>${state.data.error ? "Waiting for the proxy" : "Your account pool starts here"}</h2><p>${state.data.error ? "The connection will be checked automatically." : "Add a Codex or Antigravity account to start tracking its quotas."}</p><button class="primary" data-add>${icon("plus")}Add account</button></div>`;
         } else
-          $("#page-body").innerHTML =
+          next.innerHTML =
             state.page === "quotas"
               ? quotaPage()
               : state.page === "accounts"
                 ? accountsPage()
                 : connectionPage();
-        open.forEach((p) => {
-          const d = $(`[data-pool="${p}"] details`);
-          if (d) d.open = true;
-        });
-        if (focused && $("#" + focused))
-          $("#" + focused).focus({ preventScroll: true });
+        const selection = JSON.stringify([
+          state.provider,
+          state.view,
+          state.hours,
+          state.burn,
+          state.forecast,
+          state.windows,
+        ]);
+        const pageChanged = renderedPage !== state.page;
+        const selectionChanged = renderedSelection !== selection;
+        if (selectionChanged) $$("[data-chart]", body).forEach(clearChart);
+        patchChildren(body, next.content);
+        updateIndicators();
+        if (animate && motionAllowed()) {
+          if (pageChanged) enter(body, 6);
+          else if (selectionChanged) {
+            if (state.page === "quotas")
+              $$(".pool", body).forEach((pool) => {
+                enter($(".plot, .state-card", pool));
+                enter($(".pool-total", pool));
+              });
+            else enter($(".account-list", body));
+          }
+        }
+        renderedPage = state.page;
+        renderedSelection = selection;
       }
-      async function load() {
-        if (state.loadBusy || !state.session) return;
+      let pendingLoad = false,
+        pendingAnimation = false;
+      async function load(animate = false) {
+        if (!state.session) return;
+        if (state.loadBusy) {
+          pendingLoad = true;
+          pendingAnimation ||= animate;
+          return;
+        }
         state.loadBusy = true;
         clearTimeout(refreshTimer);
+        const requestedHours = state.hours;
         try {
-          state.data = await api(`snapshot?hours=${state.hours}`);
-          render();
+          const data = await api(`snapshot?hours=${requestedHours}`);
+          if (requestedHours === state.hours) {
+            state.data = data;
+            render(animate);
+          } else {
+            pendingLoad = true;
+            pendingAnimation ||= animate;
+          }
         } catch (e) {
           if (state.session) {
             $("#global-error").hidden = false;
@@ -2122,7 +2749,11 @@
           }
         } finally {
           state.loadBusy = false;
-          if (state.session)
+          if (state.session && pendingLoad) {
+            const again = pendingAnimation;
+            pendingLoad = pendingAnimation = false;
+            await load(again);
+          } else if (state.session)
             refreshTimer = setTimeout(
               load,
               state.data?.refreshing ? 2000 : 30000,
@@ -2189,13 +2820,16 @@
       });
       window.addEventListener("hashchange", () => {
         setMenu(false);
-        render();
+        render(true);
       });
-      let resizeTimer;
+      let resizeTimer,
+        layoutWidth = innerWidth;
       window.addEventListener("resize", () => {
+        if (innerWidth === layoutWidth) return;
+        if (layoutWidth <= 760 !== innerWidth <= 760) setMenu(false);
+        layoutWidth = innerWidth;
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
-          setMenu(false);
           render();
         }, 150);
       });
@@ -2210,16 +2844,22 @@
         if (!b) return;
         if (b.dataset.filter) {
           state.provider = b.dataset.filter;
-          render();
+          render(true);
         } else if (b.dataset.view) {
           state.view = b.dataset.view;
-          render();
+          render(true);
         } else if (b.dataset.burn) {
           state.burn = Number(b.dataset.burn);
-          render();
+          render(true);
         } else if (b.dataset.hours) {
           state.hours = Number(b.dataset.hours);
-          await load();
+          $$("[data-hours]").forEach((button) => {
+            const active = Number(button.dataset.hours) === state.hours;
+            button.classList.toggle("active", active);
+            button.setAttribute("aria-pressed", active);
+          });
+          updateIndicators();
+          await load(true);
         } else if (b.dataset.go) {
           location.hash = b.dataset.go;
         } else if (b.hasAttribute("data-add")) {
@@ -2253,13 +2893,14 @@
       $("#page-body").addEventListener("change", (e) => {
         if (e.target.dataset.window) {
           state.windows[e.target.dataset.window] = e.target.value;
-          render();
+          render(true);
         } else if (e.target.id === "forecast") {
           state.forecast = e.target.value === "on";
-          render();
+          render(true);
         }
       });
       function inspectChart(plot, point) {
+        plot.dataset.inspectedAt = point.ts;
         const chart = state.charts[plot.dataset.chart],
           isFuture = point.ts > state.data.now;
         const svg = $("svg", plot),
@@ -2289,6 +2930,7 @@
           `${dateLabel(point.ts)} · ${fmtPct(point.value)} ${isFuture ? "projected" : "recorded"}`;
       }
       function clearChart(plot) {
+        delete plot.dataset.inspectedAt;
         const group = $(".chart-crosshair", plot);
         if (group) group.setAttribute("hidden", "");
         const tooltip = $(".chart-tooltip", plot);
@@ -2301,12 +2943,21 @@
         const chart = state.charts[plot.dataset.chart],
           points = [...chart.points, ...chart.forecast];
         if (!points.length) return;
-        let n = Number(plot.dataset.index ?? points.length - 1);
+        const ts = Number(plot.dataset.inspectedAt);
+        let n =
+          plot.dataset.inspectedAt === undefined
+            ? points.length - 1
+            : points.reduce(
+                (nearest, point, i) =>
+                  Math.abs(point.ts - ts) < Math.abs(points[nearest].ts - ts)
+                    ? i
+                    : nearest,
+                0,
+              );
         n = Math.min(
           points.length - 1,
           Math.max(0, n + (e.key === "ArrowLeft" ? -1 : 1)),
         );
-        plot.dataset.index = n;
         inspectChart(plot, points[n]);
       });
       function inspectPointer(e) {

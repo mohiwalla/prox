@@ -55,6 +55,15 @@ python3 -m unittest discover -s dashboard -v
 python3 dashboard/deploy.py
 ```
 
+For UI-only updates, run from `~/cliproxyapi/source`:
+
+```sh
+python3 dashboard/deploy.py --frontend-only
+```
+
+The live URL serves deployed files, not a development server. Refresh the browser
+after publishing; HTML updates are atomic and this command preserves active sessions.
+
 Rollback only the dashboard route, preserving the proxy:
 
 ```sh

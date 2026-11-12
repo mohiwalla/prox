@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Deploy only the dashboard, preserving the proxy binary, config, and stock panel."""
+import argparse
 import hashlib
 from pathlib import Path
 import shutil
@@ -17,10 +18,17 @@ def fingerprints():
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--frontend-only", action="store_true",
+                        help="Publish UI and assets without restarting the dashboard or ending sessions")
+    args = parser.parse_args()
     before = fingerprints()
     backup = TARGET / "data" / "releases" / str(int(time.time()))
     backup.mkdir(parents=True, mode=0o700)
-    for name in ["server.py", "index.html", "README.md", "DESIGN.md", "assets"]:
+    names = ["index.html", "README.md", "DESIGN.md", "assets"]
+    if not args.frontend_only:
+        names.insert(0, "server.py")
+    for name in names:
         current = TARGET / name
         source = ROOT / name
         if current.exists():
@@ -31,11 +39,16 @@ def main():
         if source.is_dir():
             shutil.copytree(source, current, dirs_exist_ok=True)
         else:
-            shutil.copy2(source, current)
+            staged = current.with_name(current.name + ".next")
+            shutil.copy2(source, staged)
+            staged.replace(current)
     if fingerprints() != before:
         raise RuntimeError("The proxy's protected files changed during deployment.")
-    subprocess.run(["systemctl", "--user", "restart", "cliproxy-dashboard.service"], check=True)
+    if not args.frontend_only:
+        subprocess.run(["systemctl", "--user", "restart", "cliproxy-dashboard.service"], check=True)
     print("Dashboard deployed; proxy binary, config, and original panel unchanged.")
+    if args.frontend_only:
+        print("Refresh the browser to see the UI. Existing sessions remain active.")
     print("Dashboard backup:", backup)
 
 
