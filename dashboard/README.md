@@ -8,7 +8,7 @@ implementation, not Theo's unpublished fork.
 
 ## Design
 
-- Base `#000000`, panels `#101010`, borders `#292929`, text `#ededed`, secondary text `#a2a2a2`.
+- shadcn/ui (v4, neutral, dark) tokens and component metrics: base `#0a0a0a`, cards `#171717`, borders white/10%, muted text `#a1a1a1`, 4px grid.
 - Codex blue `#82aafa`, Antigravity apricot `#e59a75`; status also uses text labels.
 - Self-hosted Geist for the interface and Geist Mono for chart labels; no remote font requests.
 - Left-aligned sidebar and wide charts; compact navigation and stacked details on phones.

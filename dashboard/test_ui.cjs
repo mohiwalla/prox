@@ -84,26 +84,126 @@ const assert = require("assert/strict");
     "true",
   );
   await page.locator('[data-view="drain"]').click();
-  assert.ok(await page.locator(".pool .state-card").count());
+  assert.ok(await page.locator(".pool .rate-card").count());
   assert.equal(await page.locator("[data-chart]").count(), 0);
   await page.locator('[data-view="remaining"]').click();
+
+  // Roving focus: one tab stop per group, arrows move and activate.
+  await page.locator("#refresh").focus();
+  await page.keyboard.press("Tab");
+  const tabStop = await page.evaluate(() => {
+    const group = document.querySelector(".provider-tabs");
+    const buttons = [...group.querySelectorAll("button")];
+    const scroller = getComputedStyle(group);
+    const clipped =
+      scroller.overflowX !== "visible" || scroller.overflowY !== "visible";
+    return {
+      focused: document.activeElement.dataset.filter,
+      active: group.querySelector("button.active").dataset.filter,
+      others: buttons
+        .filter((b) => !b.classList.contains("active"))
+        .map((b) => b.getAttribute("tabindex")),
+      ring: getComputedStyle(document.activeElement).boxShadow,
+      padded:
+        !clipped ||
+        ["Top", "Right", "Bottom", "Left"].every(
+          (side) => parseFloat(scroller["padding" + side]) >= 3,
+        ),
+    };
+  });
+  assert.equal(tabStop.focused, tabStop.active);
+  assert.ok(tabStop.others.length && tabStop.others.every((t) => t === "-1"));
+  assert.ok(tabStop.ring && tabStop.ring !== "none", "Focus ring is visible");
+  assert.ok(tabStop.padded, "Provider tab focus ring is not clipped");
+  await page.keyboard.press("Tab");
+  assert.equal(
+    await page.evaluate(() => document.activeElement.closest(".provider-tabs")),
+    null,
+    "Tab leaves the provider group after one stop",
+  );
+  const arrowCheck = async (selector, attr, key, expected) => {
+    await page.keyboard.press(key);
+    const result = await page.evaluate(
+      ([selector, attr]) => {
+        const focused = document.activeElement;
+        return {
+          focused: focused.getAttribute(attr),
+          pressed: focused.getAttribute("aria-pressed"),
+          active: focused.classList.contains("active"),
+          tabindex: focused.getAttribute("tabindex"),
+          inGroup: !!focused.closest(selector),
+        };
+      },
+      [selector, attr],
+    );
+    assert.deepEqual(
+      result,
+      {
+        focused: expected,
+        pressed: "true",
+        active: true,
+        tabindex: "0",
+        inGroup: true,
+      },
+      `${key} in ${selector}`,
+    );
+  };
+  await page.locator(".provider-tabs button.active").focus();
+  await arrowCheck(".provider-tabs", "data-filter", "ArrowRight", "codex");
+  assert.equal(await page.locator("[data-pool]").count(), 1);
+  await arrowCheck(".provider-tabs", "data-filter", "End", "antigravity");
+  await arrowCheck(".provider-tabs", "data-filter", "Home", "all");
+  assert.equal(await page.locator("[data-pool]").count(), 2);
+  const burnGroup = ".segmented:has([data-burn])";
+  await page.locator(`${burnGroup} button.active`).focus();
+  assert.ok(
+    (
+      await page
+        .locator(`${burnGroup} button:not(.active)`)
+        .evaluateAll((bs) => bs.map((b) => b.getAttribute("tabindex")))
+    ).every((t) => t === "-1"),
+  );
+  await arrowCheck(burnGroup, "data-burn", "Home", "1");
+  await arrowCheck(burnGroup, "data-burn", "ArrowRight", "3");
+  await arrowCheck(burnGroup, "data-burn", "End", "6");
+  await arrowCheck(burnGroup, "data-burn", "ArrowLeft", "3");
+
   await page.locator('[data-page="accounts"]').click();
   await page.locator(".account-row").first().waitFor();
   assert.equal(await page.locator(".account-row").count(), counts.accounts);
-  await page.locator("#toggle-emails").click();
-  assert.equal(
-    await page.locator("#toggle-emails").getAttribute("aria-pressed"),
-    "true",
-  );
-  await page.locator("#toggle-emails").click();
+  assert.equal(await page.locator("#toggle-emails").count(), 0);
+  const labels = await page.evaluate(() => {
+    const names = { codex: "Codex", antigravity: "Antigravity" };
+    return {
+      expected: dashboard.state.data.accounts.map(
+        (a, i) => a.email || `${names[a.provider]} account ${i + 1}`,
+      ),
+      shown: [...document.querySelectorAll(".account-row .account-label")].map(
+        (el) => el.textContent.trim(),
+      ),
+    };
+  });
+  assert.deepEqual(labels.shown, labels.expected, "Emails shown by default");
   await page.getByRole("button", { name: "Add account", exact: true }).click();
   assert.equal(
     await page.locator("#oauth-dialog").evaluate((d) => d.open),
     true,
   );
-  await page
-    .getByRole("button", { name: "Close sign-in", exact: true })
-    .click();
+  const footerAlignment = await page.evaluate(() => {
+    const footer = document.querySelector("#oauth-choose .dialog-footer");
+    const last = [...footer.querySelectorAll("button")].at(-1);
+    return Math.abs(
+      footer.getBoundingClientRect().right - last.getBoundingClientRect().right,
+    );
+  });
+  assert.ok(footerAlignment <= 1, "Dialog footer actions align right");
+  await page.locator("#oauth-choose [data-dialog-cancel]").click();
+  assert.equal(
+    await page.locator("#oauth-dialog").evaluate((d) => d.open),
+    false,
+  );
+  await page.getByRole("button", { name: "Add account", exact: true }).click();
+  await page.locator("#oauth-close").click();
   await page.locator('[data-page="connection"]').click();
   await page.locator(".codebox").waitFor();
   assert.ok((await page.locator(".codebox").textContent()).includes("/v1"));
@@ -389,9 +489,7 @@ const assert = require("assert/strict");
       .evaluate((d) => d.getAnimations().length > 0),
   );
   await settle();
-  await page
-    .getByRole("button", { name: "Close sign-in", exact: true })
-    .click();
+  await page.locator("#oauth-close").click();
   assert.equal(
     await page.locator("#oauth-dialog").evaluate((d) => d.open),
     false,
@@ -446,8 +544,9 @@ const assert = require("assert/strict");
         "burn lookback",
         "drain view",
         "account list",
-        "email visibility",
-        "sign-in dialog",
+        "roving keyboard focus and focus rings",
+        "emails shown by default",
+        "sign-in dialog and right-aligned footer",
         "connection view",
         "390px layout",
         "mobile navigation",

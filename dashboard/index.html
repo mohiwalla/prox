@@ -27,119 +27,73 @@
         font-weight: 100 900;
         font-display: swap;
       }
+
+      /* Tokens: shadcn/ui v4 neutral, dark. */
       :root {
-        --background: #000;
-        --foreground: #ededed;
-        --card: #101010;
-        --secondary: #1d1d1d;
-        --border: #292929;
-        --muted-foreground: #a2a2a2;
-        --primary: #eaeaea;
-        --primary-foreground: #101010;
-        --success: #92c9a4;
-        --warning: #e6b879;
-        --destructive: #ef9d93;
+        --background: #0a0a0a;
+        --foreground: #fafafa;
+        --card: #171717;
+        --card-foreground: #fafafa;
+        --popover: #171717;
+        --primary: #e5e5e5;
+        --primary-foreground: #171717;
+        --secondary: #262626;
+        --secondary-foreground: #fafafa;
+        --muted: #262626;
+        --muted-foreground: #a1a1a1;
+        --accent: #262626;
+        --border: rgb(255 255 255 / 10%);
+        --input: rgb(255 255 255 / 15%);
+        --input-fill: rgb(255 255 255 / 4.5%);
+        --input-fill-hover: rgb(255 255 255 / 7.5%);
+        --ring: #737373;
+        --ring-shadow: 0 0 0 3px rgb(115 115 115 / 50%);
+        --destructive: #ff6467;
+        --success: #86efac;
+        --warning: #fcd34d;
         --chart-1: #82aafa;
         --chart-2: #e59a75;
-        --radius: 12px;
+        --radius-sm: 6px;
+        --radius-md: 8px;
+        --radius-lg: 10px;
+        --radius-xl: 14px;
+        --shadow-lg:
+          0 10px 15px -3px rgb(0 0 0 / 40%), 0 4px 6px -4px rgb(0 0 0 / 40%);
+        --sidebar-width: 256px;
         --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
         --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
         --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-        --duration-fast: 120ms;
-        --duration-ui: 180ms;
+        --duration-fast: 150ms;
+        --duration-ui: 200ms;
         --duration-panel: 240ms;
         --font-sans:
           Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         --font-mono: "Geist Mono", ui-monospace, monospace;
+        color-scheme: dark;
         font-family: var(--font-sans);
+        font-size: 14px;
+        line-height: 20px;
         color: var(--foreground);
         background: var(--background);
-        font-size: 14px;
         font-synthesis: none;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
-      * {
+      html[data-input="keyboard"] {
+        --duration-fast: 0ms;
+        --duration-ui: 0ms;
+        --duration-panel: 0ms;
+      }
+
+      /* Base */
+      *,
+      *::before,
+      *::after {
         box-sizing: border-box;
       }
       body {
         margin: 0;
-      }
-      button,
-      input,
-      select {
-        font: inherit;
-      }
-      button,
-      a,
-      select {
-        touch-action: manipulation;
-      }
-      button,
-      select {
-        cursor: pointer;
-      }
-      button,
-      a,
-      input,
-      select,
-      summary {
-        outline-offset: 4px;
-      }
-      button:focus-visible,
-      a:focus-visible,
-      input:focus-visible,
-      select:focus-visible,
-      [tabindex]:focus-visible {
-        outline: 2px solid var(--chart-1);
-      }
-      button {
-        color: inherit;
-        border: 1px solid transparent;
-        background: var(--secondary);
-        border-radius: 9px;
-        min-height: 42px;
-        padding: 10px 14px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        transition:
-          background var(--duration-fast) ease,
-          color var(--duration-fast) ease,
-          border-color var(--duration-fast) ease,
-          transform var(--duration-fast) var(--ease-out);
-      }
-      button:active:not(:disabled):not(:focus-visible):not(.nav-scrim) {
-        transform: scale(0.97);
-      }
-      button:hover {
-        background: #2b2b2b;
-      }
-      button:disabled {
-        opacity: 0.55;
-        cursor: wait;
-      }
-      a {
-        color: inherit;
-        text-decoration: none;
-      }
-      a:hover {
-        color: #fff;
-      }
-      input,
-      select {
-        color: inherit;
-        background: #151515;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 10px 12px;
-        min-height: 42px;
-        max-width: 100%;
-      }
-      input {
-        width: 100%;
-      }
-      select {
-        padding-right: 28px;
+        background: var(--background);
       }
       h1,
       h2,
@@ -148,58 +102,47 @@
         margin: 0;
       }
       h1 {
-        font-size: 26px;
-        font-weight: 500;
-        letter-spacing: -0.7px;
+        font-size: 24px;
+        line-height: 32px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
       }
       h2 {
-        font-size: 17px;
-        letter-spacing: -0.3px;
+        font-size: 16px;
+        line-height: 24px;
         font-weight: 600;
       }
       h3 {
-        font-size: 15px;
-        font-weight: 550;
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 600;
       }
-      p {
-        line-height: 1.6;
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      strong {
+        font-weight: 600;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .icon {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
       }
       .muted {
         color: var(--muted-foreground);
       }
       .small {
         font-size: 12px;
-      }
-      .icon {
-        width: 18px;
-        height: 18px;
-        flex-shrink: 0;
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 1.7;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-      }
-      .primary {
-        background: var(--primary);
-        color: var(--primary-foreground);
-        font-weight: 550;
-      }
-      .primary:hover {
-        background: #fff;
-      }
-      .ghost {
-        background: transparent;
-        border-color: var(--border);
-      }
-      .plain {
-        background: transparent;
-      }
-      .danger {
-        color: var(--destructive);
-      }
-      [hidden] {
-        display: none !important;
+        line-height: 16px;
       }
       .grow {
         flex: 1;
@@ -207,7 +150,7 @@
       .row {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 8px;
       }
       .wrap {
         flex-wrap: wrap;
@@ -215,146 +158,437 @@
       .space {
         justify-content: space-between;
       }
-      .brand {
-        font-size: 19px;
-        font-weight: 600;
-        letter-spacing: -0.5px;
-        display: flex;
-        align-items: center;
-        gap: 11px;
+      .danger {
+        color: var(--destructive);
       }
-      .brand svg {
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+      button,
+      a,
+      input,
+      select,
+      summary,
+      [tabindex] {
+        outline: none;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      summary:focus-visible,
+      [tabindex]:focus-visible {
+        box-shadow: var(--ring-shadow);
+      }
+
+      /* Buttons */
+      button,
+      a.button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        height: 36px;
+        padding: 0 16px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-md);
+        background: var(--secondary);
+        color: var(--secondary-foreground);
+        font: inherit;
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 500;
+        white-space: nowrap;
+        cursor: pointer;
+        touch-action: manipulation;
+        transition:
+          background-color var(--duration-fast) ease,
+          color var(--duration-fast) ease,
+          border-color var(--duration-fast) ease,
+          box-shadow var(--duration-fast) ease,
+          transform var(--duration-fast) var(--ease-out);
+      }
+      button:hover,
+      a.button:hover {
+        background: rgb(38 38 38 / 80%);
+      }
+      button:active:not(:disabled),
+      a.button:active {
+        transform: scale(0.98);
+      }
+      button:disabled {
+        opacity: 0.5;
+        pointer-events: none;
+      }
+      .primary {
+        background: var(--primary);
+        color: var(--primary-foreground);
+      }
+      .primary:hover {
+        background: rgb(229 229 229 / 90%);
+      }
+      .outline {
+        background: var(--input-fill);
+        border-color: var(--input);
+        color: var(--foreground);
+      }
+      .outline:hover {
+        background: var(--input-fill-hover);
+      }
+      .ghost {
+        background: transparent;
+        color: var(--foreground);
+      }
+      .ghost:hover {
+        background: rgb(38 38 38 / 50%);
+      }
+      .sm {
+        height: 32px;
+        padding: 0 12px;
+        gap: 6px;
+      }
+      .icon-btn {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+      }
+      .icon-btn.sm {
         width: 32px;
         height: 32px;
       }
-      .brand-sub {
-        font-size: 12px;
+
+      /* Inputs */
+      input,
+      select {
+        height: 36px;
+        max-width: 100%;
+        padding: 0 12px;
+        border: 1px solid var(--input);
+        border-radius: var(--radius-md);
+        background: var(--input-fill);
+        color: var(--foreground);
+        font: inherit;
+        font-size: 14px;
+        line-height: 20px;
+        transition:
+          border-color var(--duration-fast) ease,
+          box-shadow var(--duration-fast) ease;
+      }
+      input {
+        width: 100%;
+      }
+      input::placeholder {
         color: var(--muted-foreground);
-        font-weight: 400;
-        letter-spacing: 0;
-        margin-left: 2px;
       }
-      .sidebar {
-        position: fixed;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 230px;
-        padding: 24px 14px;
-        display: flex;
-        flex-direction: column;
-        background: var(--background);
-        border-right: 1px solid #161616;
-        z-index: 20;
+      select {
+        appearance: none;
+        padding-right: 36px;
+        cursor: pointer;
+        text-overflow: ellipsis;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a1a1a1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 16px;
       }
-      .sidebar .brand {
-        padding: 0 10px;
-        margin-bottom: 35px;
+      select option {
+        background: var(--popover);
+        color: var(--foreground);
       }
-      .nav {
+      select:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      select.sm,
+      .controls select,
+      .pool-top select {
+        height: 32px;
+        padding: 0 32px 0 12px;
+        font-size: 13px;
+        background-position: right 8px center;
+      }
+      input:focus-visible,
+      select:focus-visible {
+        border-color: var(--ring);
+        box-shadow: var(--ring-shadow);
+      }
+      .field {
         display: grid;
-        gap: 5px;
+        gap: 8px;
       }
-      .nav a {
-        min-height: 44px;
-        border-radius: 8px;
+      .field label {
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 500;
+      }
+      .field select {
+        width: 100%;
+      }
+      .field-description {
+        font-size: 13px;
+        line-height: 20px;
+        color: var(--muted-foreground);
+      }
+      .form-error {
+        font-size: 13px;
+        line-height: 20px;
+        color: var(--destructive);
+      }
+
+      /* Badges */
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        padding: 2px 8px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        background: var(--secondary);
+        color: var(--secondary-foreground);
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .tag.good {
+        color: var(--success);
+        background: rgb(34 197 94 / 12%);
+        border-color: rgb(34 197 94 / 20%);
+      }
+      .tag.warning {
+        color: var(--warning);
+        background: rgb(245 158 11 / 12%);
+        border-color: rgb(245 158 11 / 20%);
+      }
+      .tag.bad {
+        color: var(--destructive);
+        background: rgb(255 100 103 / 12%);
+        border-color: rgb(255 100 103 / 20%);
+      }
+
+      /* Brand */
+      .brand,
+      .login-brand {
         display: flex;
         align-items: center;
-        gap: 12px;
-        padding: 10px 12px;
+        gap: 8px;
+        min-width: 0;
+      }
+      .brand-mark {
+        display: flex;
+        width: 32px;
+        height: 32px;
+        flex-shrink: 0;
+        border-radius: var(--radius-md);
+        overflow: hidden;
+      }
+      .brand-mark svg {
+        width: 32px;
+        height: 32px;
+      }
+      .brand-text {
+        display: grid;
+        min-width: 0;
+      }
+      .brand-text strong {
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 600;
+      }
+      .brand-text span {
+        font-size: 12px;
+        line-height: 16px;
         color: var(--muted-foreground);
+      }
+
+      /* Sidebar: every row is inset 8px, so icons, logo and dot share x = 16px. */
+      .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        width: var(--sidebar-width);
+        padding: 8px;
+        background: var(--background);
+        border-right: 1px solid var(--border);
+      }
+      .sidebar-header {
+        padding-bottom: 8px;
+      }
+      .sidebar-header .brand {
+        height: 48px;
+        padding: 0 8px;
+        border-radius: var(--radius-md);
+      }
+      .sidebar-content {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+      }
+      .sidebar-group {
+        display: grid;
+        gap: 4px;
+      }
+      .sidebar-separator {
+        height: 1px;
+        margin: 8px 0;
+        background: var(--border);
+      }
+      .sidebar-item {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+        width: 100%;
+        height: 32px;
+        padding: 0 8px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--muted-foreground);
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 400;
+        text-align: left;
         transition:
-          background var(--duration-fast) ease,
+          background-color var(--duration-fast) ease,
           color var(--duration-fast) ease;
       }
-      .nav a:hover {
-        background: #111;
+      .sidebar-item > span:not(.sidebar-badge) {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .sidebar-item:hover {
+        background: var(--accent);
         color: var(--foreground);
       }
-      .nav a.active {
-        background: #202020;
+      .sidebar-item.active {
+        background: var(--accent);
         color: var(--foreground);
+        font-weight: 500;
       }
-      .nav .divider {
-        height: 1px;
-        background: var(--border);
-        margin: 14px 12px;
-      }
-      .nav .count {
+      .sidebar-badge {
         margin-left: auto;
+        min-width: 20px;
         font-size: 12px;
-      }
-      .sidebar-bottom {
-        margin-top: auto;
-        padding: 15px 10px 0;
+        line-height: 16px;
+        font-weight: 500;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
         color: var(--muted-foreground);
-        font-size: 12px;
+      }
+      .sidebar-footer {
+        display: grid;
+        gap: 4px;
+        padding-top: 8px;
+        border-top: 1px solid var(--border);
+      }
+      .sidebar-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 8px;
+        font-size: 13px;
+        color: var(--foreground);
       }
       .status-dot {
-        display: inline-block;
-        width: 6px;
-        height: 6px;
+        width: 8px;
+        height: 8px;
+        margin: 0 4px;
+        flex-shrink: 0;
         border-radius: 50%;
         background: var(--success);
-        margin-right: 7px;
       }
-      .sidebar-bottom p {
-        margin-top: 7px;
+      .sidebar-note {
+        padding: 0 8px 4px 32px;
+        font-size: 12px;
+        line-height: 16px;
+        color: var(--muted-foreground);
       }
+
+      /* Shell */
       .shell {
-        margin-left: 230px;
-        padding: 38px 36px 30px;
-        max-width: 2000px;
+        margin-left: var(--sidebar-width);
+        padding: 24px;
       }
       .topbar {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 18px;
+        gap: 16px;
         flex-wrap: wrap;
-        margin-bottom: 28px;
+        min-height: 36px;
+        margin-bottom: 24px;
       }
       .heading {
         display: flex;
         align-items: baseline;
-        gap: 18px;
+        gap: 12px;
         flex-wrap: wrap;
+        min-width: 0;
       }
-      .heading .muted {
-        font-size: 13px;
+      .page-meta {
+        font-size: 14px;
+        color: var(--muted-foreground);
+        font-variant-numeric: tabular-nums;
       }
       .actions {
         display: flex;
-        gap: 10px;
+        gap: 8px;
       }
+      .mobile-toggle {
+        display: none;
+      }
+
+      /* Provider tabs and toolbar */
       .provider-tabs {
+        position: relative;
+        isolation: isolate;
         display: flex;
         align-items: center;
-        gap: 5px;
-        overflow: auto;
-        padding-bottom: 4px;
-        margin-bottom: 17px;
+        gap: 4px;
+        margin: -4px -4px 12px;
+        padding: 4px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .provider-tabs::-webkit-scrollbar {
+        display: none;
       }
       .provider-tabs button {
+        height: 36px;
+        padding: 0 12px;
         background: transparent;
-        white-space: nowrap;
         color: var(--muted-foreground);
-        padding: 10px 14px;
+      }
+      .provider-tabs button:hover {
+        background: rgb(38 38 38 / 50%);
+        color: var(--foreground);
       }
       .provider-tabs button.active {
         background: var(--secondary);
         color: var(--foreground);
       }
       .provider-tabs .count {
-        margin-left: 3px;
         color: var(--muted-foreground);
+        font-variant-numeric: tabular-nums;
       }
       .provider-icon {
-        width: 19px;
-        height: 19px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        width: 16px;
+        height: 16px;
         flex-shrink: 0;
       }
       .provider-icon svg {
@@ -364,278 +598,61 @@
       .controls {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px 16px;
         flex-wrap: wrap;
-        margin-bottom: 18px;
-      }
-      .segmented {
-        display: inline-flex;
-        background: #101010;
-        padding: 3px;
-        border-radius: 9px;
-        gap: 2px;
-      }
-      .segmented button {
-        background: transparent;
-        color: var(--muted-foreground);
-        min-height: 36px;
-        padding: 7px 13px;
-        border-radius: 7px;
-      }
-      .segmented button.active {
-        background: #262626;
-        color: var(--foreground);
-      }
-      .controls label {
-        font-size: 12px;
-        color: var(--muted-foreground);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      .controls select {
-        background: #101010;
-        border: 0;
-      }
-      .time-note {
-        font-size: 12px;
-        color: var(--muted-foreground);
-        margin-left: auto;
-      }
-      .notice {
-        border: 1px solid #473827;
-        background: #17130e;
-        color: #dfc3a0;
-        padding: 12px 15px;
-        border-radius: 9px;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        font-size: 13px;
-        line-height: 1.5;
-      }
-      .notice button {
-        padding: 4px 8px;
-        min-height: 32px;
-        background: transparent;
-        white-space: nowrap;
-        margin-left: auto;
-        text-decoration: underline;
-      }
-      .notice.error {
-        background: #201311;
-        border-color: #52342e;
-        color: var(--destructive);
-      }
-      .pool {
-        background: var(--card);
-        border: 1px solid #151515;
-        border-radius: var(--radius);
-        padding: 22px 24px 16px;
-        margin-bottom: 20px;
-        --pool-color: var(--chart-1);
-      }
-      .pool.agy {
-        --pool-color: var(--chart-2);
-      }
-      .pool-top {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-      .pool-top .provider-icon {
-        width: 20px;
-        height: 20px;
-      }
-      .pool-top select {
-        margin-left: auto;
-        max-width: 270px;
-        font-size: 12px;
-        min-height: 34px;
-        padding: 7px 30px 7px 10px;
-        background: #191919;
-        border: 0;
-      }
-      .pool-total {
-        display: flex;
-        gap: 24px;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        margin-top: 14px;
-      }
-      .big-number {
-        font-size: 42px;
-        letter-spacing: -1.8px;
-        font-weight: 500;
-        font-variant-numeric: tabular-nums;
-        line-height: 1.2;
-      }
-      .big-number small {
-        font-size: 13px;
-        letter-spacing: 0;
-        color: var(--muted-foreground);
-        font-weight: 400;
-        margin-left: 9px;
-      }
-      .capacity-note {
-        font-size: 12px;
-        color: var(--muted-foreground);
-        margin-top: 5px;
-        line-height: 1.5;
-      }
-      .metrics {
-        display: flex;
-        gap: 34px;
-        flex-wrap: wrap;
-      }
-      .metric {
-        font-size: 13px;
-        min-width: 105px;
-      }
-      .metric dt {
-        color: var(--muted-foreground);
-        margin-bottom: 6px;
-        font-size: 12px;
-      }
-      .metric dd {
-        margin: 0;
-        font-weight: 450;
-      }
-      .plot {
-        position: relative;
-        margin: 18px 0 0;
-      }
-      .plot svg {
-        display: block;
-        width: 100%;
-        height: 248px;
-        overflow: visible;
-      }
-      .plot .grid-line {
-        stroke: #222;
-        stroke-width: 1;
-      }
-      .plot text {
-        fill: var(--muted-foreground);
-        font-size: 10px;
-        font-family: var(--font-mono);
-        letter-spacing: 0;
-      }
-      .plot .axis-now {
-        fill: var(--foreground);
-      }
-      .plot .current-value {
-        fill: var(--pool-color);
-        font-weight: 500;
-      }
-      .chart-crosshair {
-        pointer-events: none;
-      }
-      .chart-tooltip {
-        position: absolute;
-        z-index: 4;
-        top: 30px;
-        min-width: 150px;
-        padding: 10px 12px;
-        background: #232323;
-        border: 1px solid #3a3a3a;
-        border-radius: 8px;
-        box-shadow: 0 6px 20px #0004;
-        pointer-events: none;
-        font-size: 12px;
-      }
-      .chart-tooltip strong {
-        display: block;
-        font-size: 15px;
-        font-weight: 500;
-        margin: 6px 0 3px;
-        font-variant-numeric: tabular-nums;
-      }
-      .chart-tooltip time,
-      .chart-tooltip small {
-        color: var(--muted-foreground);
-        font-size: 11px;
-      }
-      .chart-crosshair line {
-        stroke: #777;
-        stroke-dasharray: 3 4;
-      }
-      .chart-crosshair circle {
-        fill: var(--pool-color);
-        stroke: var(--card);
-        stroke-width: 2;
+        margin-bottom: 16px;
       }
       .control-group {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
       }
-      .toolbar-label {
+      .toolbar-label,
+      .forecast-control {
+        font-size: 14px;
         color: var(--muted-foreground);
-        font-size: 12px;
+      }
+      .forecast-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
       .range-group {
         margin-left: auto;
       }
-      .chart-reset {
-        stroke: #393939;
-        stroke-dasharray: 3 5;
-      }
-      .reset-label {
-        fill: var(--muted-foreground);
-      }
-      .chart-caption .legend {
-        font-size: 11px;
-      }
-      .big-number {
-        font-variant-numeric: tabular-nums;
-        font-feature-settings: "ss01";
-      }
-      .page-meta {
-        font-variant-numeric: tabular-nums;
-      }
-      .plot:focus-visible {
-        border-radius: 6px;
-      }
-      .pool-top h2 {
-        font-weight: 500;
-      }
-      .nav a.active {
-        box-shadow: inset 0 1px 0 #ffffff0a;
-      }
-      .primary {
-        box-shadow: inset 0 1px 0 #ffffff30;
-      }
-      .mini-account > span:last-child {
-        font-family: var(--font-mono);
-        font-variant-numeric: tabular-nums;
-      }
-      .controls {
-        padding: 0 0 4px;
-      }
-      .control-group .segmented {
-        flex-shrink: 0;
-      }
-      .segmented button {
-        transition:
-          background var(--duration-fast) ease,
-          color var(--duration-fast) ease,
-          transform var(--duration-fast) var(--ease-out);
-      }
-      .provider-tabs,
       .segmented {
         position: relative;
         isolation: isolate;
+        display: inline-flex;
+        flex-shrink: 0;
+        height: 36px;
+        padding: 3px;
+        gap: 2px;
+        border-radius: var(--radius-md);
+        background: var(--muted);
       }
+      .segmented button {
+        height: 30px;
+        padding: 0 10px;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--muted-foreground);
+      }
+      .segmented button:hover {
+        background: transparent;
+        color: var(--foreground);
+      }
+      .segmented button.active {
+        background: var(--background);
+        color: var(--foreground);
+      }
+      /* Sliding selection: JS writes --indicator-clip around the active button. */
       [data-motion-indicator]::before {
         content: "";
         position: absolute;
         inset: 0;
         z-index: -1;
-        background: #262626;
+        background: var(--background);
         clip-path: var(--indicator-clip);
         pointer-events: none;
       }
@@ -648,38 +665,223 @@
       [data-motion-indicator] button.active {
         background: transparent;
       }
-      .sidebar .nav a {
+      .notice {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+        padding: 12px 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--card);
+        font-size: 14px;
+        line-height: 20px;
+      }
+      .notice .icon {
+        color: var(--warning);
+      }
+      .notice button {
+        height: 32px;
+        margin-left: auto;
+        padding: 0 12px;
+        flex-shrink: 0;
+        background: transparent;
+        color: var(--foreground);
+      }
+      .notice button:hover {
+        background: var(--accent);
+      }
+      .notice.error {
+        color: var(--destructive);
+        border-color: rgb(255 100 103 / 30%);
+      }
+
+      /* Pool card */
+      .pool {
+        --pool-color: var(--chart-1);
+        margin-bottom: 16px;
+        padding: 24px 24px 8px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--card);
+      }
+      .pool.agy {
+        --pool-color: var(--chart-2);
+      }
+      .pool-top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        min-height: 32px;
+      }
+      .pool-top .provider-icon {
+        width: 20px;
+        height: 20px;
+      }
+      .pool-top .muted {
+        font-size: 14px;
+      }
+      .pool-top select {
+        margin-left: auto;
+        max-width: 260px;
+      }
+      .pool-total {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 24px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+      .big-number {
+        font-size: 36px;
+        line-height: 40px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        font-variant-numeric: tabular-nums;
+      }
+      .big-number small {
+        margin-left: 8px;
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 400;
+        letter-spacing: 0;
+        color: var(--muted-foreground);
+      }
+      .capacity-note {
+        margin-top: 4px;
         font-size: 13px;
+        line-height: 20px;
+        color: var(--muted-foreground);
+      }
+      .metrics {
+        display: flex;
+        gap: 32px;
+        flex-wrap: wrap;
+        margin: 0;
+      }
+      .metric {
+        min-width: 112px;
+      }
+      .metric dt {
+        margin-bottom: 4px;
+        font-size: 12px;
+        line-height: 16px;
+        color: var(--muted-foreground);
+      }
+      .metric dd {
+        margin: 0;
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Chart */
+      .plot {
+        position: relative;
+        margin: 16px 0 0;
+        border-radius: var(--radius-md);
+      }
+      .plot svg {
+        display: block;
+        width: 100%;
+        height: 240px;
+        overflow: visible;
+      }
+      .plot text {
+        fill: var(--muted-foreground);
+        font-family: var(--font-mono);
+        font-size: 11px;
+      }
+      .plot .grid-line {
+        stroke: rgb(255 255 255 / 6%);
+        stroke-width: 1;
+      }
+      .plot .axis-now {
+        fill: var(--foreground);
+      }
+      .plot .current-value {
+        fill: var(--pool-color);
+        font-weight: 500;
+      }
+      .chart-reset {
+        stroke: rgb(255 255 255 / 20%);
+        stroke-dasharray: 3 5;
+      }
+      .reset-label {
+        fill: var(--muted-foreground);
+      }
+      .chart-crosshair {
+        pointer-events: none;
+      }
+      .chart-crosshair line {
+        stroke: rgb(255 255 255 / 35%);
+        stroke-dasharray: 3 4;
+      }
+      .chart-crosshair circle {
+        fill: var(--pool-color);
+        stroke: var(--card);
+        stroke-width: 2;
+      }
+      .chart-tooltip {
+        position: absolute;
+        top: 32px;
+        z-index: 4;
+        min-width: 160px;
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--popover);
+        box-shadow: var(--shadow-lg);
+        font-size: 12px;
+        line-height: 16px;
+        pointer-events: none;
+      }
+      .chart-tooltip strong {
+        display: block;
+        margin: 4px 0 2px;
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+      }
+      .chart-tooltip time,
+      .chart-tooltip small {
+        font-size: 12px;
+        color: var(--muted-foreground);
       }
       .chart-empty {
         position: absolute;
-        left: 9%;
-        right: 8%;
-        top: 28%;
+        top: 30%;
+        left: 10%;
+        right: 10%;
         text-align: center;
         pointer-events: none;
       }
       .chart-empty strong {
         display: block;
+        margin-bottom: 4px;
         font-size: 14px;
         font-weight: 500;
-        color: #d0d0d0;
-        margin-bottom: 8px;
       }
       .chart-empty p {
-        max-width: 370px;
-        margin: auto;
-        font-size: 12px;
+        max-width: 360px;
+        margin: 0 auto;
+        font-size: 13px;
+        line-height: 20px;
         color: var(--muted-foreground);
       }
       .chart-caption {
         display: flex;
         align-items: center;
-        gap: 18px;
+        gap: 16px;
         flex-wrap: wrap;
-        color: var(--muted-foreground);
+        padding: 8px 0;
         font-size: 12px;
-        padding: 6px 0 8px;
+        line-height: 16px;
+        color: var(--muted-foreground);
       }
       .legend {
         display: inline-flex;
@@ -687,8 +889,8 @@
         gap: 8px;
       }
       .legend-line {
+        width: 16px;
         height: 0;
-        width: 19px;
         border-top: 2px solid var(--pool-color);
       }
       .legend-line.dashed {
@@ -698,30 +900,46 @@
         margin-left: auto;
         font-variant-numeric: tabular-nums;
       }
+      .rate-card {
+        margin: 16px 0 8px;
+        padding: 48px 16px;
+        text-align: center;
+      }
+      .rate-card p {
+        max-width: 420px;
+        margin: 8px auto 0;
+        font-size: 14px;
+        color: var(--muted-foreground);
+      }
+
+      /* Account breakdown */
       .pool details {
-        border-top: 1px solid var(--border);
         margin-top: 8px;
+        border-top: 1px solid var(--border);
       }
       .pool summary {
-        list-style: none;
-        cursor: pointer;
-        min-height: 44px;
         display: flex;
         align-items: center;
         gap: 8px;
-        font-size: 12px;
+        min-height: 40px;
+        border-radius: var(--radius-sm);
+        list-style: none;
+        font-size: 14px;
         color: var(--muted-foreground);
+        cursor: pointer;
+        transition: color var(--duration-fast) ease;
+      }
+      .pool summary:hover {
+        color: var(--foreground);
       }
       .pool summary::-webkit-details-marker {
         display: none;
       }
+      .pool summary .chevron {
+        transition: transform var(--duration-ui) var(--ease-out);
+      }
       .pool details[open] summary .chevron {
         transform: rotate(90deg);
-      }
-      .pool summary .chevron {
-        width: 14px;
-        height: 14px;
-        transition: transform var(--duration-ui) var(--ease-out);
       }
       @supports (interpolate-size: allow-keywords) {
         .pool details::details-content {
@@ -742,80 +960,92 @@
       .mini-accounts {
         display: grid;
         gap: 12px;
-        padding: 4px 0 8px;
+        padding: 4px 0 16px;
       }
       .mini-account {
         display: grid;
-        grid-template-columns: minmax(150px, 1fr) 95px minmax(70px, 160px) 60px;
-        gap: 15px;
+        grid-template-columns:
+          minmax(160px, 1fr) 128px minmax(80px, 160px)
+          56px;
         align-items: center;
+        gap: 16px;
+        font-size: 13px;
+      }
+      .mini-name {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .mini-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 500;
+      }
+      .mini-plan {
         font-size: 12px;
+        line-height: 16px;
+        color: var(--muted-foreground);
+      }
+      .mini-value {
+        text-align: right;
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
       }
       .meter {
         height: 4px;
-        border-radius: 4px;
-        background: #292929;
+        border-radius: 999px;
+        background: rgb(255 255 255 / 10%);
         overflow: hidden;
       }
       .meter span {
         display: block;
-        height: 100%;
-        background: var(--pool-color);
-        border-radius: 4px;
         width: 100%;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--pool-color);
         transform-origin: left;
         transition: transform var(--duration-panel) var(--ease-out);
       }
-      .tag {
-        font-size: 11px;
-        line-height: 1.5;
-        padding: 3px 7px;
-        border-radius: 5px;
-        background: #202020;
-        color: #c8c8c8;
-        display: inline-block;
-        width: fit-content;
-      }
-      .tag.warning {
-        color: var(--warning);
-        background: #2b2215;
-      }
-      .tag.good {
-        color: var(--success);
-        background: #18231b;
-      }
-      .tag.bad {
-        color: var(--destructive);
-        background: #2a1c19;
-      }
-      .footnote {
+
+      /* Accounts page */
+      .page-toolbar {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
+        gap: 16px;
         flex-wrap: wrap;
-        font-size: 12px;
+        margin-bottom: 16px;
+      }
+      .page-toolbar p {
+        font-size: 14px;
         color: var(--muted-foreground);
-        line-height: 1.6;
-        padding: 2px 0 12px;
       }
       .account-list {
         border: 1px solid var(--border);
-        border-radius: var(--radius);
+        border-radius: var(--radius-xl);
+        background: var(--card);
         overflow: hidden;
       }
       .account-row {
+        --pool-color: var(--chart-1);
         display: grid;
         grid-template-columns:
-          minmax(170px, 1.4fr) minmax(130px, 1fr) minmax(150px, 1.4fr)
-          90px;
-        gap: 20px;
+          minmax(200px, 1.4fr) minmax(160px, 1fr) minmax(200px, 1.4fr)
+          auto;
         align-items: center;
-        padding: 21px 22px;
-        background: var(--card);
+        gap: 24px;
+        padding: 16px;
+      }
+      .account-row.agy,
+      .meter.agy {
+        --pool-color: var(--chart-2);
       }
       .account-row + .account-row {
         border-top: 1px solid var(--border);
+      }
+      .account-row .meter {
+        height: 8px;
       }
       .account-identity {
         display: flex;
@@ -823,111 +1053,175 @@
         gap: 12px;
         min-width: 0;
       }
-      .account-identity .account-label {
-        font-size: 13px;
+      .account-identity .provider-icon {
+        width: 20px;
+        height: 20px;
+      }
+      .account-identity > div {
+        min-width: 0;
+      }
+      .account-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 14px;
         font-weight: 500;
-        overflow-wrap: anywhere;
       }
-      .account-identity .small {
-        margin-top: 5px;
-      }
-      .account-row .quota-label {
-        font-size: 12px;
-        margin-bottom: 8px;
-      }
-      .account-row p {
-        font-size: 12px;
-        margin-top: 5px;
-        max-width: 390px;
-      }
-      .account-row button {
-        font-size: 12px;
-        padding: 8px 10px;
-        min-height: 36px;
-      }
-      .connection-grid {
-        display: grid;
-        grid-template-columns: 1.15fr 1fr;
-        gap: 20px;
-      }
-      .panel {
-        background: var(--card);
-        border: 1px solid #1a1a1a;
-        border-radius: var(--radius);
-        padding: 25px;
-      }
-      .panel h2 {
-        margin-bottom: 14px;
-      }
-      .panel p {
+      .account-sub {
         font-size: 13px;
         color: var(--muted-foreground);
+      }
+      .quota-label {
+        margin-bottom: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+      }
+      .account-meta {
+        margin-top: 8px;
+        font-size: 12px;
+        line-height: 16px;
+        color: var(--muted-foreground);
+      }
+      .account-status {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        min-width: 0;
+      }
+      .account-reason {
+        font-size: 13px;
+        color: var(--muted-foreground);
+      }
+      .account-row > button {
+        justify-self: end;
+      }
+
+      /* Connection page */
+      .connection-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .panel {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 24px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--card);
+      }
+      .panel > * {
+        max-width: 100%;
+      }
+      .panel p {
+        font-size: 14px;
+        color: var(--muted-foreground);
+      }
+      .panel p + p {
+        margin-top: -8px;
       }
       .codebox {
         display: flex;
         align-items: center;
-        gap: 10px;
-        background: #070707;
-        border: 1px solid var(--border);
-        padding: 12px 14px;
-        border-radius: 9px;
-        margin: 18px 0;
-        word-break: break-all;
-        font-size: 13px;
+        gap: 8px;
+        width: 100%;
+        height: 36px;
+        padding: 0 2px 0 12px;
+        border: 1px solid var(--input);
+        border-radius: var(--radius-md);
+        background: var(--input-fill);
       }
       .codebox code {
-        font-family: var(--font-mono);
-        font-size: 12px;
         flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: var(--font-mono);
+        font-size: 13px;
       }
-      .codebox button {
-        padding: 6px;
-        min-width: 36px;
-        min-height: 36px;
+      .panel-tags {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
       }
       .steps {
-        padding-left: 18px;
-        margin: 15px 0 0;
-        line-height: 1.8;
-        color: #bcbcbc;
-        font-size: 13px;
+        display: grid;
+        gap: 8px;
+        margin: 0;
+        padding-left: 20px;
+        font-size: 14px;
       }
-      .steps li + li {
-        margin-top: 10px;
+      .steps ::marker {
+        color: var(--muted-foreground);
       }
-      .panel .row {
-        margin-top: 20px;
+      .steps strong {
+        font-weight: 500;
       }
+
+      /* Generic states */
       .state-card {
-        background: var(--card);
+        padding: 48px 24px;
         border: 1px solid var(--border);
-        padding: 55px 24px;
+        border-radius: var(--radius-xl);
+        background: var(--card);
         text-align: center;
-        border-radius: var(--radius);
       }
       .state-card h2 {
-        margin-bottom: 10px;
+        margin-bottom: 8px;
       }
       .state-card p {
-        color: var(--muted-foreground);
-        font-size: 13px;
         max-width: 440px;
-        margin: 0 auto 20px;
+        margin: 0 auto 24px;
+        font-size: 14px;
+        color: var(--muted-foreground);
       }
+      .footnote {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+        padding-bottom: 8px;
+        font-size: 12px;
+        line-height: 16px;
+        color: var(--muted-foreground);
+      }
+      .loading-mark {
+        width: 12px;
+        height: 12px;
+        flex-shrink: 0;
+        border: 2px solid rgb(255 255 255 / 20%);
+        border-top-color: var(--foreground);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Toast (sonner) */
       .toast {
         position: fixed;
+        right: 24px;
         bottom: 24px;
-        left: calc(50% + 115px);
-        transform: translateX(-50%);
-        padding: 12px 18px;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        background: #262626;
-        box-shadow: 0 10px 30px #0007;
-        max-width: 90%;
         z-index: 100;
-        font-size: 13px;
+        max-width: 360px;
+        padding: 12px 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--popover);
+        box-shadow: var(--shadow-lg);
+        font-size: 14px;
         opacity: 1;
+        transform: translateY(0);
         transition:
           opacity var(--duration-ui) var(--ease-out),
           transform var(--duration-ui) var(--ease-out),
@@ -935,117 +1229,78 @@
       }
       .toast[hidden] {
         opacity: 0;
-        transform: translate(-50%, 8px);
+        transform: translateY(8px);
       }
+
+      /* Login */
       .login-screen {
-        min-height: 100dvh;
         display: grid;
         place-items: center;
-        padding: 28px;
+        min-height: 100dvh;
+        padding: 24px;
       }
       .login-card {
-        width: min(100%, 410px);
-      }
-      .login-card .brand {
-        margin-bottom: 48px;
-      }
-      .login-card h1 {
-        font-size: 28px;
-        margin-bottom: 10px;
-      }
-      .login-card > p {
-        color: var(--muted-foreground);
-        font-size: 14px;
-        margin-bottom: 28px;
-      }
-      .login-card label {
-        display: block;
-        font-size: 13px;
-        margin-bottom: 9px;
-      }
-      .login-card input {
-        min-height: 48px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        width: min(100%, 384px);
+        padding: 24px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
         background: var(--card);
+      }
+      .login-header {
+        display: grid;
+        gap: 6px;
+      }
+      .login-header p {
+        font-size: 14px;
+        color: var(--muted-foreground);
       }
       .login-card .primary {
         width: 100%;
-        margin-top: 16px;
-        min-height: 46px;
       }
-      .login-help {
-        margin-top: 24px;
-        font-size: 12px;
-        color: var(--muted-foreground);
-        line-height: 1.7;
-      }
-      .form-error {
-        font-size: 12px;
-        color: var(--destructive);
-        margin-top: 12px;
-        line-height: 1.5;
-      }
-      .login-card .privacy {
-        margin-top: 45px;
+      .privacy {
+        padding-top: 16px;
         border-top: 1px solid var(--border);
-        padding-top: 18px;
-        color: var(--muted-foreground);
         font-size: 12px;
+        line-height: 16px;
+        color: var(--muted-foreground);
       }
-      .mobile-toggle {
-        display: none;
-      }
-      .nav-scrim {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: #0009;
-        border: 0;
-        border-radius: 0;
-        z-index: 19;
-        width: 100%;
-        height: 100%;
-        padding: 0;
-        opacity: 1;
-        transition:
-          opacity var(--duration-panel) var(--ease-out),
-          display var(--duration-panel) allow-discrete;
-      }
-      .nav-scrim[hidden] {
-        opacity: 0;
-        pointer-events: none;
-      }
-      .nav-scrim:hover {
-        background: #0009;
-      }
+
+      /* Dialog */
       dialog {
-        background: #151515;
-        color: var(--foreground);
-        border: 1px solid #343434;
-        border-radius: 14px;
-        padding: 28px;
-        width: min(500px, calc(100% - 28px));
+        flex-direction: column;
+        gap: 16px;
+        width: min(512px, calc(100% - 32px));
         max-height: 90dvh;
+        padding: 24px;
         overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--background);
+        color: var(--foreground);
+        box-shadow: var(--shadow-lg);
         opacity: 0;
-        transform: scale(0.96);
+        transform: scale(0.95);
         transition:
-          opacity var(--duration-panel) var(--ease-out),
-          transform var(--duration-panel) var(--ease-out),
-          display var(--duration-panel) allow-discrete,
-          overlay var(--duration-panel) allow-discrete;
+          opacity var(--duration-ui) var(--ease-out),
+          transform var(--duration-ui) var(--ease-out),
+          display var(--duration-ui) allow-discrete,
+          overlay var(--duration-ui) allow-discrete;
       }
       dialog[open] {
+        display: flex;
         opacity: 1;
         transform: scale(1);
       }
       dialog::backdrop {
-        background: #000b;
-        backdrop-filter: blur(4px);
+        background: rgb(0 0 0 / 50%);
         opacity: 0;
         transition:
-          opacity var(--duration-panel) var(--ease-out),
-          display var(--duration-panel) allow-discrete,
-          overlay var(--duration-panel) allow-discrete;
+          opacity var(--duration-ui) var(--ease-out),
+          display var(--duration-ui) allow-discrete,
+          overlay var(--duration-ui) allow-discrete;
       }
       dialog[open]::backdrop {
         opacity: 1;
@@ -1054,10 +1309,83 @@
       dialog:not([open])::backdrop {
         pointer-events: none;
       }
+      .dialog-close {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        color: var(--muted-foreground);
+      }
+      .dialog-close:hover {
+        color: var(--foreground);
+      }
+      .dialog-header {
+        display: grid;
+        gap: 8px;
+        padding-right: 32px;
+      }
+      .dialog-header h2 {
+        font-size: 18px;
+        line-height: 24px;
+        font-weight: 600;
+      }
+      .dialog-description {
+        font-size: 14px;
+        color: var(--muted-foreground);
+      }
+      .dialog-body {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .dialog-body > a.button {
+        width: fit-content;
+      }
+      .dialog-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .oauth-pending {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--warning);
+      }
+
+      /* Mobile navigation scrim */
+      .nav-scrim {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 19;
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: rgb(0 0 0 / 50%);
+        opacity: 1;
+        transition:
+          opacity var(--duration-panel) var(--ease-out),
+          display var(--duration-panel) allow-discrete;
+      }
+      .nav-scrim:hover {
+        background: rgb(0 0 0 / 50%);
+      }
+      .nav-scrim:active {
+        transform: none;
+      }
+      .nav-scrim[hidden] {
+        opacity: 0;
+        pointer-events: none;
+      }
+
       @starting-style {
         dialog[open] {
           opacity: 0;
-          transform: scale(0.96);
+          transform: scale(0.95);
         }
         dialog[open]::backdrop,
         .nav-scrim {
@@ -1065,224 +1393,66 @@
         }
         .toast {
           opacity: 0;
-          transform: translate(-50%, 8px);
+          transform: translateY(8px);
         }
       }
-      html[data-input="keyboard"] {
-        --duration-fast: 0ms;
-        --duration-ui: 0ms;
-        --duration-panel: 0ms;
-      }
-      dialog h2 {
-        font-size: 20px;
-        margin-bottom: 10px;
-      }
-      dialog p {
-        font-size: 13px;
-        color: var(--muted-foreground);
-        margin-bottom: 18px;
-      }
-      dialog .dialog-top {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 15px;
-      }
-      dialog .close {
-        min-width: 32px;
-        min-height: 32px;
-        padding: 6px;
-        margin: -8px -8px 0 0;
-        background: transparent;
-      }
-      dialog label {
-        display: block;
-        font-size: 13px;
-        margin-bottom: 8px;
-      }
-      dialog select {
-        width: 100%;
-        margin-bottom: 18px;
-      }
-      dialog .dialog-actions {
-        display: flex;
-        gap: 8px;
-        justify-content: flex-end;
-        margin-top: 24px;
-      }
-      .oauth-url {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        margin: 4px 0 18px;
-      }
-      .oauth-pending {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        font-size: 12px;
-        color: var(--warning);
-        margin-top: 14px;
-      }
-      .loading-mark {
-        width: 12px;
-        height: 12px;
-        border: 1.5px solid #777;
-        border-top-color: #eee;
-        border-radius: 100%;
-        animation: spin 1s linear infinite;
-      }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
-          animation: none !important;
-          transition: none !important;
-        }
-      }
-      .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-      }
-      @media (min-width: 1600px) {
-        .shell {
-          padding: 48px 48px;
-        }
-        .sidebar {
-          width: 250px;
-        }
-        .shell {
-          margin-left: 250px;
-        }
-        .plot svg {
-          height: 290px;
-        }
-        .pool {
-          padding: 26px 28px 18px;
-        }
-        .topbar {
-          margin-bottom: 32px;
-        }
-        .metrics {
-          gap: 48px;
-        }
-      }
+
       @media (max-width: 1100px) {
-        .sidebar {
-          width: 200px;
-        }
-        .shell {
-          margin-left: 200px;
-          padding: 28px 22px;
-        }
         .metrics {
-          gap: 20px;
+          gap: 24px;
         }
         .account-row {
-          grid-template-columns: 1.2fr 1fr 1.2fr 70px;
-          gap: 12px;
-          padding: 18px 16px;
+          grid-template-columns:
+            minmax(160px, 1.2fr) minmax(140px, 1fr) minmax(160px, 1.2fr)
+            auto;
+          gap: 16px;
         }
         .connection-grid {
-          grid-template-columns: 1fr;
-        }
-        .heading {
-          gap: 10px;
-        }
-        .actions button {
-          font-size: 12px;
-          padding: 10px 12px;
-        }
-        .topbar {
-          gap: 15px;
-        }
-        .toast {
-          left: calc(50% + 100px);
+          grid-template-columns: minmax(0, 1fr);
         }
       }
+
       @media (max-width: 760px) {
-        .controls {
-          gap: 12px;
+        .sidebar {
+          width: min(var(--sidebar-width), 85vw);
+          transform: translateX(-100%);
+          transition:
+            transform var(--duration-panel) var(--ease-drawer),
+            box-shadow var(--duration-panel) var(--ease-drawer);
         }
-        .controls .control-group {
-          gap: 8px;
-        }
-        .controls .range-group {
-          margin-left: 0;
-        }
-        .controls .forecast-control {
-          margin-left: auto;
-        }
-        .controls .segmented {
-          padding: 2px;
-        }
-        .controls .segmented button {
-          padding: 7px 12px;
-        }
-        .controls .burn-control {
-          order: 3;
-        }
-        .controls .range-group {
-          order: 2;
-          margin-left: auto;
-        }
-        .controls .forecast-control {
-          order: 4;
-        }
-        .chart-tooltip {
-          top: 16px;
-          min-width: 140px;
+        .sidebar.open {
+          transform: translateX(0);
+          box-shadow: 32px 0 80px rgb(0 0 0 / 60%);
         }
         .nav-scrim {
           display: block;
         }
-        .sidebar {
-          width: 230px;
-          transform: translateX(-100%);
-          transition: transform var(--duration-panel) var(--ease-drawer);
-          box-shadow: 30px 0 80px #000a;
-        }
-        .sidebar.open {
-          transform: translateX(0);
-        }
         .shell {
           margin-left: 0;
-          padding: 23px 18px;
+          padding: 16px;
+        }
+        .topbar {
+          flex-wrap: nowrap;
+          align-items: flex-start;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+        .heading {
+          flex: 1;
+          min-width: 0;
+          gap: 4px 8px;
         }
         .mobile-toggle {
           display: inline-flex;
-          background: transparent;
-          padding: 6px;
-          min-width: 38px;
-          min-height: 38px;
-          margin-left: -6px;
+          align-self: center;
+          width: 40px;
+          height: 40px;
+          margin-left: -8px;
         }
-        .heading {
-          gap: 10px;
-        }
-        h1 {
-          font-size: 23px;
-        }
-        .heading .muted {
-          width: 100%;
-          margin-left: 42px;
-          font-size: 12px;
-        }
-        .topbar {
-          margin-bottom: 22px;
-          align-items: flex-start;
+        .page-meta {
+          flex-basis: 100%;
+          padding-left: 40px;
+          font-size: 13px;
         }
         .actions {
           margin-left: auto;
@@ -1291,92 +1461,94 @@
           display: none;
         }
         .actions button {
-          min-width: 44px;
-          min-height: 44px;
-          padding: 9px;
-        }
-        .provider-tabs {
-          margin-bottom: 13px;
+          width: 40px;
+          height: 40px;
+          padding: 0;
         }
         .provider-tabs button {
-          padding: 10px 12px;
+          height: 40px;
         }
         .controls {
-          gap: 9px;
+          gap: 8px 12px;
         }
-        .controls label {
-          font-size: 12px;
+        .segmented {
+          height: 40px;
+          padding: 2px;
+        }
+        .segmented button {
+          height: 36px;
+          padding: 0 12px;
         }
         .controls select {
-          padding: 7px 25px 7px 10px;
-          min-height: 36px;
+          height: 40px;
         }
-        .controls .segmented button {
-          font-size: 12px;
-          padding: 7px 11px;
-          min-height: 44px;
+        .controls .range-group {
+          order: 2;
+          margin-left: auto;
         }
-        .time-note {
-          width: 100%;
-          margin-left: 0;
-          margin-top: 3px;
+        .controls .burn-control {
+          order: 3;
+        }
+        .controls .forecast-control {
+          order: 4;
+          margin-left: auto;
+        }
+        .notice {
+          align-items: flex-start;
+          flex-wrap: wrap;
+          padding: 12px;
+        }
+        .notice > span {
+          flex: 1;
+          min-width: 0;
         }
         .pool {
-          padding: 18px 16px 12px;
-        }
-        .pool-top {
-          gap: 9px;
+          padding: 16px 16px 4px;
         }
         .pool-top select {
-          width: 100%;
+          order: 1;
+          flex-basis: 100%;
           max-width: none;
-          margin-top: 2px;
-        }
-        .pool-top .muted {
-          font-size: 12px;
+          margin: 4px 0 0;
         }
         .pool-total {
           gap: 16px;
-          margin-top: 17px;
         }
         .big-number {
-          font-size: 37px;
+          font-size: 32px;
         }
         .metrics {
-          gap: 18px;
-          justify-content: space-between;
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           width: 100%;
+          gap: 12px;
         }
         .metric {
           min-width: 0;
-          flex: 1;
-          font-size: 12px;
         }
-        .metric dt {
-          font-size: 11px;
-        }
-        .metric:last-child {
-          text-align: right;
+        .metric dd {
+          font-size: 13px;
         }
         .plot {
           margin-top: 12px;
         }
         .plot svg {
-          height: 205px;
+          height: 200px;
+        }
+        .chart-tooltip {
+          top: 16px;
+          min-width: 140px;
         }
         .chart-empty {
-          top: 25%;
-          left: 13%;
-          right: 2%;
+          top: 24%;
+          left: 12%;
+          right: 4%;
         }
         .chart-empty p {
-          font-size: 11px;
-        }
-        .chart-empty strong {
           font-size: 12px;
+          line-height: 16px;
         }
         .chart-caption {
-          font-size: 11px;
           gap: 12px;
         }
         .chart-inspect {
@@ -1384,68 +1556,64 @@
           margin-left: 0;
         }
         .mini-account {
-          grid-template-columns: minmax(100px, 1fr) 75px 55px;
+          grid-template-columns: minmax(0, 1fr) auto 56px;
           gap: 8px;
         }
         .mini-account .meter {
           display: none;
         }
-        .notice {
-          align-items: flex-start;
-          font-size: 12px;
-          padding: 12px;
-          gap: 8px;
-        }
-        .notice .icon {
-          width: 15px;
-          height: 15px;
-          margin-top: 2px;
-        }
-        .notice button {
-          font-size: 12px;
-          padding: 0;
-          line-height: 1.4;
-          min-height: 36px;
-        }
-        .footnote {
-          font-size: 11px;
-        }
         .account-row {
-          grid-template-columns: 1fr auto;
-          gap: 16px;
-          padding: 18px;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 12px 16px;
         }
         .account-row .account-identity {
-          grid-column: 1/-1;
+          grid-column: 1 / -1;
         }
         .account-row .account-quota {
           grid-row: 2;
           grid-column: 1;
         }
-        .account-row .account-status {
-          grid-row: 3;
-          grid-column: 1/-1;
-        }
-        .account-row button {
+        .account-row > button {
           grid-row: 2;
           grid-column: 2;
         }
+        .account-row .account-status {
+          grid-row: 3;
+          grid-column: 1 / -1;
+        }
+        .panel {
+          padding: 16px;
+        }
+        .dialog-footer {
+          flex-direction: column-reverse;
+        }
+        .dialog-footer button {
+          width: 100%;
+        }
         .toast {
+          right: auto;
           left: 50%;
           bottom: 16px;
           width: max-content;
+          max-width: calc(100% - 32px);
+          transform: translate(-50%, 0);
         }
-        .panel {
-          padding: 20px;
+        .toast[hidden] {
+          transform: translate(-50%, 8px);
         }
-        .login-card .brand {
-          margin-bottom: 40px;
+        @starting-style {
+          .toast {
+            transform: translate(-50%, 8px);
+          }
         }
-        .plot text {
-          font-size: 10px;
-        }
-        .sidebar .brand {
-          margin-bottom: 30px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
         }
       }
     </style>
@@ -1856,27 +2024,33 @@
     </svg>
     <section id="login" class="login-screen" hidden>
       <form id="login-form" class="login-card">
-        <div class="brand">
-          <svg aria-hidden="true"><use href="#prox-brand" /></svg>prox
-          <span class="brand-sub">/ Batman</span>
+        <div class="login-brand">
+          <span class="brand-mark"
+            ><svg aria-hidden="true"><use href="#prox-brand" /></svg></span
+          ><span class="brand-text"
+            ><strong>prox</strong><span>Batman</span></span
+          >
         </div>
-        <h1>Your accounts. One place.</h1>
-        <p>See what’s left across your Codex and Antigravity accounts.</p>
-        <label for="management-key">Management key</label
-        ><input
-          id="management-key"
-          name="password"
-          type="password"
-          autocomplete="current-password"
-          required
-          aria-describedby="login-error"
-        />
+        <header class="login-header">
+          <h1>Your accounts. One place.</h1>
+          <p>See what’s left across your Codex and Antigravity accounts.</p>
+        </header>
+        <div class="field">
+          <label for="management-key">Management key</label
+          ><input
+            id="management-key"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+            aria-describedby="management-key-help login-error"
+          />
+          <p class="field-description" id="management-key-help">
+            Same key as the original CLIProxyAPI panel. Sign-in lasts 12 hours.
+          </p>
+        </div>
         <p id="login-error" class="form-error" role="alert" hidden></p>
         <button class="primary" type="submit">Open dashboard</button>
-        <div class="login-help">
-          Use the same key as the original CLIProxyAPI panel.<br />Sign-in lasts
-          12 hours on this browser.
-        </div>
         <p class="privacy">
           Private on your Tailscale network. Your account tokens stay on Batman.
         </p>
@@ -1890,41 +2064,51 @@
         hidden
       ></button>
       <aside id="sidebar" class="sidebar" aria-label="Main navigation">
-        <a class="brand" href="#quotas"
-          ><svg aria-hidden="true"><use href="#prox-brand" /></svg>prox
-          <span class="brand-sub">/ Batman</span></a
-        >
-        <nav class="nav">
-          <a href="#quotas" data-page="quotas"
-            ><svg class="icon"><use href="#i-gauge" /></svg>Quota management</a
-          ><a href="#accounts" data-page="accounts"
-            ><svg class="icon"><use href="#i-accounts" /></svg>Accounts
-            <span class="count" id="nav-account-count"></span></a
-          ><a href="#connection" data-page="connection"
-            ><svg class="icon"><use href="#i-link" /></svg>Connection</a
+        <div class="sidebar-header">
+          <a class="brand" href="#quotas"
+            ><span class="brand-mark"
+              ><svg aria-hidden="true"><use href="#prox-brand" /></svg></span
+            ><span class="brand-text"
+              ><strong>prox</strong><span>Batman</span></span
+            ></a
           >
-          <div class="divider"></div>
-          <a href="/management.html" target="_blank" rel="noopener"
-            ><svg class="icon"><use href="#i-out" /></svg>Original panel</a
-          >
+        </div>
+        <nav class="sidebar-content">
+          <div class="sidebar-group">
+            <a class="sidebar-item" href="#quotas" data-page="quotas"
+              ><svg class="icon" aria-hidden="true"><use href="#i-gauge" /></svg
+              ><span>Quota management</span></a
+            ><a class="sidebar-item" href="#accounts" data-page="accounts"
+              ><svg class="icon" aria-hidden="true">
+                <use href="#i-accounts" /></svg
+              ><span>Accounts</span
+              ><span class="sidebar-badge" id="nav-account-count"></span></a
+            ><a class="sidebar-item" href="#connection" data-page="connection"
+              ><svg class="icon" aria-hidden="true"><use href="#i-link" /></svg
+              ><span>Connection</span></a
+            >
+          </div>
+          <div class="sidebar-separator"></div>
+          <div class="sidebar-group">
+            <a
+              class="sidebar-item"
+              href="/management.html"
+              target="_blank"
+              rel="noopener"
+              ><svg class="icon" aria-hidden="true"><use href="#i-out" /></svg
+              ><span>Original panel</span></a
+            >
+          </div>
         </nav>
-        <div class="sidebar-bottom">
-          <div>
+        <div class="sidebar-footer">
+          <div class="sidebar-status">
             <span class="status-dot" id="connection-dot"></span
             ><span id="connection-status">Connecting to Batman</span>
           </div>
-          <p>Quota checks every 5 minutes</p>
-          <button
-            class="plain"
-            id="logout"
-            style="
-              padding: 10px 0;
-              margin-top: 12px;
-              font-size: 12px;
-              color: var(--muted-foreground);
-            "
-          >
-            <svg class="icon"><use href="#i-logout" /></svg>Sign out
+          <p class="sidebar-note">Quota checks every 5 minutes</p>
+          <button id="logout" class="sidebar-item">
+            <svg class="icon" aria-hidden="true"><use href="#i-logout" /></svg
+            ><span>Sign out</span>
           </button>
         </div>
       </aside>
@@ -1933,25 +2117,19 @@
           <div class="heading">
             <button
               id="menu"
-              class="mobile-toggle"
+              class="ghost icon-btn mobile-toggle"
               aria-label="Toggle navigation"
               aria-expanded="false"
             >
-              <svg class="icon"><use href="#i-menu" /></svg>
+              <svg class="icon" aria-hidden="true"><use href="#i-menu" /></svg>
             </button>
             <h1 id="page-title">Quota management</h1>
-            <span class="muted" id="page-meta">Connecting…</span>
+            <span class="page-meta" id="page-meta">Connecting…</span>
           </div>
           <div class="actions">
-            <button
-              id="toggle-emails"
-              aria-pressed="false"
-              title="Show email addresses"
-            >
-              <svg class="icon"><use href="#i-eye" /></svg
-              ><span class="button-label">Show emails</span></button
-            ><button id="refresh" class="primary" title="Refresh all quotas">
-              <svg class="icon"><use href="#i-refresh" /></svg
+            <button id="refresh" class="outline" title="Refresh all quotas">
+              <svg class="icon" aria-hidden="true">
+                <use href="#i-refresh" /></svg
               ><span class="button-label">Refresh all quotas</span>
             </button>
           </div>
@@ -1961,50 +2139,69 @@
       </main>
     </div>
     <div id="toast" class="toast" role="status" hidden></div>
-    <dialog id="oauth-dialog" aria-labelledby="oauth-title">
-      <div class="dialog-top">
+    <dialog
+      id="oauth-dialog"
+      aria-labelledby="oauth-title"
+      aria-describedby="oauth-description"
+    >
+      <button
+        class="dialog-close ghost icon-btn sm"
+        id="oauth-close"
+        aria-label="Close"
+      >
+        <svg class="icon" aria-hidden="true"><use href="#i-close" /></svg>
+      </button>
+      <header class="dialog-header">
         <h2 id="oauth-title">Add an account</h2>
-        <button class="close" id="oauth-close" aria-label="Close sign-in">
-          <svg class="icon"><use href="#i-close" /></svg>
-        </button>
-      </div>
-      <div id="oauth-choose">
-        <p>
+        <p class="dialog-description" id="oauth-description">
           Sign in once. The proxy adds the account to its pool automatically.
         </p>
-        <label for="oauth-provider">Provider</label
-        ><select id="oauth-provider">
-          <option value="codex">Codex</option>
-          <option value="antigravity">Antigravity</option></select
-        ><button id="oauth-start" class="primary">Continue to sign-in</button>
+      </header>
+      <div id="oauth-choose" class="dialog-body">
+        <div class="field">
+          <label for="oauth-provider">Provider</label
+          ><select id="oauth-provider">
+            <option value="codex">Codex</option>
+            <option value="antigravity">Antigravity</option>
+          </select>
+        </div>
+        <footer class="dialog-footer">
+          <button type="button" class="outline" data-dialog-cancel>
+            Cancel</button
+          ><button id="oauth-start" class="primary">Continue</button>
+        </footer>
       </div>
-      <div id="oauth-flow" hidden>
-        <p>Open the sign-in page and choose the account you want to add.</p>
+      <div id="oauth-flow" class="dialog-body" hidden>
         <a
           id="oauth-url"
-          class="primary oauth-url"
+          class="button outline"
           target="_blank"
           rel="noopener noreferrer"
-          style="padding: 11px 15px; border-radius: 8px"
-          >Open sign-in page <svg class="icon"><use href="#i-out" /></svg
+          >Open sign-in page
+          <svg class="icon" aria-hidden="true"><use href="#i-out" /></svg
         ></a>
-        <p>
-          If the final page cannot connect to localhost, copy its full address
-          and paste it below.
-        </p>
-        <label for="oauth-callback">Callback address</label
-        ><input
-          id="oauth-callback"
-          type="url"
-          placeholder="http://localhost:…/callback?code=…"
-          autocomplete="off"
-        />
-        <div class="dialog-actions">
-          <button id="oauth-submit">Complete sign-in</button>
+        <div class="field">
+          <label for="oauth-callback">Callback address</label
+          ><input
+            id="oauth-callback"
+            type="url"
+            placeholder="http://localhost:…/callback?code=…"
+            autocomplete="off"
+            aria-describedby="oauth-callback-help"
+          />
+          <p class="field-description" id="oauth-callback-help">
+            If the final page can’t reach localhost, paste its full address
+            here.
+          </p>
         </div>
         <div id="oauth-status" class="oauth-pending" role="status">
           <span class="loading-mark"></span>Waiting for sign-in
         </div>
+        <footer class="dialog-footer">
+          <button type="button" class="outline" data-dialog-cancel>
+            Cancel</button
+          ><button id="oauth-submit" class="primary">Complete sign-in</button>
+        </footer>
       </div>
       <p id="oauth-error" class="form-error" role="alert" hidden></p>
     </dialog>
@@ -2037,7 +2234,6 @@
         burn: 3,
         view: "remaining",
         forecast: true,
-        emails: false,
         windows: {},
         charts: {},
         session: false,
@@ -2182,10 +2378,11 @@
           const active = $("button.active", group);
           if (!active) return;
           const x = active.offsetLeft,
-            y = active.offsetTop;
+            y = active.offsetTop,
+            radius = parseFloat(getComputedStyle(active).borderRadius) || 0;
           group.style.setProperty(
             "--indicator-clip",
-            `inset(${y}px ${group.clientWidth - x - active.offsetWidth}px ${group.clientHeight - y - active.offsetHeight}px ${x}px round ${group.classList.contains("segmented") ? 7 : 9}px)`,
+            `inset(${y}px ${group.clientWidth - x - active.offsetWidth}px ${group.clientHeight - y - active.offsetHeight}px ${x}px round ${radius}px)`,
           );
           if (!group.hasAttribute("data-motion-indicator")) {
             group.dataset.motionIndicator = "initial";
@@ -2275,9 +2472,11 @@
         return n === 0 ? "just now" : `${n}m ago`;
       }
       function accountLabel(a, i) {
-        if (state.emails && a.email) return a.email;
-        return `${pName(a.provider)} account ${i + 1}`;
+        return a.email || `${pName(a.provider)} account ${i + 1}`;
       }
+      // Single-choice groups use a roving tab stop: only the active button is tabbable.
+      const choice = (active) =>
+        `class="${active ? "active" : ""}" aria-pressed="${active}" tabindex="${active ? 0 : -1}"`;
       function status(a) {
         if (a.disabled) return ["Paused", ""];
         if (a.requires_sign_in) return ["Sign-in needed", "bad"];
@@ -2306,14 +2505,14 @@
         );
       }
       function tabs() {
-        return `<div class="provider-tabs" aria-label="Filter provider">${[
+        return `<div class="provider-tabs" role="group" aria-label="Filter provider">${[
           ["all", "All"],
           ["codex", "Codex"],
           ["antigravity", "Antigravity"],
         ]
           .map(
             ([p, n]) =>
-              `<button data-filter="${p}" class="${state.provider === p ? "active" : ""}" aria-pressed="${state.provider === p}">${p === "all" ? icon("all") : providerIcon(p)}${n}<span class="count">${filteredAccounts(p).length}</span></button>`,
+              `<button data-filter="${p}" ${choice(state.provider === p)}>${p === "all" ? icon("all") : providerIcon(p)}${n}<span class="count">${filteredAccounts(p).length}</span></button>`,
           )
           .join("")}</div>`;
       }
@@ -2482,7 +2681,8 @@
             ($("#page-body").clientWidth || 1000) -
               (innerWidth <= 760 ? 34 : 50),
           ),
-          H = 230,
+          // Matches the CSS svg height so the chart is never stretched.
+          H = innerWidth <= 760 ? 200 : 240,
           left = 46,
           right = 10,
           top = 30,
@@ -2491,7 +2691,19 @@
           left + ((t - start) / (end - start)) * (W - left - right);
         const y = (v) =>
           H - bottom - (v / Math.max(cap, 100)) * (H - top - bottom);
-        state.charts[p] = { points, forecast, start, end, cap, x, y, W, H };
+        state.charts[p] = {
+          points,
+          forecast,
+          start,
+          end,
+          cap,
+          x,
+          y,
+          W,
+          H,
+          left,
+          right,
+        };
         const path = (arr) =>
           arr
             .map(
@@ -2545,7 +2757,7 @@
           items = usableWindows(accounts, metric);
         const rates = items.map(({ a }) => drainFor(a, metric, now));
         const ready = rates.every((r) => r !== null) && rates.length;
-        return `<div class="state-card" style="border:0;padding:40px 15px;margin:18px 0"><div class="big-number">${ready ? fmtPct(rates.reduce((s, r) => s + r, 0)) : "—"}<small>/ hour</small></div><p style="margin-top:12px;margin-bottom:0">${ready ? `Measured consumption over the last ${state.burn} hours. Quota reset increases are excluded.` : "Drain rate will appear after at least 10 minutes of samples. No usage rate is assumed before then."}</p></div>`;
+        return `<div class="rate-card"><div class="big-number">${ready ? fmtPct(rates.reduce((s, r) => s + r, 0)) : "—"}<small>/ hour</small></div><p>${ready ? `Measured consumption over the last ${state.burn} hours. Quota reset increases are excluded.` : "Drain rate will appear after at least 10 minutes of samples. No usage rate is assumed before then."}</p></div>`;
       }
       function pool(p) {
         const accounts = filteredAccounts(p);
@@ -2578,11 +2790,12 @@
         const restricted = accounts.filter(
           (a) => status(a)[0] === "Model restriction",
         ).length;
-        return `<section class="pool ${p === "antigravity" ? "agy" : ""}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span><label class="sr-only" for="window-${p}">Quota window for ${pName(p)}</label><select id="window-${p}" data-window="${p}" ${list.length ? "" : "disabled"}>${list.length ? list.map((w) => `<option value="${esc(w.id)}" ${metric === w.id ? "selected" : ""}>${esc(w.label)}</option>`).join("") : "<option>Quota unavailable</option>"}</select></div><div class="pool-total"><div><div class="big-number">${items.length ? fmtPct(sum) : "—"}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history"}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${next ? esc(relative(next)) : "Not reported"}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${rate !== null ? fmtPct(rate) + "/h" : "—"}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<details ${state.page === "accounts" ? "open" : ""}><summary>${icon("chevron", "chevron")}Account breakdown<span class="grow"></span><span>${items.length}/${accounts.length} quotas measured</span></summary><div class="mini-accounts">${accounts
+        return `<section class="pool ${p === "antigravity" ? "agy" : ""}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span><label class="sr-only" for="window-${p}">Quota window for ${pName(p)}</label><select id="window-${p}" class="sm" data-window="${p}" ${list.length ? "" : "disabled"}>${list.length ? list.map((w) => `<option value="${esc(w.id)}" ${metric === w.id ? "selected" : ""}>${esc(w.label)}</option>`).join("") : "<option>Quota unavailable</option>"}</select></div><div class="pool-total"><div><div class="big-number">${items.length ? fmtPct(sum) : "—"}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history"}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${next ? esc(relative(next)) : "Not reported"}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${rate !== null ? fmtPct(rate) + "/h" : "—"}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<details ${state.page === "accounts" ? "open" : ""}><summary>${icon("chevron", "chevron")}Account breakdown<span class="grow"></span><span>${items.length}/${accounts.length} quotas measured</span></summary><div class="mini-accounts">${accounts
           .map((a, i) => {
             const w = a.windows.find((w) => w.id === metric),
               [s, c] = status(a);
-            return `<div class="mini-account" data-account="${esc(a.id)}"><span style="overflow-wrap:anywhere">${esc(accountLabel(a, i))}<span class="muted" style="display:block;margin-top:3px">${esc(planLabel(a.plan))}</span></span><span class="tag ${c}">${s}</span><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span style="text-align:right">${w ? fmtPct(w.remaining) : "—"}</span></div>`;
+            const label = accountLabel(a, i);
+            return `<div class="mini-account" data-account="${esc(a.id)}"><span class="mini-name"><span class="mini-label" title="${esc(label)}">${esc(label)}</span><span class="mini-plan">${esc(planLabel(a.plan))}</span></span><span class="tag ${c}">${s}</span><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="mini-value">${w ? fmtPct(w.remaining) : "—"}</span></div>`;
           })
           .join("")}</div></details></section>`;
       }
@@ -2603,18 +2816,18 @@
         const restricted = state.data.accounts.filter((a) =>
           a.cooldowns.some((c) => c.reason === "model_not_supported"),
         );
-        return `${tabs()}<div class="controls"><div class="segmented" aria-label="Chart metric"><button data-view="remaining" class="${state.view === "remaining" ? "active" : ""}" aria-pressed="${state.view === "remaining"}">Remaining</button><button data-view="drain" class="${state.view === "drain" ? "active" : ""}" aria-pressed="${state.view === "drain"}">Drain rate</button></div><div class="control-group burn-control"><span class="toolbar-label">Burn</span><div class="segmented" aria-label="Burn rate lookback">${[1, 3, 6].map((h) => `<button data-burn="${h}" class="${state.burn === h ? "active" : ""}" aria-pressed="${state.burn === h}">${h}h</button>`).join("")}</div></div><label class="forecast-control">Future usage <select id="forecast"><option value="on" ${state.forecast ? "selected" : ""}>Same as recent</option><option value="off" ${!state.forecast ? "selected" : ""}>Hide forecast</option></select></label><div class="control-group range-group"><div class="segmented" aria-label="Chart time range">${[
+        return `${tabs()}<div class="controls"><div class="segmented" role="group" aria-label="Chart metric"><button data-view="remaining" ${choice(state.view === "remaining")}>Remaining</button><button data-view="drain" ${choice(state.view === "drain")}>Drain rate</button></div><div class="control-group burn-control"><span class="toolbar-label">Burn</span><div class="segmented" role="group" aria-label="Burn rate lookback">${[1, 3, 6].map((h) => `<button data-burn="${h}" ${choice(state.burn === h)}>${h}h</button>`).join("")}</div></div><label class="forecast-control">Future usage <select id="forecast" class="sm"><option value="on" ${state.forecast ? "selected" : ""}>Same as recent</option><option value="off" ${!state.forecast ? "selected" : ""}>Hide forecast</option></select></label><div class="control-group range-group"><div class="segmented" role="group" aria-label="Chart time range">${[
           [24, "24h"],
           [168, "7d"],
           [336, "14d"],
         ]
           .map(
             ([h, l]) =>
-              `<button data-hours="${h}" class="${state.hours === h ? "active" : ""}" aria-pressed="${state.hours === h}">${l}</button>`,
+              `<button data-hours="${h}" ${choice(state.hours === h)}>${l}</button>`,
           )
           .join(
             "",
-          )}</div></div></div>${restricted.length && state.provider !== "antigravity" ? `<div class="notice">${icon("warning")}<span>${restricted.length} Codex account${restricted.length === 1 ? " has" : "s have"} a model restriction. Available quota does not guarantee access to every model.</span><button data-go="accounts">View accounts</button></div>` : ""}${[
+          )}</div></div></div>${restricted.length && state.provider !== "antigravity" ? `<div class="notice">${icon("warning")}<span>${restricted.length} Codex account${restricted.length === 1 ? " has" : "s have"} a model restriction. Available quota does not guarantee access to every model.</span><button data-go="accounts" class="ghost sm">View accounts</button></div>` : ""}${[
           "codex",
           "antigravity",
         ]
@@ -2625,21 +2838,22 @@
           )}<footer class="footnote"><span>Recorded on Batman. Forecasts are estimates; account selection is handled by the proxy.</span><span>Updated ${esc(age(state.data.updated_at))}</span></footer>`;
       }
       function accountsPage() {
-        return `${tabs()}<div class="row space wrap" style="margin-bottom:20px"><p class="muted small">Accounts share one endpoint. Paused accounts are excluded from rotation.</p><button class="primary" data-add>${icon("plus")}Add account</button></div><div class="account-list">${filteredAccounts()
+        return `${tabs()}<div class="page-toolbar"><p class="muted">Accounts share one endpoint. Paused accounts are excluded from rotation.</p><button class="primary" data-add>${icon("plus")}Add account</button></div><div class="account-list">${filteredAccounts()
           .map((a, i) => {
             const [s, c] = status(a),
               w =
                 a.windows.find((w) => w.id === "rate_limit:primary_window") ||
                 a.windows.find((w) => /flash/i.test(w.label)) ||
                 a.windows[0];
-            return `<article class="account-row" data-account="${esc(a.id)}"><div class="account-identity">${providerIcon(a.provider)}<div><div class="account-label">${esc(accountLabel(a, i))}</div><div class="small muted">${esc(planLabel(a.plan))} · ${pName(a.provider)}</div></div></div><div class="account-quota"><div class="quota-label">${w ? fmtPct(w.remaining) + " remaining" : "No quota reading"}</div><div class="meter" style="--pool-color:${a.provider === "codex" ? "var(--chart-1)" : "var(--chart-2)"}"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><p class="muted">${esc(age(a.quota_at))}${a.quota_error ? " · last known" : ""}</p></div><div class="account-status"><span class="tag ${c}">${s}</span><p class="muted">${esc(statusReason(a))}</p></div><button data-pause="${esc(a.id)}" data-disabled="${!a.disabled}" class="ghost">${a.disabled ? "Resume" : "Pause"}</button></article>`;
+            const label = accountLabel(a, i);
+            return `<article class="account-row ${a.provider === "codex" ? "" : "agy"}" data-account="${esc(a.id)}"><div class="account-identity">${providerIcon(a.provider)}<div class="account-name"><div class="account-label" title="${esc(label)}">${esc(label)}</div><div class="account-sub">${esc([planLabel(a.plan), pName(a.provider)].filter((v, n, all) => v && all.indexOf(v) === n).join(" · "))}</div></div></div><div class="account-quota"><div class="quota-label">${w ? fmtPct(w.remaining) + " remaining" : "No quota reading"}</div><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><p class="account-meta">${esc(age(a.quota_at))}${a.quota_error ? " · last known" : ""}</p></div><div class="account-status"><span class="tag ${c}">${s}</span><p class="account-reason">${esc(statusReason(a))}</p></div><button data-pause="${esc(a.id)}" data-disabled="${!a.disabled}" class="outline sm">${a.disabled ? "Resume" : "Pause"}</button></article>`;
           })
           .join(
             "",
-          )}</div><footer class="footnote" style="margin-top:18px"><span>Email addresses stay hidden until you choose to show them.</span><span>${state.data.accounts.reduce((s, a) => s + a.success, 0).toLocaleString()} successful requests</span></footer>`;
+          )}</div><footer class="footnote"><span>${state.data.accounts.reduce((s, a) => s + a.success, 0).toLocaleString()} successful requests</span></footer>`;
       }
       function connectionPage() {
-        return `<div class="connection-grid"><section class="panel"><h2>One endpoint for your accounts</h2><p>Use this private address from any device on your Tailscale network. Batman handles account selection and failover.</p><div class="codebox"><code>${esc(state.data.endpoint)}</code><button data-copy="endpoint" aria-label="Copy API endpoint">${icon("copy")}</button></div><p>Clients use the API key. This dashboard uses the management key.</p><div class="row"><span class="tag good">Tailscale HTTPS</span><span class="tag">Batman</span></div></section><section class="panel"><h2>Already connected in T3 Code</h2><ol class="steps"><li>Open a thread on <strong>Batman</strong>.</li><li>Choose <strong>Codex Proxy</strong> for GPT models or <strong>Antigravity Proxy</strong> for AGY models.</li><li>Use it normally. Add accounts here whenever needed.</li></ol></section><section class="panel"><h2>Routing</h2><p>The existing proxy uses round-robin selection, session affinity, and automatic failover. Limits and model access depend on each account.</p><p style="margin-top:12px">This dashboard observes quotas. It does not change the routing strategy.</p></section><section class="panel"><h2>Advanced settings</h2><p>Use the original panel for API keys, model settings, sign-in recovery, and proxy configuration.</p><a href="/management.html" target="_blank" rel="noopener" class="row" style="width:fit-content">Open original panel ${icon("out")}</a></section></div>`;
+        return `<div class="connection-grid"><section class="panel"><h2>One endpoint for your accounts</h2><p>Use this private address from any device on your Tailscale network. Batman handles account selection and failover.</p><div class="codebox"><code>${esc(state.data.endpoint)}</code><button data-copy="endpoint" class="ghost icon-btn sm" aria-label="Copy API endpoint">${icon("copy")}</button></div><p>Clients use the API key. This dashboard uses the management key.</p><div class="panel-tags"><span class="tag good">Tailscale HTTPS</span><span class="tag">Batman</span></div></section><section class="panel"><h2>Already connected in T3 Code</h2><ol class="steps"><li>Open a thread on <strong>Batman</strong>.</li><li>Choose <strong>Codex Proxy</strong> for GPT models or <strong>Antigravity Proxy</strong> for AGY models.</li><li>Use it normally. Add accounts here whenever needed.</li></ol></section><section class="panel"><h2>Routing</h2><p>The existing proxy uses round-robin selection, session affinity, and automatic failover. Limits and model access depend on each account.</p><p>This dashboard observes quotas. It does not change the routing strategy.</p></section><section class="panel"><h2>Advanced settings</h2><p>Use the original panel for API keys, model settings, sign-in recovery, and proxy configuration.</p><a href="/management.html" target="_blank" rel="noopener" class="button outline sm">Open original panel ${icon("out")}</a></section></div>`;
       }
       function render(animate = false) {
         if (!state.data) return;
@@ -2665,13 +2879,6 @@
             a.setAttribute("aria-current", "page");
           else a.removeAttribute("aria-current");
         });
-        $("#toggle-emails").setAttribute("aria-pressed", state.emails);
-        $("#toggle-emails").title = state.emails
-          ? "Hide email addresses"
-          : "Show email addresses";
-        $("#toggle-emails .button-label").textContent = state.emails
-          ? "Hide emails"
-          : "Show emails";
         $("#connection-status").textContent = state.data.error
           ? "Proxy disconnected"
           : "Batman online";
@@ -2781,15 +2988,10 @@
           await api("logout", {});
           state.session = false;
           state.data = null;
-          state.emails = false;
           showLogin();
         } catch (e) {
           notify(e.message);
         }
-      });
-      $("#toggle-emails").addEventListener("click", () => {
-        state.emails = !state.emails;
-        render();
       });
       $("#refresh").addEventListener("click", async () => {
         const b = $("#refresh");
@@ -2857,6 +3059,7 @@
             const active = Number(button.dataset.hours) === state.hours;
             button.classList.toggle("active", active);
             button.setAttribute("aria-pressed", active);
+            button.tabIndex = active ? 0 : -1;
           });
           updateIndicators();
           await load(true);
@@ -2936,6 +3139,27 @@
         const tooltip = $(".chart-tooltip", plot);
         if (tooltip) tooltip.hidden = true;
       }
+      // Arrow keys move between the options of a single-choice group and select them.
+      $("#page-body").addEventListener("keydown", (e) => {
+        const group = e.target.closest(".provider-tabs, .segmented");
+        if (!group || e.target.tagName !== "BUTTON") return;
+        const buttons = $$(":scope > button", group),
+          i = buttons.indexOf(e.target),
+          n = buttons.length;
+        const target = {
+          ArrowLeft: i - 1,
+          ArrowUp: i - 1,
+          ArrowRight: i + 1,
+          ArrowDown: i + 1,
+          Home: 0,
+          End: n - 1,
+        }[e.key];
+        if (target === undefined || i < 0) return;
+        e.preventDefault();
+        const next = buttons[(target + n) % n];
+        next.focus();
+        if (!next.classList.contains("active")) next.click();
+      });
       $("#page-body").addEventListener("keydown", (e) => {
         const plot = e.target.closest("[data-chart]");
         if (!plot || !["ArrowLeft", "ArrowRight"].includes(e.key)) return;
@@ -2968,7 +3192,8 @@
         const relative = ((e.clientX - rect.left) / rect.width) * chart.W;
         const ts =
           chart.start +
-          ((relative - 46) / (chart.W - 56)) * (chart.end - chart.start);
+          ((relative - chart.left) / (chart.W - chart.left - chart.right)) *
+            (chart.end - chart.start);
         const points = [...chart.points, ...chart.forecast];
         if (!points.length) return;
         const nearest = points.reduce((a, b) =>
@@ -2987,8 +3212,14 @@
         if (plot && !plot.contains(e.relatedTarget)) clearChart(plot);
       });
 
+      const oauthDescriptions = {
+        choose:
+          "Sign in once. The proxy adds the account to its pool automatically.",
+        flow: "Open the sign-in page and choose the account to add.",
+      };
       function openOAuth() {
         state.oauth = null;
+        $("#oauth-description").textContent = oauthDescriptions.choose;
         $("#oauth-choose").hidden = false;
         $("#oauth-flow").hidden = true;
         $("#oauth-error").hidden = true;
@@ -3007,6 +3238,9 @@
         }
       }
       $("#oauth-close").addEventListener("click", closeOAuth);
+      $$("[data-dialog-cancel]").forEach((button) =>
+        button.addEventListener("click", closeOAuth),
+      );
       $("#oauth-dialog").addEventListener("cancel", (e) => {
         e.preventDefault();
         closeOAuth();
@@ -3055,6 +3289,7 @@
           $("#oauth-url").href = url.href;
           $("#oauth-choose").hidden = true;
           $("#oauth-flow").hidden = false;
+          $("#oauth-description").textContent = oauthDescriptions.flow;
           $("#oauth-status").innerHTML =
             '<span class="loading-mark"></span>Waiting for sign-in';
           pollOAuth();
