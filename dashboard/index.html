@@ -474,8 +474,11 @@
         font-weight: 400;
         text-align: left;
         transition:
-          background-color var(--duration-fast) ease,
-          color var(--duration-fast) ease;
+          color var(--duration-fast) ease,
+          transform var(--duration-fast) var(--ease-out);
+      }
+      .sidebar-item:active {
+        transform: scale(0.98);
       }
       .sidebar-item > span:not(.sidebar-badge) {
         overflow: hidden;
