@@ -42,7 +42,11 @@ minutes are excluded. The dashed line assumes that recent usage continues and ap
 only a provider-reported upcoming reset. Antigravity reset periods are not guessed.
 No routing changes are made by this dashboard.
 
-Adding an account uses the proxy's OAuth flow. On another machine, the final localhost
+API endpoint for clients: `https://batman.tailc343ff.ts.net:8317/v1` (use the API key).
+
+**Add login** (top right) lists every sign-in CLIProxyAPI offers: Claude, Codex,
+Antigravity, xAI, Kimi (kimi.com and kimi.ai), Devin and Meta. Quota charts cover
+Codex and Antigravity. Adding an account uses the proxy's OAuth flow. On another machine, the final localhost
 callback may need to be pasted into the dialog. The callback is bound to the browser
 session and matching OAuth state. Closing the dialog cancels the pending flow.
 Pause/resume uses the existing credential status API; deleting credentials is left

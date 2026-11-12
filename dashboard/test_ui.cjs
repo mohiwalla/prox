@@ -89,7 +89,7 @@ const assert = require("assert/strict");
   await page.locator('[data-view="remaining"]').click();
 
   // Roving focus: one tab stop per group, arrows move and activate.
-  await page.locator("#refresh").focus();
+  await page.locator("#add-login").focus();
   await page.keyboard.press("Tab");
   const tabStop = await page.evaluate(() => {
     const group = document.querySelector(".provider-tabs");
@@ -184,7 +184,7 @@ const assert = require("assert/strict");
     };
   });
   assert.deepEqual(labels.shown, labels.expected, "Emails shown by default");
-  await page.getByRole("button", { name: "Add account", exact: true }).click();
+  await page.locator("#add-login").click();
   assert.equal(
     await page.locator("#oauth-dialog").evaluate((d) => d.open),
     true,
@@ -202,16 +202,20 @@ const assert = require("assert/strict");
     await page.locator("#oauth-dialog").evaluate((d) => d.open),
     false,
   );
-  await page.getByRole("button", { name: "Add account", exact: true }).click();
+  await page.locator("#add-login").click();
   await page.locator("#oauth-close").click();
-  // OAuth page: one card per supported provider; Sign in preselects it.
-  await page.locator('[data-page="oauth"]').click();
-  await page.locator(".oauth-card").first().waitFor();
-  assert.equal(await page.locator(".oauth-card").count(), 2);
-  await page.locator('[data-add="antigravity"]').click();
+  // Add login lists every CLIProxyAPI sign-in as radio cards.
+  await page.locator("#add-login").click();
+  assert.equal(await page.locator(".provider-option").count(), 8);
+  await page.locator('.provider-option:has(input[value="xai"])').click();
   assert.equal(
-    await page.locator("#oauth-provider").inputValue(),
-    "antigravity",
+    await page.locator("#oauth-providers input:checked").inputValue(),
+    "xai",
+  );
+  await page.keyboard.press("ArrowRight");
+  assert.equal(
+    await page.locator("#oauth-providers input:checked").inputValue(),
+    "kimi",
   );
   await page.locator("#oauth-choose [data-dialog-cancel]").click();
   await page.waitForFunction(
@@ -225,9 +229,8 @@ const assert = require("assert/strict");
       .evaluate((el) => getComputedStyle(el).userSelect),
     "none",
   );
-  await page.locator('[data-page="connection"]').click();
-  await page.locator(".codebox").waitFor();
-  assert.ok((await page.locator(".codebox").textContent()).includes("/v1"));
+  // One-time setup info lives in the README, not the sidebar.
+  assert.equal(await page.locator('[data-page="connection"]').count(), 0);
   await page.locator('[data-page="quotas"]').click();
   await page.locator("[data-pool]").first().waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
@@ -510,7 +513,7 @@ const assert = require("assert/strict");
     return { removal, reorder };
   });
   assert.deepEqual(focusAfterRemoval, { removal: true, reorder: true });
-  const add = page.getByRole("button", { name: "Add account", exact: true });
+  const add = page.locator("#add-login");
   await add.click();
   assert.ok(
     await page
@@ -576,8 +579,8 @@ const assert = require("assert/strict");
         "roving keyboard focus and focus rings",
         "emails shown by default",
         "sign-in dialog and right-aligned footer",
-        "oauth page and toasts",
-        "connection view",
+        "add login providers and toasts",
+        "no connection page",
         "390px layout",
         "mobile navigation",
         "interruptible motion",

@@ -222,6 +222,13 @@
         opacity: 0.5;
         pointer-events: none;
       }
+      button[aria-busy] {
+        opacity: 0.8;
+      }
+      button .loading-mark {
+        border-color: currentColor;
+        border-top-color: transparent;
+      }
       .primary {
         background: var(--primary);
         color: var(--primary-foreground);
@@ -314,6 +321,7 @@
         box-shadow: var(--ring-shadow);
       }
       .field {
+        grid-template-columns: minmax(0, 1fr);
         display: grid;
         gap: 8px;
       }
@@ -328,6 +336,73 @@
       .field-description {
         font-size: 13px;
         line-height: 20px;
+        color: var(--muted-foreground);
+      }
+      .field-error {
+        font-size: 13px;
+        line-height: 20px;
+        color: var(--destructive);
+      }
+      input[aria-invalid="true"] {
+        border-color: var(--destructive);
+      }
+      input[aria-invalid="true"]:focus-visible {
+        box-shadow: 0 0 0 3px rgb(255 100 103 / 25%);
+      }
+      /* Provider picker: radio cards. */
+      .provider-picker {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .provider-option {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border: 1px solid var(--input);
+        border-radius: var(--radius-md);
+        background: var(--input-fill);
+        cursor: pointer;
+        transition:
+          border-color var(--duration-fast) ease,
+          background-color var(--duration-fast) ease;
+      }
+      .provider-option:hover {
+        background: rgb(255 255 255 / 7%);
+      }
+      .provider-option input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .provider-option:has(input:checked) {
+        border-color: var(--foreground);
+        background: rgb(255 255 255 / 7%);
+      }
+      .provider-option:has(input:focus-visible) {
+        box-shadow: 0 0 0 3px rgb(115 115 115 / 50%);
+      }
+      .provider-option .provider-icon {
+        width: 20px;
+        height: 20px;
+      }
+      .provider-option-text {
+        display: grid;
+        min-width: 0;
+        line-height: 20px;
+      }
+      .provider-option-text strong {
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .provider-option-text span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12px;
+        line-height: 16px;
         color: var(--muted-foreground);
       }
       .form-error {
@@ -1147,53 +1222,7 @@
         transform: translateX(14px);
       }
 
-      /* OAuth page */
-      .oauth-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 16px;
-      }
-      .oauth-card-top {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        width: 100%;
-      }
-      .oauth-card-top .provider-icon {
-        width: 20px;
-        height: 20px;
-      }
-      .oauth-card-top .tag {
-        margin-left: auto;
-      }
-
       /* Connection page */
-      .connection-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        align-items: start;
-        gap: 16px;
-      }
-      .panel {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-        padding: 20px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-xl);
-        background: var(--card);
-      }
-      .panel > * {
-        max-width: 100%;
-      }
-      .panel p {
-        font-size: 14px;
-        color: var(--muted-foreground);
-      }
-      .panel p + p {
-        margin-top: -4px;
-      }
       .codebox {
         display: flex;
         align-items: center;
@@ -1242,24 +1271,6 @@
         white-space: nowrap;
         font-family: var(--font-mono);
         font-size: 13px;
-      }
-      .panel-tags {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .steps {
-        display: grid;
-        gap: 8px;
-        margin: 0;
-        padding-left: 20px;
-        font-size: 14px;
-      }
-      .steps ::marker {
-        color: var(--muted-foreground);
-      }
-      .steps strong {
-        font-weight: 500;
       }
 
       /* Generic states */
@@ -1573,9 +1584,6 @@
           grid-row: 2;
           grid-column: 1 / -1;
         }
-        .connection-grid {
-          grid-template-columns: minmax(0, 1fr);
-        }
       }
 
       @media (max-width: 760px) {
@@ -1750,9 +1758,6 @@
         }
         .account-row .account-status {
           grid-row: 3;
-        }
-        .panel {
-          padding: 16px;
         }
         .dialog-footer {
           flex-direction: column-reverse;
@@ -2118,11 +2123,81 @@
           <circle cx="12" cy="9" r="2.5" />
           <path d="M8 17c0-4 8-4 8 0" />
         </symbol>
-        <symbol id="i-key" viewBox="0 0 24 24">
+        <symbol id="brand-claude" viewBox="0 0 256 257">
           <path
-            d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"
+            fill="#D97757"
+            d="m50.228 170.321 50.357-28.257.843-2.463-.843-1.361h-2.462l-8.426-.518-28.775-.778-24.952-1.037-24.175-1.296-6.092-1.297L0 125.796l.583-3.759 5.12-3.434 7.324.648 16.202 1.101 24.304 1.685 17.629 1.037 26.118 2.722h4.148l.583-1.685-1.426-1.037-1.101-1.037-25.147-17.045-27.22-18.017-14.258-10.37-7.713-5.25-3.888-4.925-1.685-10.758 7-7.713 9.397.649 2.398.648 9.527 7.323 20.35 15.75L94.817 91.9l3.889 3.24 1.555-1.102.195-.777-1.75-2.917-14.453-26.118-15.425-26.572-6.87-11.018-1.814-6.61c-.648-2.723-1.102-4.991-1.102-7.778l7.972-10.823L71.42 0 82.05 1.426l4.472 3.888 6.61 15.101 10.694 23.786 16.591 32.34 4.861 9.592 2.592 8.879.973 2.722h1.685v-1.556l1.36-18.211 2.528-22.36 2.463-28.776.843-8.1 4.018-9.722 7.971-5.25 6.222 2.981 5.12 7.324-.713 4.73-3.046 19.768-5.962 30.98-3.889 20.739h2.268l2.593-2.593 10.499-13.934 17.628-22.036 7.778-8.749 9.073-9.657 5.833-4.601h11.018l8.1 12.055-3.628 12.443-11.342 14.388-9.398 12.184-13.48 18.147-8.426 14.518.778 1.166 2.01-.194 30.46-6.481 16.462-2.982 19.637-3.37 8.88 4.148.971 4.213-3.5 8.62-20.998 5.184-24.628 4.926-36.682 8.685-.454.324.519.648 16.526 1.555 7.065.389h17.304l32.21 2.398 8.426 5.574 5.055 6.805-.843 5.184-12.962 6.611-17.498-4.148-40.83-9.721-14-3.5h-1.944v1.167l11.666 11.406 21.387 19.314 26.767 24.887 1.36 6.157-3.434 4.86-3.63-.518-23.526-17.693-9.073-7.972-20.545-17.304h-1.36v1.814l4.73 6.935 25.017 37.59 1.296 11.536-1.814 3.76-6.481 2.268-7.13-1.297-14.647-20.544-15.1-23.138-12.185-20.739-1.49.843-7.194 77.448-3.37 3.953-7.778 2.981-6.48-4.925-3.436-7.972 3.435-15.749 4.148-20.544 3.37-16.333 3.046-20.285 1.815-6.74-.13-.454-1.49.194-15.295 20.999-23.267 31.433-18.406 19.702-4.407 1.75-7.648-3.954.713-7.064 4.277-6.286 25.47-32.405 15.36-20.092 9.917-11.6-.065-1.686h-.583L44.07 198.125l-12.055 1.555-5.185-4.86.648-7.972 2.463-2.593 20.35-13.999-.064.065Z"
           />
-          <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" />
+        </symbol>
+        <symbol
+          id="brand-kimi"
+          viewBox="0 0 512 512"
+          fill-rule="evenodd"
+          clip-rule="evenodd"
+        >
+          <path
+            d="M503 114.333v280c0 60.711-49.29 110-110 110H113c-60.711 0-110-49.289-110-110v-280c0-60.71 49.289-110 110-110h280c60.71 0 110 49.29 110 110z"
+          />
+          <path
+            d="M342.065 189.759c1.886-2.42 3.541-4.63 5.289-6.77.81-1.007.74-1.771-.046-2.824-7.58-9.965-8.298-21.028-3.935-32.254 3.275-8.448 10.52-12.406 19.373-13.25 5.52-.521 10.936.046 15.959 2.73 6.596 3.53 10.438 8.912 11.688 16.341.995 5.926.81 11.712-.868 17.452-2.974 10.161-10.277 15.427-20.287 16.758-8.31 1.11-16.734 1.25-25.113 1.817-.648.046-1.308 0-2.06 0z"
+            fill="#027aff"
+          />
+          <path
+            d="M321.512 144.254h-50.064l-39.637 90.384h-56.036v-89.99H131v232.868h44.787v-98.103h78.973c13.598 0 26.015-7.927 31.744-20.252v118.355h44.787v-98.103c0-23.342-18.239-42.97-41.523-44.671v-.116h-24.593a45.577 45.577 0 0026.884-24.534l29.453-65.838z"
+            fill="#fff"
+          />
+        </symbol>
+        <symbol id="brand-xai" viewBox="0 0 841.89 595.28" fill="#ffff">
+          <path
+            d="m557.09 211.99 8.31 326.37h66.56l8.32-445.18zM640.28 56.91H538.72L379.35 284.53l50.78 72.52zM201.61 538.36h101.56l50.79-72.52-50.79-72.53zM201.61 211.99l228.52 326.37h101.56L303.17 211.99z"
+          />
+        </symbol>
+        <symbol id="brand-meta" viewBox="0 0 256 171">
+          <defs>
+            <linearGradient
+              id="meta-grad-a"
+              x1="13.878%"
+              x2="89.144%"
+              y1="55.934%"
+              y2="58.694%"
+            >
+              <stop offset="0%" stop-color="#0064E1" />
+              <stop offset="40%" stop-color="#0064E1" />
+              <stop offset="83%" stop-color="#0073EE" />
+              <stop offset="100%" stop-color="#0082FB" />
+            </linearGradient>
+            <linearGradient
+              id="meta-grad-b"
+              x1="54.315%"
+              x2="54.315%"
+              y1="82.782%"
+              y2="39.307%"
+            >
+              <stop offset="0%" stop-color="#0082FB" />
+              <stop offset="100%" stop-color="#0064E0" />
+            </linearGradient>
+          </defs>
+          <path
+            fill="#0081FB"
+            d="M27.651 112.136c0 9.775 2.146 17.28 4.95 21.82 3.677 5.947 9.16 8.466 14.751 8.466 7.211 0 13.808-1.79 26.52-19.372 10.185-14.092 22.186-33.874 30.26-46.275l13.675-21.01c9.499-14.591 20.493-30.811 33.1-41.806C161.196 4.985 172.298 0 183.47 0c18.758 0 36.625 10.87 50.3 31.257C248.735 53.584 256 81.707 256 110.729c0 17.253-3.4 29.93-9.187 39.946-5.591 9.686-16.488 19.363-34.818 19.363v-27.616c15.695 0 19.612-14.422 19.612-30.927 0-23.52-5.484-49.623-17.564-68.273-8.574-13.23-19.684-21.313-31.907-21.313-13.22 0-23.859 9.97-35.815 27.75-6.356 9.445-12.882 20.956-20.208 33.944l-8.066 14.289c-16.203 28.728-20.307 35.271-28.408 46.07-14.2 18.91-26.324 26.076-42.287 26.076-18.935 0-30.91-8.2-38.325-20.556C2.973 139.413 0 126.202 0 111.148l27.651.988Z"
+          />
+          <path
+            fill="url(#meta-grad-a)"
+            d="M21.802 33.206C34.48 13.666 52.774 0 73.757 0 85.91 0 97.99 3.597 110.605 13.897c13.798 11.261 28.505 29.805 46.853 60.368l6.58 10.967c15.881 26.459 24.917 40.07 30.205 46.49 6.802 8.243 11.565 10.7 17.752 10.7 15.695 0 19.612-14.422 19.612-30.927l24.393-.766c0 17.253-3.4 29.93-9.187 39.946-5.591 9.686-16.488 19.363-34.818 19.363-11.395 0-21.49-2.475-32.654-13.007-8.582-8.083-18.615-22.443-26.334-35.352l-22.96-38.352C118.528 64.08 107.96 49.73 101.845 43.23c-6.578-6.988-15.036-15.428-28.532-15.428-10.923 0-20.2 7.666-27.963 19.39L21.802 33.206Z"
+          />
+          <path
+            fill="url(#meta-grad-b)"
+            d="M73.312 27.802c-10.923 0-20.2 7.666-27.963 19.39-10.976 16.568-17.698 41.245-17.698 64.944 0 9.775 2.146 17.28 4.95 21.82L9.027 149.482C2.973 139.413 0 126.202 0 111.148 0 83.772 7.514 55.24 21.802 33.206 34.48 13.666 52.774 0 73.757 0l-.445 27.802Z"
+          />
+        </symbol>
+        <symbol id="brand-devin" viewBox="0 0 24 24" fill="none">
+          <rect width="24" height="24" rx="6" fill="#262626" />
+          <path
+            d="M8 7h4.5a5 5 0 0 1 0 10H8z"
+            stroke="#fafafa"
+            stroke-width="2"
+            stroke-linejoin="round"
+          />
         </symbol>
         <symbol id="i-link" viewBox="0 0 24 24">
           <path
@@ -2264,14 +2339,8 @@
               ><svg class="icon" aria-hidden="true">
                 <use href="#i-accounts" /></svg
               ><span>Accounts</span
-              ><span class="sidebar-badge" id="nav-account-count"></span></a
-            ><a class="sidebar-item" href="#oauth" data-page="oauth"
-              ><svg class="icon" aria-hidden="true"><use href="#i-key" /></svg
-              ><span>OAuth login</span></a
-            ><a class="sidebar-item" href="#connection" data-page="connection"
-              ><svg class="icon" aria-hidden="true"><use href="#i-link" /></svg
-              ><span>Connection</span></a
-            >
+              ><span class="sidebar-badge" id="nav-account-count"></span
+            ></a>
           </div>
         </nav>
         <div class="sidebar-footer">
@@ -2307,7 +2376,10 @@
             <button id="refresh" class="outline" title="Refresh all quotas">
               <svg class="icon" aria-hidden="true">
                 <use href="#i-refresh" /></svg
-              ><span class="button-label">Refresh all quotas</span>
+              ><span class="button-label">Refresh all quotas</span></button
+            ><button id="add-login" class="primary" title="Add login">
+              <svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg
+              ><span class="button-label">Add login</span>
             </button>
           </div>
         </header>
@@ -2331,19 +2403,18 @@
         <svg class="icon" aria-hidden="true"><use href="#i-close" /></svg>
       </button>
       <header class="dialog-header">
-        <h2 id="oauth-title">Add an account</h2>
+        <h2 id="oauth-title">Add login</h2>
         <p class="dialog-description" id="oauth-description">
           Sign in once. The proxy adds the account to its pool automatically.
         </p>
       </header>
       <div id="oauth-choose" class="dialog-body">
-        <div class="field">
-          <label for="oauth-provider">Provider</label
-          ><select id="oauth-provider">
-            <option value="codex">Codex</option>
-            <option value="antigravity">Antigravity</option>
-          </select>
-        </div>
+        <div
+          class="provider-picker"
+          role="radiogroup"
+          aria-label="Provider"
+          id="oauth-providers"
+        ></div>
         <footer class="dialog-footer">
           <button type="button" class="outline" data-dialog-cancel>
             Cancel</button
@@ -2360,18 +2431,38 @@
           <svg class="icon" aria-hidden="true"><use href="#i-out" /></svg
         ></a>
         <div class="field">
+          <label id="oauth-link-label">Or copy the sign-in link</label>
+          <div class="codebox" aria-labelledby="oauth-link-label">
+            <code id="oauth-link"></code
+            ><button
+              type="button"
+              class="ghost icon-btn sm copy-button"
+              id="oauth-copy"
+              aria-label="Copy sign-in link"
+            >
+              <span class="copy-icons"
+                ><svg class="icon copy-idle" aria-hidden="true">
+                  <use href="#i-copy" /></svg
+                ><svg class="icon copy-done" aria-hidden="true">
+                  <use href="#i-check" /></svg
+              ></span>
+            </button>
+          </div>
+        </div>
+        <div class="field">
           <label for="oauth-callback">Callback address</label
           ><input
             id="oauth-callback"
             type="url"
             placeholder="http://localhost:…/callback?code=…"
             autocomplete="off"
-            aria-describedby="oauth-callback-help"
+            aria-describedby="oauth-callback-help oauth-callback-error"
           />
           <p class="field-description" id="oauth-callback-help">
             If the final page can’t reach localhost, paste its full address
             here.
           </p>
+          <p class="field-error" id="oauth-callback-error" hidden></p>
         </div>
         <div id="oauth-status" class="oauth-pending" role="status">
           <span class="loading-mark"></span>Waiting for sign-in
@@ -2402,9 +2493,28 @@
         );
       const icon = (name, extra = "") =>
         `<svg class="icon ${extra}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
-      const pName = (p) => (p === "codex" ? "Codex" : "Antigravity");
+      // Every sign-in CLIProxyAPI offers; quotas are read for Codex and Antigravity.
+      const PROVIDERS = {
+        claude: { name: "Claude", note: "Anthropic account", mark: "claude" },
+        codex: { name: "Codex", note: "ChatGPT plan", mark: "codex" },
+        antigravity: {
+          name: "Antigravity",
+          note: "Google account",
+          mark: "antigravity",
+        },
+        xai: { name: "xAI", note: "Grok account", mark: "xai" },
+        kimi: { name: "Kimi", note: "kimi.com", mark: "kimi" },
+        "kimi-ai": {
+          name: "Kimi",
+          note: "kimi.ai, international",
+          mark: "kimi",
+        },
+        devin: { name: "Devin", note: "Cognition account", mark: "devin" },
+        meta: { name: "Meta", note: "Meta AI account", mark: "meta" },
+      };
+      const pName = (p) => PROVIDERS[p]?.name || p;
       const providerIcon = (p) =>
-        `<span class="provider-icon" aria-hidden="true"><svg><use href="#brand-${p === "codex" ? "codex" : "antigravity"}"/></svg></span>`;
+        `<span class="provider-icon" aria-hidden="true"><svg><use href="#brand-${PROVIDERS[p]?.mark || "codex"}"/></svg></span>`;
       const state = {
         data: null,
         provider: "all",
@@ -3121,7 +3231,7 @@
           .join("")}`;
       }
       function accountsPage() {
-        return `${tabs()}<div class="page-toolbar"><p class="muted">Accounts share one endpoint. Paused accounts are excluded from rotation.</p><button class="primary" data-add>${icon("plus")}Add account</button></div><div class="account-list">${filteredAccounts()
+        return `${tabs()}<div class="page-toolbar"><p class="muted">Accounts share one endpoint. Paused accounts are excluded from rotation.</p></div><div class="account-list">${filteredAccounts()
           .map((a, i) => {
             const [s, c] = status(a),
               w =
@@ -3135,34 +3245,16 @@
             "",
           )}</div><footer class="footnote"><span>${state.data.accounts.reduce((s, a) => s + a.success, 0).toLocaleString()} successful requests</span></footer>`;
       }
-      function oauthPage() {
-        const providers = [
-          ["codex", "OpenAI accounts with a ChatGPT plan."],
-          ["antigravity", "Google accounts with Antigravity access."],
-        ];
-        return `<div class="page-toolbar"><p class="muted">Sign in once per account. The proxy adds it to the pool and rotates it automatically.</p></div><div class="oauth-grid">${providers
-          .map(([p, text]) => {
-            const n = filteredAccounts(p).length;
-            return `<section class="panel oauth-card" data-oauth="${p}"><div class="oauth-card-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="tag">${n} account${n === 1 ? "" : "s"}</span></div><p>${text}</p><button class="primary sm" data-add="${p}">${icon("plus")}Sign in with ${pName(p)}</button></section>`;
-          })
-          .join("")}</div>`;
-      }
-      function connectionPage() {
-        return `<div class="connection-grid"><section class="panel"><h2>One endpoint for your accounts</h2><p>Use this private address from any device on your Tailscale network. Batman handles account selection and failover.</p><div class="codebox"><code>${esc(state.data.endpoint)}</code><button data-copy="endpoint" class="ghost icon-btn sm copy-button" aria-label="Copy API endpoint"><span class="copy-icons">${icon("copy", "copy-idle")}${icon("check", "copy-done")}</span></button></div><p>Clients use the API key. This dashboard uses the management key.</p><div class="panel-tags"><span class="tag outline">Tailscale HTTPS</span><span class="tag">Batman</span></div></section><section class="panel"><h2>Already connected in T3 Code</h2><ol class="steps"><li>Open a thread on <strong>Batman</strong>.</li><li>Choose <strong>Codex Proxy</strong> for GPT models or <strong>Antigravity Proxy</strong> for AGY models.</li><li>Use it normally. Add accounts here whenever needed.</li></ol></section><section class="panel"><h2>Routing</h2><p>The existing proxy uses round-robin selection, session affinity, and automatic failover. Limits and model access depend on each account.</p><p>This dashboard observes quotas. It does not change the routing strategy.</p></section><section class="panel"><h2>Advanced settings</h2><p>Use the original panel for API keys, model settings, sign-in recovery, and proxy configuration.</p><a href="/management.html" target="_blank" rel="noopener" class="button outline sm">Open original panel ${icon("out")}</a></section></div>`;
-      }
+
       function render(animate = false) {
         if (!state.data) return;
         const body = $("#page-body");
-        state.page = ["quotas", "accounts", "oauth", "connection"].includes(
-          location.hash.slice(1),
-        )
+        state.page = ["quotas", "accounts"].includes(location.hash.slice(1))
           ? location.hash.slice(1)
           : "quotas";
         $("#page-title").textContent = {
           quotas: "Quota management",
           accounts: "Accounts",
-          oauth: "OAuth login",
-          connection: "Connection",
         }[state.page];
         const count = state.data.accounts.length,
           measured = state.data.accounts.filter((a) => a.windows.length).length;
@@ -3183,16 +3275,10 @@
           : "Refresh all quotas";
         const next = document.createElement("template");
         if (!count) {
-          next.innerHTML = `<div class="state-card"><h2>${state.data.error ? "Waiting for the proxy" : "Your account pool starts here"}</h2><p>${state.data.error ? "The connection will be checked automatically." : "Add a Codex or Antigravity account to start tracking its quotas."}</p><button class="primary" data-add>${icon("plus")}Add account</button></div>`;
+          next.innerHTML = `<div class="state-card"><h2>${state.data.error ? "Waiting for the proxy" : "Your account pool starts here"}</h2><p>${state.data.error ? "The connection will be checked automatically." : "Add a Codex or Antigravity account to start tracking its quotas."}</p><button class="primary" data-add>${icon("plus")}Add login</button></div>`;
         } else
           next.innerHTML =
-            state.page === "quotas"
-              ? quotaPage()
-              : state.page === "accounts"
-                ? accountsPage()
-                : state.page === "oauth"
-                  ? oauthPage()
-                  : connectionPage();
+            state.page === "quotas" ? quotaPage() : accountsPage();
         const selection = JSON.stringify([
           state.provider,
           state.view,
@@ -3305,11 +3391,7 @@
           await api("refresh", {});
           state.data.refreshing = true;
           render();
-          notify(
-            "Refreshing quotas",
-            "info",
-            "Checking live quotas across all accounts.",
-          );
+
           setTimeout(load, 1200);
         } catch (e) {
           b.disabled = false;
@@ -3377,23 +3459,7 @@
         } else if (b.hasAttribute("data-add")) {
           openOAuth(b.dataset.add);
         } else if (b.dataset.copy) {
-          try {
-            await navigator.clipboard.writeText(state.data.endpoint);
-            // data-motion-* survives the polling patch, so the check stays visible.
-            b.dataset.motionCopied = "";
-            b.setAttribute("aria-label", "Endpoint copied");
-            clearTimeout(b.copyTimer);
-            b.copyTimer = setTimeout(() => {
-              delete b.dataset.motionCopied;
-              b.setAttribute("aria-label", "Copy API endpoint");
-            }, 2000);
-          } catch {
-            notify(
-              "Couldn't copy",
-              "error",
-              "Select the endpoint above and copy it.",
-            );
-          }
+          copyWithFeedback(b, state.data.endpoint, "Copy API endpoint");
         } else if (b.dataset.pause) {
           if (b.hasAttribute("data-motion-pending")) return;
           const pause = b.dataset.disabled === "true",
@@ -3579,15 +3645,74 @@
           "Sign in once. The proxy adds the account to its pool automatically.",
         flow: "Open the sign-in page and choose the account to add.",
       };
+      $("#oauth-providers").innerHTML = Object.entries(PROVIDERS)
+        .map(
+          ([id, p], i) =>
+            `<label class="provider-option"><input type="radio" name="oauth-provider" value="${id}" ${i === 1 ? "checked" : ""}/>${providerIcon(id)}<span class="provider-option-text"><strong>${p.name}</strong><span>${p.note}</span></span></label>`,
+        )
+        .join("");
+      // Double-click a provider to start right away.
+      $("#oauth-providers").addEventListener("dblclick", (e) => {
+        if (e.target.closest(".provider-option")) $("#oauth-start").click();
+      });
+      const chosenProvider = () =>
+        $("#oauth-providers input:checked")?.value || "codex";
+      // Keep a button in a loading state until the outcome is actually known.
+      function setBusy(button, busy, label) {
+        button.idleHTML ??= button.innerHTML;
+        button.disabled = busy;
+        button.toggleAttribute("aria-busy", busy);
+        button.innerHTML = busy
+          ? `<span class="loading-mark"></span>${esc(label)}`
+          : button.idleHTML;
+      }
+      function setCallbackError(text) {
+        const input = $("#oauth-callback"),
+          error = $("#oauth-callback-error");
+        error.textContent = text || "";
+        error.hidden = !text;
+        if (text) input.setAttribute("aria-invalid", "true");
+        else input.removeAttribute("aria-invalid");
+      }
+      $("#oauth-callback").addEventListener("input", () =>
+        setCallbackError(""),
+      );
+      async function copyWithFeedback(button, text, label) {
+        try {
+          await navigator.clipboard.writeText(text);
+          // data-motion-* survives the polling patch, so the check stays visible.
+          button.dataset.motionCopied = "";
+          button.setAttribute("aria-label", "Copied");
+          clearTimeout(button.copyTimer);
+          button.copyTimer = setTimeout(() => {
+            delete button.dataset.motionCopied;
+            button.setAttribute("aria-label", label);
+          }, 2000);
+        } catch {
+          notify("Couldn't copy", "error", "Select the text and copy it.");
+        }
+      }
+      $("#oauth-copy").addEventListener("click", (e) =>
+        copyWithFeedback(
+          e.currentTarget,
+          $("#oauth-url").href,
+          "Copy sign-in link",
+        ),
+      );
+      $("#add-login").addEventListener("click", () => openOAuth());
       function openOAuth(provider) {
         state.oauth = null;
-        if (provider) $("#oauth-provider").value = provider;
+        const radio =
+          provider && $(`#oauth-providers input[value="${provider}"]`);
+        if (radio) radio.checked = true;
+        setCallbackError("");
         $("#oauth-description").textContent = oauthDescriptions.choose;
         $("#oauth-choose").hidden = false;
         $("#oauth-flow").hidden = true;
         $("#oauth-error").hidden = true;
         $("#oauth-callback").value = "";
-        $("#oauth-start").disabled = false;
+        setBusy($("#oauth-start"), false);
+        setBusy($("#oauth-submit"), false);
         $("#oauth-dialog").showModal();
       }
       async function closeOAuth() {
@@ -3626,68 +3751,74 @@
             return;
           }
           if (r.status === "error") {
-            oauthError(
+            setBusy($("#oauth-submit"), false);
+            setCallbackError(
               r.error || "Sign-in failed. Close this dialog and try again.",
             );
             $("#oauth-status").textContent = "Sign-in did not complete";
             return;
           }
         } catch (e) {
+          setBusy($("#oauth-submit"), false);
           oauthError(e.message);
           return;
         }
         state.oauthTimer = setTimeout(pollOAuth, 2000);
       }
       $("#oauth-start").addEventListener("click", async () => {
-        $("#oauth-start").disabled = true;
+        setBusy($("#oauth-start"), true, "Starting…");
         $("#oauth-error").hidden = true;
         try {
           const r = await api("oauth/start", {
-            provider: $("#oauth-provider").value,
+            provider: chosenProvider(),
           });
           const url = new URL(r.url);
           if (url.protocol !== "https:")
             throw Error("Unexpected sign-in address. Use the original panel.");
           state.oauth = r;
           $("#oauth-url").href = url.href;
+          $("#oauth-link").textContent = url.href;
           $("#oauth-choose").hidden = true;
           $("#oauth-flow").hidden = false;
           $("#oauth-description").textContent = oauthDescriptions.flow;
           $("#oauth-status").innerHTML =
             '<span class="loading-mark"></span>Waiting for sign-in';
+          setBusy($("#oauth-start"), false);
           pollOAuth();
         } catch (e) {
           oauthError(e.message);
-          $("#oauth-start").disabled = false;
+          setBusy($("#oauth-start"), false);
         }
       });
       $("#oauth-submit").addEventListener("click", async () => {
         if (!state.oauth) return;
-        $("#oauth-submit").disabled = true;
         $("#oauth-error").hidden = true;
+        const raw = $("#oauth-callback").value.trim();
+        let url;
         try {
-          const raw = $("#oauth-callback").value;
-          const url = new URL(raw);
-          if (
-            !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) ||
-            !url.searchParams.has("code")
-          )
-            throw Error(
-              "Paste the full localhost callback address after signing in.",
-            );
+          url = new URL(raw);
+        } catch {}
+        if (!raw) return setCallbackError("Paste the callback address first.");
+        if (
+          !url ||
+          !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) ||
+          !url.searchParams.has("code")
+        )
+          return setCallbackError(
+            "Paste the full address from your browser, starting with http://localhost and including ?code=.",
+          );
+        setBusy($("#oauth-submit"), true, "Completing sign-in…");
+        try {
           await api("oauth/callback", {
             state: state.oauth.state,
             redirect_url: raw,
           });
-          notify(
-            "Callback submitted",
-            "info",
-            "Waiting for account confirmation.",
-          );
+          // pollOAuth() clears the busy state once the proxy reports the result.
+          $("#oauth-status").innerHTML =
+            '<span class="loading-mark"></span>Verifying sign-in…';
         } catch (e) {
-          oauthError(e.message);
-        } finally {
-          $("#oauth-submit").disabled = false;
+          setBusy($("#oauth-submit"), false);
+          setCallbackError(e.message);
         }
       });
       window.dashboard = {

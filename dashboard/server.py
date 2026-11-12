@@ -24,7 +24,9 @@ ROOT = Path(__file__).resolve().parent
 DATA = Path(os.environ.get("DASHBOARD_DATA", str(ROOT / "data")))
 CREDENTIALS = Path.home() / "cliproxyapi/credentials.json"
 PUBLIC_HOST = "batman.tailc343ff.ts.net:8317"
-PROVIDERS = {"codex", "antigravity"}
+PROVIDERS = {"codex", "antigravity"}  # providers with quota readers
+# Every OAuth flow CLIProxyAPI v8 exposes through /oauth/auth-url.
+OAUTH_PROVIDERS = {"claude", "codex", "antigravity", "xai", "kimi", "kimi-ai", "devin", "meta"}
 
 
 def timestamp(value):
@@ -365,7 +367,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send(200, {"ok": True})
         elif path == "/api/oauth/start" and self.command == "POST":
             provider = body.get("provider")
-            if provider not in PROVIDERS:
+            if provider not in OAUTH_PROVIDERS:
                 raise ValueError("Choose Codex or Antigravity.")
             result = self.hub.request("oauth/auth-url", {"provider": provider, "is_webui": True})
             with self.hub.lock:
