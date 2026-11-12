@@ -1,3 +1,8 @@
+> **prox** is a fork of [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)
+> that adds a quota dashboard in [`dashboard/`](dashboard/): pooled quota charts with
+> forecasts, account actions, sign-in for every supported provider, and logs.
+> Everything outside `dashboard/` is upstream CLIProxyAPI, by its authors and contributors.
+
 # CLI Proxy API
 
 English | [中文](README_CN.md) | [日本語](README_JA.md)
