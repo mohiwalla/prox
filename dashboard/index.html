@@ -361,27 +361,23 @@
         font-weight: 500;
         white-space: nowrap;
       }
-      .tag.good,
+      /* shadcn Badge variants: tinted like `destructive` (bg 20%, colored text). */
+      .tag.good {
+        background: rgb(74 222 128 / 15%);
+        color: var(--success);
+      }
       .tag.warning {
-        padding-left: 6px;
-        background: transparent;
-        border-color: var(--border);
-        color: var(--foreground);
-      }
-      .tag.good::before,
-      .tag.warning::before {
-        content: "";
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--success);
-      }
-      .tag.warning::before {
-        background: var(--warning);
+        background: rgb(251 191 36 / 15%);
+        color: var(--warning);
       }
       .tag.bad {
         background: rgb(255 100 103 / 20%);
         color: var(--destructive);
+      }
+      .tag.outline {
+        background: transparent;
+        border-color: var(--border);
+        color: var(--foreground);
       }
 
       /* Brand */
@@ -2912,7 +2908,7 @@
           )}</div><footer class="footnote"><span>${state.data.accounts.reduce((s, a) => s + a.success, 0).toLocaleString()} successful requests</span></footer>`;
       }
       function connectionPage() {
-        return `<div class="connection-grid"><section class="panel"><h2>One endpoint for your accounts</h2><p>Use this private address from any device on your Tailscale network. Batman handles account selection and failover.</p><div class="codebox"><code>${esc(state.data.endpoint)}</code><button data-copy="endpoint" class="ghost icon-btn sm copy-button" aria-label="Copy API endpoint"><span class="copy-icons">${icon("copy", "copy-idle")}${icon("check", "copy-done")}</span></button></div><p>Clients use the API key. This dashboard uses the management key.</p><div class="panel-tags"><span class="tag good">Tailscale HTTPS</span><span class="tag">Batman</span></div></section><section class="panel"><h2>Already connected in T3 Code</h2><ol class="steps"><li>Open a thread on <strong>Batman</strong>.</li><li>Choose <strong>Codex Proxy</strong> for GPT models or <strong>Antigravity Proxy</strong> for AGY models.</li><li>Use it normally. Add accounts here whenever needed.</li></ol></section><section class="panel"><h2>Routing</h2><p>The existing proxy uses round-robin selection, session affinity, and automatic failover. Limits and model access depend on each account.</p><p>This dashboard observes quotas. It does not change the routing strategy.</p></section><section class="panel"><h2>Advanced settings</h2><p>Use the original panel for API keys, model settings, sign-in recovery, and proxy configuration.</p><a href="/management.html" target="_blank" rel="noopener" class="button outline sm">Open original panel ${icon("out")}</a></section></div>`;
+        return `<div class="connection-grid"><section class="panel"><h2>One endpoint for your accounts</h2><p>Use this private address from any device on your Tailscale network. Batman handles account selection and failover.</p><div class="codebox"><code>${esc(state.data.endpoint)}</code><button data-copy="endpoint" class="ghost icon-btn sm copy-button" aria-label="Copy API endpoint"><span class="copy-icons">${icon("copy", "copy-idle")}${icon("check", "copy-done")}</span></button></div><p>Clients use the API key. This dashboard uses the management key.</p><div class="panel-tags"><span class="tag outline">Tailscale HTTPS</span><span class="tag">Batman</span></div></section><section class="panel"><h2>Already connected in T3 Code</h2><ol class="steps"><li>Open a thread on <strong>Batman</strong>.</li><li>Choose <strong>Codex Proxy</strong> for GPT models or <strong>Antigravity Proxy</strong> for AGY models.</li><li>Use it normally. Add accounts here whenever needed.</li></ol></section><section class="panel"><h2>Routing</h2><p>The existing proxy uses round-robin selection, session affinity, and automatic failover. Limits and model access depend on each account.</p><p>This dashboard observes quotas. It does not change the routing strategy.</p></section><section class="panel"><h2>Advanced settings</h2><p>Use the original panel for API keys, model settings, sign-in recovery, and proxy configuration.</p><a href="/management.html" target="_blank" rel="noopener" class="button outline sm">Open original panel ${icon("out")}</a></section></div>`;
       }
       function render(animate = false) {
         if (!state.data) return;
