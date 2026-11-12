@@ -38,6 +38,23 @@ the public host names in `DASHBOARD_HOSTS` (other Host headers are refused):
 Environment=DASHBOARD_HOSTS=proxy.example.com,box.tailnet.ts.net:8317
 ```
 
+A Cloudflare Tunnel should allowlist routes so the management API never becomes public
+(requests arrive from loopback, so CLIProxyAPI treats them as local):
+
+```yaml
+ingress:
+  - hostname: proxy.example.com
+    path: ^/($|dashboard(/|$))
+    service: http://127.0.0.1:8318
+  - hostname: proxy.example.com
+    path: ^/v1/tunnel
+    service: http_status:404
+  - hostname: proxy.example.com
+    path: ^/(v1|v1beta)(/|$)
+    service: http://127.0.0.1:8317
+  - service: http_status:404
+```
+
 Sign in with the CLIProxyAPI management key. The browser receives an HttpOnly,
 SameSite=Strict, 12-hour session cookie (Secure on public hosts). The key and account
 tokens never reach the page or browser storage. Write requests also check origin and a
