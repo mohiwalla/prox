@@ -128,21 +128,53 @@ const assert = require("assert/strict");
   );
   assert.equal(await page.locator("#forecast").inputValue(), "off");
   await page.locator("#forecast").selectOption("on");
-  // A provider with a single quota window shows a label instead of a select.
+  await page.locator('[data-filter="all"]').click();
+  // One quota window shows a label, a few show tabs, many keep a select.
   assert.equal(
     await page.evaluate(() =>
       [...document.querySelectorAll("[data-pool]")].every((pool) => {
-        const n = dashboard.state.data.accounts
-          .filter((a) => a.provider === pool.dataset.pool)
-          .flatMap((a) => a.windows.map((w) => w.id));
-        return new Set(n).size > 1
+        const n = new Set(
+          dashboard.state.data.accounts
+            .filter((a) => a.provider === pool.dataset.pool)
+            .flatMap((a) => a.windows.map((w) => w.id)),
+        ).size;
+        return n > 4
           ? !!pool.querySelector("select[data-window]")
-          : !!pool.querySelector(".pool-window");
+          : n > 1
+            ? pool.querySelectorAll(".pool-windows > button").length === n
+            : !!pool.querySelector(".pool-window");
       }),
     ),
     true,
   );
-  await page.locator('[data-filter="all"]').click();
+  const tabbedPool = await page.evaluate(
+    () => document.querySelector(".pool-windows")?.closest("[data-pool]")
+      .dataset.pool,
+  );
+  if (tabbedPool) {
+    const tabs = page.locator(`[data-pool="${tabbedPool}"] .pool-windows > button`);
+    const second = await tabs.nth(1).getAttribute("data-window-id");
+    await tabs.nth(1).click();
+    assert.equal(await tabs.nth(1).getAttribute("aria-pressed"), "true");
+    assert.equal(await tabs.nth(0).getAttribute("tabindex"), "-1");
+    await page.reload();
+    await page.locator("[data-pool]").first().waitFor();
+    assert.equal(
+      await page
+        .locator(`[data-pool="${tabbedPool}"] .pool-windows > .active`)
+        .getAttribute("data-window-id"),
+      second,
+      "Window tab persists across a reload",
+    );
+    // Arrow keys move between window tabs like every other tab group.
+    await tabs.nth(1).focus();
+    await page.keyboard.press("ArrowLeft");
+    assert.equal(await tabs.nth(0).getAttribute("aria-pressed"), "true");
+    assert.equal(
+      await page.evaluate(() => document.activeElement.dataset.windowId),
+      await tabs.nth(0).getAttribute("data-window-id"),
+    );
+  } else console.log("skip: no provider with 2–4 quota windows");
   await page.locator('[data-burn="1"]').click();
   assert.equal(
     await page.locator('[data-burn="1"]').getAttribute("aria-pressed"),

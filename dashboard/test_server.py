@@ -42,6 +42,16 @@ class QuotaTests(unittest.TestCase):
         self.assertEqual(result["windows"][0]["period"], 5 * 3600)
         self.assertIsNotNone(result["windows"][1]["reset_at"])
 
+    def test_claude_reads_new_model_windows_without_a_code_change(self):
+        result = parse_claude({
+            "five_hour": {"utilization": 10}, "seven_day": {"utilization": 20},
+            "seven_day_fable": {"utilization": 30}, "seven_day_opus": {"utilization": 40},
+            "seven_day_oauth_apps": {"utilization": 50}, "extra_usage": {"utilization": 60}})
+        self.assertEqual([(w["id"], w["label"]) for w in result["windows"]], [
+            ("five_hour", "5-hour limit"), ("seven_day", "Weekly limit"),
+            ("seven_day_fable", "Weekly · Fable"), ("seven_day_opus", "Weekly · Opus")])
+        self.assertEqual(result["windows"][2]["period"], 7 * 86400)
+
     def test_claude_rejects_malformed_present_windows(self):
         for bad in ("invalid", True, [1]):
             with self.assertRaises(ValueError):
