@@ -3148,7 +3148,9 @@
       function updateIndicators() {
         $$(".provider-tabs, .segmented, .sidebar-group").forEach((group) => {
           const active = $(":scope > .active", group);
-          if (!active) return;
+          // A hidden group (e.g. before sign-in) measures as 0×0, which would clip
+          // the indicator to the whole group; measure once it is laid out.
+          if (!active || !group.offsetWidth) return;
           const x = active.offsetLeft,
             y = active.offsetTop,
             radius = parseFloat(getComputedStyle(active).borderRadius) || 0;

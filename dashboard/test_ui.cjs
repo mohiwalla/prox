@@ -667,9 +667,23 @@ const assert = require("assert/strict");
       if (el) window.seenTitles.push(el.textContent.trim());
     }).observe(document, { subtree: true, childList: true, characterData: true });
   });
+  await page.addInitScript(() => {
+    window.seenClips = [];
+    new MutationObserver(() => {
+      const group = document.querySelector(".sidebar-group");
+      const clip = group?.style.getPropertyValue("--indicator-clip");
+      if (clip) window.seenClips.push(clip);
+    }).observe(document, { subtree: true, attributes: true, attributeFilter: ["style"] });
+  });
   await page.goto(url + "accounts");
   await titleIs("Accounts");
   await page.waitForTimeout(600);
+  // The nav highlight never covers the whole group (measured while hidden).
+  assert.deepEqual(
+    await page.evaluate(() => window.seenClips.filter((c) => /^inset\(0px 0px 0px 0px/.test(c))),
+    [],
+    "The sidebar highlight starts on the active item",
+  );
   assert.deepEqual(
     [...new Set(await page.evaluate(() => window.seenTitles.filter(Boolean)))],
     ["Accounts"],
@@ -1078,7 +1092,7 @@ const assert = require("assert/strict");
         "remove with confirmation (mocked)",
         "manual resets with confirmation and safe retry (mocked)",
         "clean URLs with reload, back/forward and old #hash links",
-        "page heading correct from first paint (no morph on load)",
+        "page heading and sidebar highlight correct from first paint",
         "logs: errors viewer and activity states (mocked)",
         "no mutation reached the real proxy",
         "no connection page",
