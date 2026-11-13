@@ -659,6 +659,22 @@ const assert = require("assert/strict");
   assert.notEqual(await title(), "Logs");
   await page.goForward();
   await titleIs("Logs");
+  // Loading a page directly shows its own heading from the first paint.
+  await page.addInitScript(() => {
+    window.seenTitles = [];
+    new MutationObserver(() => {
+      const el = document.querySelector("#page-title");
+      if (el) window.seenTitles.push(el.textContent.trim());
+    }).observe(document, { subtree: true, childList: true, characterData: true });
+  });
+  await page.goto(url + "accounts");
+  await titleIs("Accounts");
+  await page.waitForTimeout(600);
+  assert.deepEqual(
+    [...new Set(await page.evaluate(() => window.seenTitles.filter(Boolean)))],
+    ["Accounts"],
+    "The heading never shows another page's name on load",
+  );
   await page.goto(url + "#accounts");
   await titleIs("Accounts");
   assert.equal(new URL(page.url()).pathname, "/dashboard/accounts");
@@ -1062,6 +1078,7 @@ const assert = require("assert/strict");
         "remove with confirmation (mocked)",
         "manual resets with confirmation and safe retry (mocked)",
         "clean URLs with reload, back/forward and old #hash links",
+        "page heading correct from first paint (no morph on load)",
         "logs: errors viewer and activity states (mocked)",
         "no mutation reached the real proxy",
         "no connection page",
