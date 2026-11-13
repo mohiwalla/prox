@@ -19,6 +19,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -33,7 +34,13 @@ QUOTA_PROVIDERS = {"codex", "antigravity", "claude"}  # providers with quota rea
 # Slower checks for providers whose quota endpoint is rate-limited. Anthropic's
 # /api/oauth/usage answers about one call per two minutes per account.
 QUOTA_MIN_INTERVAL = {"claude": 180}
-QUOTA_INTERVAL = 30  # seconds between live quota checks
+QUOTA_INTERVAL = 30
+# Codex reset credits change rarely: read them every 10 minutes and right after one is used.
+RESET_INTERVAL = 600
+# A Claude reset claim with an unknown outcome may be retried with the same request ID for 10 minutes.
+RESET_RETRY_WINDOW = 600
+CODEX_RESETS_URL = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits"
+CLAUDE_UA = "claude-cli/2.1.280 (external, cli)"  # seconds between live quota checks
 HISTORY_POINTS = 720  # most points per series sent to the browser
 # Every OAuth flow CLIProxyAPI v8 exposes through /oauth/auth-url.
 OAUTH_PROVIDERS = {"claude", "codex", "antigravity", "xai", "kimi", "kimi-ai", "devin", "meta"}
@@ -158,7 +165,67 @@ def parse_claude(data):
             and all(fable.get(k) is None for k in ("limit_dollars", "used_dollars", "remaining_dollars"))):
         windows.append(window("iguana_necktie", "Weekly · Fable 5", used=claude_used(fable["utilization"]),
                               reset=fable.get("resets_at"), period=7 * 86400))
-    return {"plan": "Claude", "windows": windows}
+    result = {"plan": "Claude", "windows": windows}
+    resets = parse_claude_resets(data.get("cedar_ember"))
+    if resets is not None:
+        result["resets"] = resets
+    return result
+
+
+def parse_codex_resets(data):
+    credits = sorted((c for c in data.get("credits") or [] if isinstance(c, dict)
+                      and c.get("reset_type") == "codex_rate_limits" and c.get("status") == "available"
+                      and timestamp(c.get("expires_at"))), key=lambda c: timestamp(c["expires_at"]))
+    items = [{"id": str(c.get("id") or ""), "label": str(c.get("title") or "Full reset")[:80], "left": 1, "total": 1,
+              "expires_at": timestamp(c["expires_at"]), "reason": None} for c in credits]
+    count = number(data.get("available_count"))
+    return {"available": int(count) if count is not None else len(items), "items": items}
+
+
+CLAUDE_GRANT_ID = re.compile(r"[a-z0-9_-]{1,40}")
+
+
+def claude_grant_reason(status, grant, now):
+    # Mirrors Anthropic's own checks so the dashboard never submits a claim it knows will be refused.
+    starts, ends, cooldown = (timestamp(v) for v in (grant.get("starts_at"), grant.get("ends_at"), status.get("cooldown_until")))
+    used = [v for v in (grant.get("percent_used") or {}).values() if isinstance(v, (int, float))]
+    if not status.get("eligible"):
+        return "Not available for this account"
+    if grant.get("paused"):
+        return "Paused by Anthropic"
+    if not grant.get("usable_now"):
+        return "Not usable yet"
+    if grant["left"] <= 0:
+        return "Used up"
+    if grant.get("use_requires_limit", True) and not status.get("at_limit"):
+        return "Usable once the account hits a limit"
+    if grant.get("gives_back_weekly") and used and all(v == 0 for v in used):
+        return "No usage to give back yet"
+    if starts and starts > now:
+        return "Not started yet"
+    if ends and ends <= now:
+        return "Expired"
+    if cooldown and cooldown > now:
+        return "Cooling down after the last reset"
+    return None
+
+
+def parse_claude_resets(status, now=None):
+    if not isinstance(status, dict) or not isinstance(status.get("eligible"), bool):
+        return None
+    now = time.time() if now is None else now
+    items = []
+    for grant in status.get("grants") or []:
+        left, total = (grant or {}).get("resets_left"), (grant or {}).get("resets_total")
+        if (not CLAUDE_GRANT_ID.fullmatch(str(grant.get("id", ""))) or not isinstance(left, int)
+                or not isinstance(total, int) or isinstance(left, bool) or not 0 <= left <= total):
+            continue
+        label = re.sub(r"\s+", " ", re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", str(grant.get("label") or ""))).strip()[:120]
+        item = {"id": grant["id"], "label": label or "Limit reset", "left": left, "total": total,
+                "expires_at": timestamp(grant.get("ends_at"))}
+        item["reason"] = claude_grant_reason(status, {**grant, "left": left}, now)
+        items.append(item)
+    return {"available": sum(i["left"] for i in items), "items": items}
 
 
 def safe_account(raw, quota=None):
@@ -174,6 +241,7 @@ def safe_account(raw, quota=None):
             "cooldowns": cooldowns, "success": raw.get("success", 0), "failed": raw.get("failed", 0),
             "windows": (quota or {}).get("windows", []), "quota_at": (quota or {}).get("observed_at"),
             "quota_error": (quota or {}).get("error"), "last_refresh": raw.get("last_refresh"),
+            "resets": (quota or {}).get("resets"),
             "cooldown_until": max(retry) if retry else None}
 
 
@@ -234,6 +302,9 @@ class Hub:
         self.refresh_lock = threading.Lock()
         self.quotas = store.load()
         self.quota_attempts = {}
+        self.reset_reads = {}
+        self.reset_claims = {}
+        self.resetting = set()
         self.files = []
         self.error = None
         self.updated = None
@@ -270,18 +341,39 @@ class Hub:
             self.files, self.updated, self.error = files, time.time(), None
         return files
 
-    def fetch_quota(self, raw):
+    @staticmethod
+    def headers(raw):
         headers = {"Authorization": "Bearer $TOKEN$", "Content-Type": "application/json"}
         if raw["provider"] == "codex":
             account_id = raw.get("id_token", {}).get("chatgpt_account_id")
             if account_id:
                 headers["Chatgpt-Account-Id"] = account_id
             headers["User-Agent"] = "codex-tui/0.149.1"
-            payload = {"method": "GET", "url": "https://chatgpt.com/backend-api/wham/usage", "header": headers}
         elif raw["provider"] == "claude":
             headers["anthropic-beta"] = "oauth-2025-04-20"
-            headers["User-Agent"] = "claude-cli/2.1.0 (external, cli)"
-            payload = {"method": "GET", "url": "https://api.anthropic.com/api/oauth/usage", "header": headers}
+            # Anthropic only reports reset grants to a current CLI version.
+            headers["User-Agent"] = CLAUDE_UA
+        return headers
+
+    def call(self, raw, method, url, headers, data=None):
+        payload = {"auth_index": raw["auth_index"], "method": method, "url": url, "header": headers}
+        if data is not None:
+            payload["data"] = json.dumps(data)
+        response = self.request("requests/api-call", payload)
+        try:
+            body = json.loads(response.get("body") or "null")
+        except ValueError:
+            body = None
+        return response.get("status_code", 0), body
+
+    def fetch_quota(self, raw):
+        headers = self.headers(raw)
+        if raw["provider"] == "codex":
+            payload = {"method": "GET", "url": "https://chatgpt.com/backend-api/wham/usage", "header": headers}
+        elif raw["provider"] == "claude":
+            # cedar_ember adds the account's banked reset grants to the same response.
+            payload = {"method": "GET", "url": "https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1",
+                       "header": headers}
         else:
             headers["User-Agent"] = "antigravity/hub/2.23.0 linux/amd64"
             payload = {"method": "POST", "url": "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
@@ -296,6 +388,13 @@ class Hub:
             raise ValueError("The provider returned no quota windows.")
         parsed["observed_at"] = time.time()
         return parsed
+
+    def fetch_codex_resets(self, raw):
+        status, body = self.call(raw, "GET", CODEX_RESETS_URL, {**self.headers(raw), "Accept": "application/json",
+                                                               "OpenAI-Beta": "codex-1", "Originator": "Codex Desktop"})
+        if not 200 <= status < 300 or not isinstance(body, dict):
+            raise ValueError("Reset credits could not be read.")
+        return parse_codex_resets(body)
 
     def refresh_one(self, raw, observed_at=None):
         idx = raw["auth_index"]
@@ -312,6 +411,8 @@ class Hub:
             quota = self.fetch_quota(raw)
             if observed_at is not None:
                 quota["observed_at"] = observed_at
+            if raw["provider"] == "codex":
+                quota["resets"] = self.codex_resets(raw)
             self.store.save(idx, raw["provider"], quota)
         except Exception as exc:
             with self.lock:
@@ -319,6 +420,112 @@ class Hub:
             quota["error"] = str(exc) if isinstance(exc, ValueError) else "Quota refresh failed. Check the connection and retry."
         with self.lock:
             self.quotas[idx] = quota
+
+    def codex_resets(self, raw):
+        # A failed read keeps the last known credits; quota checks never fail because of it.
+        idx, now = raw["auth_index"], time.time()
+        with self.lock:
+            known = (self.quotas.get(idx) or {}).get("resets")
+            due = now - self.reset_reads.get(idx, 0) >= RESET_INTERVAL
+            if due:
+                self.reset_reads[idx] = now
+        if not due:
+            return known
+        try:
+            return self.fetch_codex_resets(raw)
+        except Exception:
+            return known
+
+    def use_reset(self, raw, grant_id=None):
+        idx = raw["auth_index"]
+        with self.lock:
+            if idx in self.resetting:
+                raise ValueError("A reset is already running for this account.")
+            self.resetting.add(idx)
+            resets = copy.deepcopy((self.quotas.get(idx) or {}).get("resets") or {})
+        try:
+            if raw["provider"] == "codex":
+                self.claim_codex(raw, resets)
+            elif raw["provider"] == "claude":
+                self.claim_claude(raw, resets, grant_id)
+            else:
+                raise ValueError("This provider has no manual resets.")
+            try:
+                self.request("routing/cooldown/reset", {"auth_index": idx}, "POST")
+            except Exception:
+                pass
+            with self.lock:
+                if raw["provider"] == "codex":
+                    self.reset_reads.pop(idx, None)
+                else:
+                    # Show the spent grant now; Anthropic's usage endpoint answers about once per two minutes.
+                    quota = self.quotas.get(idx) or {}
+                    for item in (quota.get("resets") or {}).get("items", []):
+                        if item["id"] == grant_id and item["left"] > 0:
+                            item["left"] -= 1
+                            quota["resets"]["available"] = max(0, quota["resets"]["available"] - 1)
+            if raw["provider"] == "codex":
+                self.refresh_one(raw)
+        finally:
+            with self.lock:
+                self.resetting.discard(idx)
+
+    def claim_codex(self, raw, resets):
+        if not resets.get("available"):
+            raise ValueError("This account has no resets left.")
+        status, body = self.call(raw, "POST", CODEX_RESETS_URL + "/consume", self.headers(raw),
+                                 {"redeem_request_id": str(uuid.uuid4())})
+        if status == 429:
+            raise ValueError("OpenAI is rate limiting this account. Try again in a minute.")
+        if not 200 <= status < 300 or (body or {}).get("code") not in {"reset", "already_redeemed"}:
+            raise ValueError("OpenAI did not confirm the reset. Check the account before trying again.")
+
+    def claim_claude(self, raw, resets, grant_id):
+        idx = raw["auth_index"]
+        grant = next((g for g in resets.get("items", []) if g["id"] == grant_id), None)
+        if grant is None:
+            raise ValueError("That reset is no longer listed. Refresh and try again.")
+        with self.lock:
+            pending = self.reset_claims.get((idx, grant_id))
+            if pending and time.time() - pending["created"] >= RESET_RETRY_WINDOW:
+                self.reset_claims.pop((idx, grant_id), None)
+                pending = None
+        # A pending claim already passed these checks; only its retry may skip them.
+        if not pending and grant["reason"]:
+            raise ValueError(f"This reset can't be used now: {grant['reason'].lower()}.")
+        status, profile = self.call(raw, "GET", "https://api.anthropic.com/api/oauth/profile", self.headers(raw))
+        org = str(((profile or {}).get("organization") or {}).get("uuid") or "").lower()
+        if not 200 <= status < 300 or not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", org):
+            raise ValueError("Anthropic's account lookup failed. Nothing was submitted.")
+        if pending and pending["org"] != org:
+            raise ValueError("This login now belongs to a different organization. Nothing was submitted.")
+        if not pending:
+            pending = {"request_id": uuid.uuid4().hex, "org": org, "created": time.time()}
+            with self.lock:
+                self.reset_claims[(idx, grant_id)] = pending
+        try:
+            status, body = self.call(raw, "POST", f"https://api.anthropic.com/api/organizations/{org}/reset_rate_limits",
+                                     self.headers(raw), {"program": "cedar_ember", "grant_id": grant_id,
+                                                         "request_id": pending["request_id"]})
+        except Exception:
+            status, body = 0, None
+        result = (body or {}).get("result") if 200 <= status < 300 else None
+        if status == 429:
+            raise ValueError("Anthropic is rate limiting this account. Try again in a minute.")
+        if status in (401, 403):
+            raise ValueError("Anthropic rejected the login. Sign in again, then retry.")
+        declined = {"not_limited": "Anthropic says the account isn't at a limit, so no reset was used.",
+                    "cooldown": "Anthropic says the account is cooling down after a recent reset. None was used.",
+                    "ineligible": "Anthropic declined the reset. None was used.",
+                    "unavailable": "Anthropic declined the reset. None was used."}
+        if result in {"reset", "already_used"} or result in declined:
+            with self.lock:
+                self.reset_claims.pop((idx, grant_id), None)
+            if result in declined:
+                raise ValueError(declined[result])
+            return
+        raise ValueError("The outcome is unknown and a reset may have been spent. Retrying within 10 minutes "
+                         "reuses the same request, so it can't spend a second one.")
 
     def refresh(self):
         if not self.refresh_lock.acquire(blocking=False):
@@ -521,6 +728,19 @@ class Handler(BaseHTTPRequestHandler):
                     self.hub.wake.set()
             # OAuth status can include credential records. Return only status and a generic error.
             self.send(200, {"status": result.get("status", "ok"), "error": "Sign-in failed or expired. Start again." if result.get("error") else None})
+        elif path == "/api/account/reset" and self.command == "POST":
+            raw = self.hub.account(str(body.get("id", "")))
+            if raw is None:
+                self.send(404, {"error": "Account no longer exists. Refresh the dashboard."})
+                return
+            grant = body.get("grant")
+            try:
+                self.hub.use_reset(raw, str(grant) if grant is not None else None)
+            except ValueError as exc:
+                # These messages are written here and say whether a reset may have been spent.
+                self.send(409, {"error": str(exc)})
+                return
+            self.send(200, {"status": "ok"})
         elif path in {"/api/account/relogin", "/api/account/cooldown", "/api/account/remove"} and self.command == "POST":
             idx = str(body.get("id", ""))
             raw = self.hub.account(idx)
