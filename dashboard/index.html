@@ -828,13 +828,20 @@
         font-size: 14px;
       }
       .pool-top select,
-      .pool-windows,
+      .pool-top > .pool-windows,
+      .pool-pickers,
       .pool-window {
         margin-left: auto;
         max-width: 260px;
       }
-      .pool-windows {
+      .pool-windows,
+      .pool-pickers {
         max-width: none;
+      }
+      .pool-pickers {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
       }
       /* Shown instead of a select when a provider reports a single quota window. */
       .pool-window {
@@ -1879,7 +1886,8 @@
           padding: 16px;
         }
         .pool-top select,
-        .pool-windows,
+        .pool-top > .pool-windows,
+        .pool-pickers,
         .pool-window {
           order: 1;
           flex-basis: 100%;
@@ -1888,6 +1896,7 @@
         }
         .segmented.pool-windows {
           height: 40px;
+          flex: 1 1 100%;
         }
         .segmented.pool-windows button {
           flex: 1;
@@ -2921,6 +2930,7 @@
           "data-view",
           "data-burn",
           "data-hours",
+          "data-window-group",
           "data-window-id",
           "data-pause",
         ])
@@ -3157,8 +3167,64 @@
         );
         return [...map.values()];
       }
-      // A few quota windows read best as tabs; Antigravity's per-model list keeps a select.
+      // A few quota windows read best as tabs; a long list keeps a select.
       const MAX_WINDOW_TABS = 4;
+      const windowName = (w) =>
+        (w.group ? w.label.replace(`${w.group} · `, "") : w.label).replace(
+          / limit$/i,
+          "",
+        );
+      function windowTabs(p, label, list, active, className = "") {
+        return `<div class="segmented sm pool-windows ${className}" role="group" aria-label="${esc(label)}">${list.map((o) => `<button data-window="${p}" ${o.group ? `data-window-group="${esc(o.group)}"` : ""} data-window-id="${esc(o.id)}" title="${esc(o.title)}" ${choice(o.id === active)}>${esc(o.text)}</button>`).join("")}</div>`;
+      }
+      // Grouped windows (Antigravity: models share a 5-hour and a weekly limit per
+      // group) get one tab set for the group and one for the window inside it.
+      function windowPicker(p, list, metric) {
+        if (list.length < 2)
+          return `<span class="pool-window">${esc(list[0]?.label || "Quota unavailable")}</span>`;
+        const current = list.find((w) => w.id === metric) || list[0],
+          groups = [...new Set(list.map((w) => w.group).filter(Boolean))];
+        if (groups.length > 1 && groups.length <= MAX_WINDOW_TABS) {
+          const inGroup = list.filter((w) => w.group === current.group);
+          return `<div class="pool-pickers">${windowTabs(
+            p,
+            `Model group for ${pName(p)}`,
+            groups.map((g) => {
+              const options = list.filter((w) => w.group === g),
+                match =
+                  options.find((w) => windowName(w) === windowName(current)) ||
+                  options[0];
+              return { id: match.id, group: g, text: g, title: g };
+            }),
+            list.find(
+              (w) =>
+                w.group === current.group &&
+                windowName(w) === windowName(current),
+            ).id,
+          )}${
+            inGroup.length > 1
+              ? windowTabs(
+                  p,
+                  `Quota window for ${pName(p)}`,
+                  inGroup.map((w) => ({
+                    id: w.id,
+                    text: windowName(w),
+                    title: w.label,
+                  })),
+                  current.id,
+                )
+              : ""
+          }</div>`;
+        }
+        if (list.length <= MAX_WINDOW_TABS)
+          return windowTabs(
+            p,
+            `Quota window for ${pName(p)}`,
+            list.map((w) => ({ id: w.id, text: windowName(w), title: w.label })),
+            current.id,
+          );
+        return `<label class="sr-only" for="window-${p}">Quota window for ${pName(p)}</label><select id="window-${p}" class="sm" data-window="${p}">${list.map((w) => `<option value="${esc(w.id)}" ${metric === w.id ? "selected" : ""}>${esc(w.label)}</option>`).join("")}</select>`;
+      }
       function selectedWindow(p, accounts) {
         const list = allWindows(accounts);
         if (!list.some((w) => w.id === state.windows[p]))
@@ -3169,9 +3235,7 @@
               : p === "claude"
                 ? list.find((w) => w.id === "five_hour")?.id || list[0]?.id
                 : list.find(
-                    (w) =>
-                      /gemini.*flash/i.test(w.label) &&
-                      !/image|lite/i.test(w.label),
+                    (w) => /gemini/i.test(w.group) && w.period === 5 * 3600,
                   )?.id || list[0]?.id;
         return state.windows[p];
       }
@@ -3423,7 +3487,7 @@
         const restricted = accounts.filter(
           (a) => status(a)[0] === "Model restriction",
         ).length;
-        return `<section class="pool provider-${p}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span>${list.length > 1 && list.length <= MAX_WINDOW_TABS ? `<div class="segmented sm pool-windows" role="group" aria-label="Quota window for ${pName(p)}">${list.map((w) => `<button data-window="${p}" data-window-id="${esc(w.id)}" title="${esc(w.label)}" ${choice(metric === w.id)}>${esc(w.label.replace(/ limit$/, ""))}</button>`).join("")}</div>` : list.length > 1 ? `<label class="sr-only" for="window-${p}">Quota window for ${pName(p)}</label><select id="window-${p}" class="sm" data-window="${p}">${list.map((w) => `<option value="${esc(w.id)}" ${metric === w.id ? "selected" : ""}>${esc(w.label)}</option>`).join("")}</select>` : `<span class="pool-window">${esc(list[0]?.label || "Quota unavailable")}</span>`}</div><div class="pool-total"><div><div class="big-number">${morph(items.length ? fmtPct(sum) : "—")}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${morph(empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history")}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${morph(next ? esc(relative(next)) : "Not reported")}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${morph(rate !== null ? fmtPct(rate) + "/h" : "—")}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<div class="breakdown"><div class="breakdown-head"><span class="breakdown-title">Accounts</span><span class="summary-meta">${morph(`${items.length}/${accounts.length} quotas measured`)}</span></div><div class="mini-accounts">${accounts
+        return `<section class="pool provider-${p}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span>${windowPicker(p, list, metric)}</div><div class="pool-total"><div><div class="big-number">${morph(items.length ? fmtPct(sum) : "—")}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${morph(empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history")}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${morph(next ? esc(relative(next)) : "Not reported")}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${morph(rate !== null ? fmtPct(rate) + "/h" : "—")}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<div class="breakdown"><div class="breakdown-head"><span class="breakdown-title">Accounts</span><span class="summary-meta">${morph(`${items.length}/${accounts.length} quotas measured`)}</span></div><div class="mini-accounts">${accounts
           .map((a, i) => {
             const w = a.windows.find((w) => w.id === metric),
               [s, c] = status(a);
@@ -3474,7 +3538,7 @@
             const [s, c] = status(a),
               w =
                 a.windows.find((w) => w.id === "rate_limit:primary_window") ||
-                a.windows.find((w) => /flash/i.test(w.label)) ||
+                a.windows.find((w) => w.period === 5 * 3600) ||
                 a.windows[0];
             const label = accountLabel(a, i);
             return `<article class="account-row provider-${esc(a.provider)}" data-account="${esc(a.id)}"><div class="account-identity">${providerIcon(a.provider)}<span class="account-label" title="${esc(label)}">${esc(label)}</span><span class="account-sub">${esc([planLabel(a.plan), pName(a.provider)].filter((v, n, all) => v && all.indexOf(v) === n).join(" · "))}</span></div><div class="account-quota"><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="quota-value">${morph(w ? fmtPct(w.remaining) : "—")}</span><span class="account-meta">${morph(esc(age(a.quota_at)) + (a.quota_error ? " · last known" : ""))}</span></div><div class="account-status"><span class="tag ${c}">${morph(s)}</span><span class="account-reason" title="${esc(statusReason(a))}">${morph(esc(statusReason(a)))}</span>${a.requires_sign_in ? `<button class="outline sm" data-relogin="${esc(a.id)}">Sign in again</button>` : ""}</div><div class="account-actions"><button class="switch" role="switch" aria-checked="${!a.disabled}" aria-label="Include ${esc(label)} in rotation" title="${a.disabled ? "Paused: excluded from rotation" : "In rotation"}" data-pause="${esc(a.id)}" data-disabled="${!a.disabled}"><span class="switch-thumb"></span></button><button class="ghost icon-btn sm row-menu" data-menu="${esc(a.id)}" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu" aria-label="More actions for ${esc(label)}">${icon("more")}</button></div></article>`;

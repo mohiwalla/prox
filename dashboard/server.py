@@ -94,18 +94,25 @@ def parse_codex(data):
     return {"plan": str(data.get("plan_type") or "Unknown"), "windows": windows}
 
 
+ANTIGRAVITY_WINDOWS = {"5h": ("5-hour limit", 5 * 3600), "weekly": ("Weekly limit", 7 * 86400)}
+
+
 def parse_antigravity(data):
+    # retrieveUserQuotaSummary: models in a group share one 5-hour and one weekly limit.
     windows = []
-    for key, model in (data.get("models") or {}).items():
-        quota = model.get("quotaInfo") or {}
-        # Hide internal autocomplete models; keep named models the account actually reports.
-        if not model.get("displayName"):
-            continue
-        item = window(key, model["displayName"], remaining=quota.get("remainingFraction"),
-                      reset=quota.get("resetTime"))
-        if item:
-            windows.append(item)
-    return {"plan": "Antigravity", "windows": sorted(windows, key=lambda w: w["label"])}
+    for n, group in enumerate(data.get("groups") or [], 1):
+        name = str(group.get("displayName") or f"Group {n}")
+        name = re.sub(r"\s+models$", "", name, flags=re.I).replace(" and ", " & ")
+        # Shortest window first, like Claude and Codex (the API lists weekly first).
+        buckets = sorted(group.get("buckets") or [], key=lambda b: ANTIGRAVITY_WINDOWS.get(b.get("window"), ("", math.inf))[1])
+        for bucket in buckets:
+            label, period = ANTIGRAVITY_WINDOWS.get(bucket.get("window"), (
+                re.sub(r"\s+remaining$", "", str(bucket.get("displayName") or "Limit"), flags=re.I), None))
+            item = window(bucket.get("bucketId") or f"{name}:{bucket.get('window')}", f"{name} · {label}",
+                          remaining=bucket.get("remainingFraction"), reset=bucket.get("resetTime"), period=period)
+            if item:
+                windows.append({**item, "group": name})
+    return {"plan": "Antigravity", "windows": windows}
 
 
 CLAUDE_WINDOWS = {"five_hour": ("5-hour limit", 5 * 3600), "seven_day": ("Weekly limit", 7 * 86400)}
@@ -113,6 +120,13 @@ CLAUDE_WINDOWS = {"five_hour": ("5-hour limit", 5 * 3600), "seven_day": ("Weekly
 # model's limit shows up without a code change. OAuth-app usage is not a model limit.
 CLAUDE_MODEL_WINDOW = re.compile(r"seven_day_([a-z0-9_]+)")
 CLAUDE_SKIPPED_WINDOWS = {"seven_day_oauth_apps"}
+
+
+def claude_used(value):
+    # A present but unreadable value fails the check, so the last good reading is kept.
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError("Claude returned an unreadable quota.")
+    return value
 
 
 def parse_claude(data):
@@ -123,13 +137,27 @@ def parse_claude(data):
         value = data.get(key)
         if not isinstance(value, dict) or value.get("utilization") is None:
             continue
-        used = value["utilization"]
-        # A present but unreadable value fails the check, so the last good reading is kept.
-        if isinstance(used, bool) or not isinstance(used, (int, float)):
-            raise ValueError("Claude returned an unreadable quota.")
         label, period = CLAUDE_WINDOWS.get(key) or (
             "Weekly · " + CLAUDE_MODEL_WINDOW.fullmatch(key)[1].replace("_", " ").title(), 7 * 86400)
-        windows.append(window(key, label, used=used, reset=value.get("resets_at"), period=period))
+        windows.append(window(key, label, used=claude_used(value["utilization"]), reset=value.get("resets_at"), period=period))
+    # Newer models (Fable 5) report their weekly limit in `limits` as a model-scoped entry.
+    scoped = {}
+    for limit in data.get("limits") or []:
+        name = ((((limit or {}).get("scope") or {}).get("model") or {}).get("display_name") or "").strip()
+        if limit.get("kind") != "weekly_scoped" or not name or limit.get("percent") is None:
+            continue
+        if name not in scoped or limit.get("is_active") is True:
+            scoped[name] = limit
+    for name, limit in scoped.items():
+        key = "weekly_scoped:" + re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+        windows.append(window(key, f"Weekly · {name}", used=claude_used(limit["percent"]),
+                              reset=limit.get("resets_at"), period=7 * 86400))
+    # Older responses carried Fable under its codename; with dollar fields it is cloud credits instead.
+    fable = data.get("iguana_necktie")
+    if (isinstance(fable, dict) and fable.get("utilization") is not None and not scoped
+            and all(fable.get(k) is None for k in ("limit_dollars", "used_dollars", "remaining_dollars"))):
+        windows.append(window("iguana_necktie", "Weekly · Fable 5", used=claude_used(fable["utilization"]),
+                              reset=fable.get("resets_at"), period=7 * 86400))
     return {"plan": "Claude", "windows": windows}
 
 
@@ -256,7 +284,7 @@ class Hub:
             payload = {"method": "GET", "url": "https://api.anthropic.com/api/oauth/usage", "header": headers}
         else:
             headers["User-Agent"] = "antigravity/hub/2.23.0 linux/amd64"
-            payload = {"method": "POST", "url": "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
+            payload = {"method": "POST", "url": "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
                        "header": headers, "data": json.dumps({"project": raw.get("project_id", "")})}
         payload["auth_index"] = raw["auth_index"]
         response = self.request("requests/api-call", payload)

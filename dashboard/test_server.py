@@ -24,14 +24,19 @@ class QuotaTests(unittest.TestCase):
     def test_missing_codex_percent_is_unknown(self):
         self.assertEqual(parse_codex({"rate_limit": {"primary_window": {"reset_at": 123}}})["windows"], [])
 
-    def test_antigravity_handles_zero_and_omits_unknown(self):
-        result = parse_antigravity({"models": {
-            "flash": {"displayName": "Gemini Flash", "quotaInfo": {"remainingFraction": 0}},
-            "unknown": {"displayName": "Unknown", "quotaInfo": {}},
-            "autocomplete": {"quotaInfo": {"remainingFraction": 1}}}})
-        self.assertEqual([w["id"] for w in result["windows"]], ["flash"])
-        self.assertEqual(result["windows"][0]["remaining"], 0)
-        self.assertIsNone(result["windows"][0]["period"])
+    def test_antigravity_reads_shared_group_limits(self):
+        result = parse_antigravity({"groups": [
+            {"displayName": "Gemini Models", "buckets": [
+                {"bucketId": "gemini-weekly", "window": "weekly", "remainingFraction": 1},
+                {"bucketId": "gemini-5h", "window": "5h", "remainingFraction": 0, "resetTime": "2026-11-13T23:17:58Z"},
+                {"bucketId": "gemini-unknown", "window": "weekly"}]},
+            {"displayName": "Claude and GPT models", "buckets": [
+                {"bucketId": "3p-daily", "window": "daily", "displayName": "Daily Limit Remaining", "remainingFraction": 0.5}]}]})
+        self.assertEqual([(w["id"], w["group"], w["label"], w["remaining"], w["period"]) for w in result["windows"]], [
+            ("gemini-5h", "Gemini", "Gemini · 5-hour limit", 0, 5 * 3600),
+            ("gemini-weekly", "Gemini", "Gemini · Weekly limit", 100, 7 * 86400),
+            ("3p-daily", "Claude & GPT", "Claude & GPT · Daily Limit", 50, None)])
+        self.assertIsNotNone(result["windows"][0]["reset_at"])
 
     def test_claude_reads_utilization_and_skips_null_windows(self):
         result = parse_claude({
@@ -45,12 +50,21 @@ class QuotaTests(unittest.TestCase):
     def test_claude_reads_new_model_windows_without_a_code_change(self):
         result = parse_claude({
             "five_hour": {"utilization": 10}, "seven_day": {"utilization": 20},
-            "seven_day_fable": {"utilization": 30}, "seven_day_opus": {"utilization": 40},
-            "seven_day_oauth_apps": {"utilization": 50}, "extra_usage": {"utilization": 60}})
-        self.assertEqual([(w["id"], w["label"]) for w in result["windows"]], [
-            ("five_hour", "5-hour limit"), ("seven_day", "Weekly limit"),
-            ("seven_day_fable", "Weekly · Fable"), ("seven_day_opus", "Weekly · Opus")])
-        self.assertEqual(result["windows"][2]["period"], 7 * 86400)
+            "seven_day_opus": {"utilization": 40}, "seven_day_oauth_apps": {"utilization": 50},
+            "extra_usage": {"utilization": 60}, "iguana_necktie": {"utilization": 70},
+            "limits": [
+                {"kind": "weekly_scoped", "scope": {"model": {"display_name": "Fable 5"}}, "percent": 90, "is_active": False},
+                {"kind": "weekly_scoped", "scope": {"model": {"display_name": "Fable 5"}}, "percent": 30, "is_active": True},
+                {"kind": "session", "percent": 5}]})
+        self.assertEqual([(w["id"], w["label"], w["remaining"]) for w in result["windows"]], [
+            ("five_hour", "5-hour limit", 90), ("seven_day", "Weekly limit", 80),
+            ("seven_day_opus", "Weekly · Opus", 60), ("weekly_scoped:fable_5", "Weekly · Fable 5", 70)])
+        self.assertEqual(result["windows"][3]["period"], 7 * 86400)
+
+    def test_claude_codename_window_is_fable_unless_it_is_cloud_credits(self):
+        fable = parse_claude({"iguana_necktie": {"utilization": 25}})["windows"]
+        self.assertEqual([(w["label"], w["remaining"]) for w in fable], [("Weekly · Fable 5", 75)])
+        self.assertEqual(parse_claude({"iguana_necktie": {"utilization": 25, "limit_dollars": 50}})["windows"], [])
 
     def test_claude_rejects_malformed_present_windows(self):
         for bad in ("invalid", True, [1]):

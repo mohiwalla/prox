@@ -111,9 +111,14 @@ const assert = require("assert/strict");
   await page.locator("#page-title").click();
   await page.locator('[data-filter="antigravity"]').click();
   assert.equal(await page.locator("[data-pool]").count(), 1);
-  await page.locator("#window-antigravity").selectOption({ index: 1 });
-  // Chart choices persist across a reload.
-  const chosenWindow = await page.locator("#window-antigravity").inputValue();
+  // Antigravity limits are shared per model group: one tab set picks the
+  // group, a second picks the window, and the choice survives a reload.
+  const agy = page.locator('[data-pool="antigravity"]');
+  await agy.locator('.pool-windows[aria-label^="Model group"] > button').nth(1).click();
+  await agy.locator('.pool-windows[aria-label^="Quota window"] > button').nth(1).click();
+  const chosenWindow = await agy
+    .locator('.pool-windows[aria-label^="Quota window"] > .active')
+    .getAttribute("data-window-id");
   await page.locator("#forecast").selectOption("off");
   await page.reload();
   await page.locator("[data-pool]").first().waitFor();
@@ -123,21 +128,43 @@ const assert = require("assert/strict");
     "Provider filter persists",
   );
   assert.equal(
-    await page.locator("#window-antigravity").inputValue(),
+    await agy
+      .locator('.pool-windows[aria-label^="Quota window"] > .active')
+      .getAttribute("data-window-id"),
     chosenWindow,
+  );
+  assert.equal(
+    await agy
+      .locator('.pool-windows[aria-label^="Model group"] > .active')
+      .getAttribute("data-window-group"),
+    await page.evaluate(
+      (id) =>
+        dashboard.state.data.accounts
+          .flatMap((a) => a.windows)
+          .find((w) => w.id === id).group,
+      chosenWindow,
+    ),
   );
   assert.equal(await page.locator("#forecast").inputValue(), "off");
   await page.locator("#forecast").selectOption("on");
   await page.locator('[data-filter="all"]').click();
-  // One quota window shows a label, a few show tabs, many keep a select.
+  // One quota window shows a label, a few show tabs, many keep a select,
+  // and grouped windows get a group tab set plus a window tab set.
   assert.equal(
     await page.evaluate(() =>
       [...document.querySelectorAll("[data-pool]")].every((pool) => {
-        const n = new Set(
-          dashboard.state.data.accounts
-            .filter((a) => a.provider === pool.dataset.pool)
-            .flatMap((a) => a.windows.map((w) => w.id)),
-        ).size;
+        const windows = dashboard.state.data.accounts
+          .filter((a) => a.provider === pool.dataset.pool)
+          .flatMap((a) => a.windows);
+        const n = new Set(windows.map((w) => w.id)).size,
+          groups = new Set(windows.map((w) => w.group).filter(Boolean)).size;
+        if (groups > 1)
+          return (
+            pool.querySelectorAll('[aria-label^="Model group"] > button')
+              .length === groups &&
+            pool.querySelectorAll('[aria-label^="Quota window"] > button')
+              .length === n / groups
+          );
         return n > 4
           ? !!pool.querySelector("select[data-window]")
           : n > 1
@@ -148,8 +175,10 @@ const assert = require("assert/strict");
     true,
   );
   const tabbedPool = await page.evaluate(
-    () => document.querySelector(".pool-windows")?.closest("[data-pool]")
-      .dataset.pool,
+    () =>
+      document
+        .querySelector(".pool-top > .pool-windows")
+        ?.closest("[data-pool]").dataset.pool,
   );
   if (tabbedPool) {
     const tabs = page.locator(`[data-pool="${tabbedPool}"] .pool-windows > button`);
@@ -652,7 +681,9 @@ const assert = require("assert/strict");
   await page.keyboard.press("ArrowLeft");
   const quietRefresh = await page.evaluate(async () => {
     const plot = document.querySelector('[data-chart="codex"]');
-    const select = document.querySelector("#window-antigravity");
+    const windowTab = document.querySelector(
+      '[data-pool="antigravity"] [aria-label^="Quota window"] > .active',
+    );
     const button = document.querySelector('[data-filter="all"]');
     const tooltip = plot.querySelector(".chart-tooltip");
     const breakdown = document.querySelector(
@@ -665,13 +696,14 @@ const assert = require("assert/strict");
       !tooltip.hidden &&
       tooltip.textContent === inspected &&
       document.activeElement === plot;
-    select.focus();
-    // Let the select's own focus-ring transition finish; only refresh motion counts.
+    windowTab.focus();
+    // Let the tab's own focus-ring transition finish; only refresh motion counts.
     await new Promise((r) => setTimeout(r, 300));
     await load();
     return {
       inspectionPreserved,
-      selectPreserved: select.isConnected && document.activeElement === select,
+      windowTabPreserved:
+        windowTab.isConnected && document.activeElement === windowTab,
       buttonPreserved: button.isConnected,
       breakdownPreserved: breakdown.isConnected && breakdown.checkVisibility(),
       // Torph morphs real text changes (ages, values); nothing else may move.
@@ -689,7 +721,7 @@ const assert = require("assert/strict");
   });
   assert.deepEqual(quietRefresh, {
     inspectionPreserved: true,
-    selectPreserved: true,
+    windowTabPreserved: true,
     buttonPreserved: true,
     breakdownPreserved: true,
     quiet: true,
