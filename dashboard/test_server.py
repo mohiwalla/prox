@@ -128,20 +128,44 @@ class QuotaTests(unittest.TestCase):
         hub.quotas["r"] = {"windows": [], "resets": resets}
         return hub, raw
 
-    def test_codex_reset_consumes_one_credit_then_clears_cooldown(self):
+    def test_codex_reset_spends_the_chosen_credit_then_clears_cooldown(self):
+        credits = {"available": 2, "items": [{"id": "soon"}, {"id": "later"}]}
         with tempfile.TemporaryDirectory() as folder:
-            hub, raw = self.reset_hub(folder, "codex", {"available": 1, "items": []})
-            with patch.object(hub, "call", return_value=(200, {"code": "reset"})) as call, \
+            hub, raw = self.reset_hub(folder, "codex", credits)
+            with patch.object(hub, "fetch_codex_resets", return_value=credits), \
+                    patch.object(hub, "call", return_value=(200, {"code": "reset"})) as call, \
                     patch.object(hub, "request") as request, patch.object(hub, "refresh_one") as refresh:
+                hub.use_reset(raw, "later")
                 hub.use_reset(raw)
-            self.assertTrue(call.call_args.args[2].endswith("/consume"))
-            self.assertIn("redeem_request_id", call.call_args.args[4])
-            request.assert_called_once_with("routing/cooldown/reset", {"auth_index": "r"}, "POST")
-            refresh.assert_called_once_with(raw)
-            hub.quotas["r"]["resets"]["available"] = 0
-            with patch.object(hub, "call") as call, self.assertRaises(ValueError):
-                hub.use_reset(raw)
-            call.assert_not_called()
+            self.assertTrue(call.call_args_list[0].args[2].endswith("/consume"))
+            self.assertEqual([c.args[4]["credit_id"] for c in call.call_args_list], ["later", "soon"])
+            self.assertNotEqual(*[c.args[4]["redeem_request_id"] for c in call.call_args_list])
+            request.assert_called_with("routing/cooldown/reset", {"auth_index": "r"}, "POST")
+            self.assertEqual(refresh.call_count, 2)
+            with patch.object(hub, "fetch_codex_resets", return_value=credits), patch.object(hub, "call") as call:
+                with self.assertRaisesRegex(ValueError, "no longer on the account"):
+                    hub.use_reset(raw, "gone")
+                call.assert_not_called()
+
+    def test_codex_reset_retries_an_unknown_outcome_and_keeps_unspent_resets(self):
+        credits = {"available": 1, "items": [{"id": "soon"}]}
+        with tempfile.TemporaryDirectory() as folder:
+            hub, raw = self.reset_hub(folder, "codex", credits)
+            with patch.object(hub, "fetch_codex_resets", return_value=credits) as fetch, \
+                    patch.object(hub, "call", side_effect=[(502, None), (200, {"code": "already_redeemed"})]) as call, \
+                    patch.object(hub, "request"), patch.object(hub, "refresh_one"):
+                with self.assertRaisesRegex(ValueError, "outcome is unknown"):
+                    hub.use_reset(raw, "soon")
+                hub.use_reset(raw, "soon")
+            first, second = [c.args[4] for c in call.call_args_list]
+            self.assertEqual(first, second)
+            fetch.assert_called_once()
+            self.assertEqual(hub.reset_claims, {})
+            with patch.object(hub, "fetch_codex_resets", return_value=credits), \
+                    patch.object(hub, "call", return_value=(200, {"code": "nothing_to_reset"})), \
+                    self.assertRaisesRegex(ValueError, "reset was kept"):
+                hub.use_reset(raw, "soon")
+            self.assertEqual(hub.reset_claims, {})
 
     def test_claude_reset_retries_an_unknown_outcome_with_the_same_request(self):
         org = "12345678-1234-1234-1234-123456789abc"

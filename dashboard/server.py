@@ -445,7 +445,7 @@ class Hub:
             resets = copy.deepcopy((self.quotas.get(idx) or {}).get("resets") or {})
         try:
             if raw["provider"] == "codex":
-                self.claim_codex(raw, resets)
+                self.claim_codex(raw, grant_id)
             elif raw["provider"] == "claude":
                 self.claim_claude(raw, resets, grant_id)
             else:
@@ -470,26 +470,64 @@ class Hub:
             with self.lock:
                 self.resetting.discard(idx)
 
-    def claim_codex(self, raw, resets):
-        if not resets.get("available"):
-            raise ValueError("This account has no resets left.")
-        status, body = self.call(raw, "POST", CODEX_RESETS_URL + "/consume", self.headers(raw),
-                                 {"redeem_request_id": str(uuid.uuid4())})
+    def pending_claim(self, idx, key):
+        # A claim whose outcome was unknown is retried with the same request ID for a while,
+        # so the provider treats the retry as the same request and can't spend twice.
+        with self.lock:
+            pending = self.reset_claims.get((idx, key))
+            if pending and time.time() - pending["created"] >= RESET_RETRY_WINDOW:
+                self.reset_claims.pop((idx, key), None)
+                pending = None
+            return pending
+
+    def claim_codex(self, raw, credit_id):
+        idx = raw["auth_index"]
+        pending = self.pending_claim(idx, credit_id) if credit_id else None
+        if not pending:
+            # Read the credits fresh: the chosen one must still be on the account.
+            try:
+                fresh = self.fetch_codex_resets(raw)
+            except ValueError:
+                raise ValueError("Reset credits could not be read, so none was used.") from None
+            with self.lock:
+                if idx in self.quotas:
+                    self.quotas[idx]["resets"] = fresh
+            ids = [i["id"] for i in fresh["items"]]
+            credit_id = credit_id or next(iter(ids), None)
+            if not credit_id:
+                raise ValueError("This account has no resets left.")
+            if credit_id not in ids:
+                raise ValueError("That reset is no longer on the account, so none was used.")
+            pending = {"request_id": str(uuid.uuid4()), "created": time.time()}
+            with self.lock:
+                self.reset_claims[(idx, credit_id)] = pending
+        try:
+            status, body = self.call(raw, "POST", CODEX_RESETS_URL + "/consume", self.headers(raw),
+                                     {"credit_id": credit_id, "redeem_request_id": pending["request_id"]})
+        except Exception:
+            status, body = 0, None
+        code = (body or {}).get("code") if 200 <= status < 300 else None
+        declined = {"nothing_to_reset": "OpenAI says no limit has been used yet, so the reset was kept.",
+                    "no_credit": "OpenAI says this account has no resets left. None was used."}
+        if code in {"reset", "already_redeemed"} or code in declined or status in (401, 403, 429):
+            with self.lock:
+                self.reset_claims.pop((idx, credit_id), None)
         if status == 429:
             raise ValueError("OpenAI is rate limiting this account. Try again in a minute.")
-        if not 200 <= status < 300 or (body or {}).get("code") not in {"reset", "already_redeemed"}:
-            raise ValueError("OpenAI did not confirm the reset. Check the account before trying again.")
+        if status in (401, 403):
+            raise ValueError("OpenAI rejected the login. Sign in again, then retry.")
+        if code in declined:
+            raise ValueError(declined[code])
+        if code not in {"reset", "already_redeemed"}:
+            raise ValueError("The outcome is unknown and a reset may have been spent. Retrying within 10 minutes "
+                             "reuses the same request, so it can't spend a second one.")
 
     def claim_claude(self, raw, resets, grant_id):
         idx = raw["auth_index"]
         grant = next((g for g in resets.get("items", []) if g["id"] == grant_id), None)
         if grant is None:
             raise ValueError("That reset is no longer listed. Refresh and try again.")
-        with self.lock:
-            pending = self.reset_claims.get((idx, grant_id))
-            if pending and time.time() - pending["created"] >= RESET_RETRY_WINDOW:
-                self.reset_claims.pop((idx, grant_id), None)
-                pending = None
+        pending = self.pending_claim(idx, grant_id)
         # A pending claim already passed these checks; only its retry may skip them.
         if not pending and grant["reason"]:
             raise ValueError(f"This reset can't be used now: {grant['reason'].lower()}.")
