@@ -2676,7 +2676,7 @@
       ></button>
       <aside id="sidebar" class="sidebar" aria-label="Main navigation">
         <div class="sidebar-header">
-          <a class="brand" href="#quotas"
+          <a class="brand" href="/dashboard/" data-page-link="quotas"
             ><span class="brand-mark"
               ><svg aria-hidden="true"><use href="#prox-brand" /></svg></span
             ><span class="brand-text"><strong>prox</strong></span></a
@@ -2684,15 +2684,15 @@
         </div>
         <nav class="sidebar-content">
           <div class="sidebar-group">
-            <a class="sidebar-item" href="#quotas" data-page="quotas"
+            <a class="sidebar-item" href="/dashboard/" data-page="quotas"
               ><svg class="icon" aria-hidden="true"><use href="#i-gauge" /></svg
               ><span>Quota management</span></a
-            ><a class="sidebar-item" href="#accounts" data-page="accounts"
+            ><a class="sidebar-item" href="/dashboard/accounts" data-page="accounts"
               ><svg class="icon" aria-hidden="true">
                 <use href="#i-accounts" /></svg
               ><span>Accounts</span
               ><span class="sidebar-badge" id="nav-account-count"></span></a
-            ><a class="sidebar-item" href="#logs" data-page="logs"
+            ><a class="sidebar-item" href="/dashboard/logs" data-page="logs"
               ><svg class="icon" aria-hidden="true"><use href="#i-logs" /></svg
               ><span>Logs</span></a
             >
@@ -3718,6 +3718,26 @@
 
       // Chart choices survive reloads (per browser; storage may be unavailable).
       const PREFS_KEY = "prox:prefs";
+      // Pages live at clean paths: /dashboard/, /dashboard/accounts, /dashboard/logs.
+      const PAGES = ["quotas", "accounts", "logs"];
+      const pagePath = (page) =>
+        page === "quotas" ? "/dashboard/" : `/dashboard/${page}`;
+      function pageFromPath() {
+        const page = location.pathname
+          .replace(/^\/dashboard\/?/, "")
+          .replace(/\/$/, "");
+        return PAGES.includes(page) ? page : "quotas";
+      }
+      // Old #accounts-style links land on the matching clean path.
+      if (PAGES.includes(location.hash.slice(1)))
+        history.replaceState(null, "", pagePath(location.hash.slice(1)));
+      function navigate(page) {
+        if (!PAGES.includes(page)) return;
+        if (location.pathname !== pagePath(page))
+          history.pushState(null, "", pagePath(page));
+        setMenu(false);
+        render(true);
+      }
       function restorePrefs() {
         let saved = {};
         try {
@@ -3755,11 +3775,7 @@
         )
           state.provider = "all";
         const body = $("#page-body");
-        state.page = ["quotas", "accounts", "logs"].includes(
-          location.hash.slice(1),
-        )
-          ? location.hash.slice(1)
-          : "quotas";
+        state.page = pageFromPath();
         morphText(
           $("#page-title"),
           {
@@ -3934,9 +3950,25 @@
         setMenu(false);
         $("#menu").focus();
       });
-      window.addEventListener("hashchange", () => {
+      window.addEventListener("popstate", () => {
         setMenu(false);
         render(true);
+      });
+      // Sidebar links navigate in place; modified clicks still open a new tab.
+      document.addEventListener("click", (e) => {
+        const link = e.target.closest("a[data-page], a[data-page-link]");
+        if (
+          !link ||
+          e.defaultPrevented ||
+          e.button !== 0 ||
+          e.metaKey ||
+          e.ctrlKey ||
+          e.shiftKey ||
+          e.altKey
+        )
+          return;
+        e.preventDefault();
+        navigate(link.dataset.page || link.dataset.pageLink);
       });
       let resizeTimer,
         layoutWidth = innerWidth;
@@ -3981,7 +4013,7 @@
           updateIndicators();
           await load(true);
         } else if (b.dataset.go) {
-          location.hash = b.dataset.go;
+          navigate(b.dataset.go);
         } else if (b.hasAttribute("data-add")) {
           openOAuth(b.dataset.add);
         } else if (b.dataset.menu) {

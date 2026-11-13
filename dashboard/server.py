@@ -44,7 +44,8 @@ CLAUDE_UA = "claude-cli/2.1.280 (external, cli)"
 # Sign in once: sessions survive restarts and renew while used. 400 days is the longest
 # cookie lifetime browsers accept; renewal happens at most once a day.
 SESSION_TTL = 400 * 86400
-SESSION_RENEW_AFTER = 86400  # seconds between live quota checks
+SESSION_RENEW_AFTER = 86400
+PAGES = {"/", "/accounts", "/logs"}  # seconds between live quota checks
 HISTORY_POINTS = 720  # most points per series sent to the browser
 # Every OAuth flow CLIProxyAPI v8 exposes through /oauth/auth-url.
 OAUTH_PROVIDERS = {"claude", "codex", "antigravity", "xai", "kimi", "kimi-ai", "devin", "meta"}
@@ -700,7 +701,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         url = urllib.parse.urlsplit(self.path)
         path = url.path.removeprefix("/dashboard").rstrip("/") or "/"
-        if self.command == "GET" and path == "/":
+        # Pages use clean paths (/dashboard/accounts); each one serves the same app.
+        if self.command == "GET" and path in PAGES:
             self.send(200, (ROOT / "index.html").read_bytes(), "text/html; charset=utf-8")
             return
         if self.command == "GET" and path in {"/assets/geist-sans.woff2", "/assets/geist-mono.woff2"}:
