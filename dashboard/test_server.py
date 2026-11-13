@@ -42,6 +42,11 @@ class QuotaTests(unittest.TestCase):
         self.assertEqual(result["windows"][0]["period"], 5 * 3600)
         self.assertIsNotNone(result["windows"][1]["reset_at"])
 
+    def test_claude_rejects_malformed_present_windows(self):
+        for bad in ("invalid", True, [1]):
+            with self.assertRaises(ValueError):
+                parse_claude({"five_hour": {"utilization": 10}, "seven_day": {"utilization": bad}})
+
     def test_every_provider_is_listed_but_only_quota_providers_are_checked(self):
         with tempfile.TemporaryDirectory() as folder:
             hub = Hub(Store(Path(folder) / "history.sqlite"))
