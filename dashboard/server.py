@@ -30,6 +30,9 @@ CREDENTIALS = Path.home() / "cliproxyapi/credentials.json"
 PUBLIC_HOSTS = [h.strip() for h in os.environ.get("DASHBOARD_HOSTS", "").split(",") if h.strip()]
 LOCAL_HOSTS = {"127.0.0.1:8318", "localhost:8318"}
 QUOTA_PROVIDERS = {"codex", "antigravity", "claude"}  # providers with quota readers
+# Slower checks for providers whose quota endpoint is rate-limited. Anthropic's
+# /api/oauth/usage answers about one call per two minutes per account.
+QUOTA_MIN_INTERVAL = {"claude": 180}
 QUOTA_INTERVAL = 30  # seconds between live quota checks
 HISTORY_POINTS = 720  # most points per series sent to the browser
 # Every OAuth flow CLIProxyAPI v8 exposes through /oauth/auth-url.
@@ -196,6 +199,7 @@ class Hub:
         self.lock = threading.RLock()
         self.refresh_lock = threading.Lock()
         self.quotas = store.load()
+        self.quota_attempts = {}
         self.files = []
         self.error = None
         self.updated = None
@@ -263,6 +267,13 @@ class Hub:
         idx = raw["auth_index"]
         if raw.get("disabled") or raw.get("provider") not in QUOTA_PROVIDERS:
             return
+        interval = QUOTA_MIN_INTERVAL.get(raw["provider"])
+        if interval:
+            now = time.time()
+            with self.lock:
+                if now - self.quota_attempts.get(idx, 0) < interval:
+                    return
+                self.quota_attempts[idx] = now
         try:
             quota = self.fetch_quota(raw)
             if observed_at is not None:
