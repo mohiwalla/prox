@@ -8,7 +8,8 @@ import unittest
 from unittest.mock import patch
 
 import server as dashboard_server
-from server import ERROR_LOG_LIMIT, Handler, Hub, ProxyError, Store, ThreadingHTTPServer, parse_antigravity, parse_claude, parse_codex, safe_account
+from server import (ERROR_LOG_LIMIT, Handler, Hub, ProxyError, Store, ThreadingHTTPServer, parse_antigravity, parse_claude,
+                    parse_claude_resets, parse_codex, parse_codex_resets, safe_account)
 
 
 class QuotaTests(unittest.TestCase):
@@ -87,7 +88,8 @@ class QuotaTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             hub = Hub(Store(Path(folder) / "history.sqlite"))
             claude, codex = {"auth_index": "c", "provider": "claude"}, {"auth_index": "x", "provider": "codex"}
-            with patch.object(hub, "fetch_quota", return_value={"windows": [], "observed_at": 1}) as fetch:
+            with patch.object(hub, "fetch_quota", return_value={"windows": [], "observed_at": 1}) as fetch, \
+                    patch.object(hub, "codex_resets", return_value=None):
                 for _ in range(3):
                     hub.refresh_one(claude)
                     hub.refresh_one(codex)
@@ -97,6 +99,81 @@ class QuotaTests(unittest.TestCase):
             with patch.object(hub, "fetch_quota", return_value={"windows": [], "observed_at": 2}) as fetch:
                 hub.refresh_one(claude)
                 fetch.assert_called_once()
+
+    def test_codex_resets_list_available_credits_soonest_first(self):
+        result = parse_codex_resets({"available_count": 2, "credits": [
+            {"id": "b", "reset_type": "codex_rate_limits", "status": "available", "title": "Full reset", "expires_at": "2026-12-02T00:00:00Z"},
+            {"id": "a", "reset_type": "codex_rate_limits", "status": "available", "expires_at": "2026-12-01T00:00:00Z"},
+            {"id": "used", "reset_type": "codex_rate_limits", "status": "redeemed", "expires_at": "2026-12-01T00:00:00Z"},
+            {"id": "other", "reset_type": "something_else", "status": "available", "expires_at": "2026-12-01T00:00:00Z"}]})
+        self.assertEqual(result["available"], 2)
+        self.assertEqual([(i["id"], i["label"]) for i in result["items"]], [("a", "Full reset"), ("b", "Full reset")])
+
+    def test_claude_grants_explain_why_a_reset_cannot_be_used(self):
+        grant = {"id": "g1", "label": "One full\nlimit reset", "resets_total": 1, "resets_left": 1, "usable_now": True,
+                 "ends_at": "2030-01-01T00:00:00Z"}
+        status = {"eligible": True, "at_limit": False, "grants": [grant, {"id": "BAD ID", "resets_total": 1, "resets_left": 1}]}
+        result = parse_claude_resets(status, now=0)
+        self.assertEqual(result["available"], 1)
+        self.assertEqual([(i["id"], i["label"], i["reason"]) for i in result["items"]],
+                         [("g1", "One full limit reset", "Usable once the account hits a limit")])
+        self.assertIsNone(parse_claude_resets({**status, "at_limit": True}, now=0)["items"][0]["reason"])
+        self.assertEqual(parse_claude_resets({**status, "eligible": False}, now=0)["items"][0]["reason"], "Not available for this account")
+        self.assertIsNone(parse_claude_resets({"grants": []}))
+        self.assertEqual(parse_claude({"five_hour": {"utilization": 1}, "cedar_ember": status})["resets"]["available"], 1)
+
+    def reset_hub(self, folder, provider, resets):
+        hub = Hub(Store(Path(folder) / "history.sqlite"))
+        raw = {"auth_index": "r", "provider": provider}
+        hub.quotas["r"] = {"windows": [], "resets": resets}
+        return hub, raw
+
+    def test_codex_reset_consumes_one_credit_then_clears_cooldown(self):
+        with tempfile.TemporaryDirectory() as folder:
+            hub, raw = self.reset_hub(folder, "codex", {"available": 1, "items": []})
+            with patch.object(hub, "call", return_value=(200, {"code": "reset"})) as call, \
+                    patch.object(hub, "request") as request, patch.object(hub, "refresh_one") as refresh:
+                hub.use_reset(raw)
+            self.assertTrue(call.call_args.args[2].endswith("/consume"))
+            self.assertIn("redeem_request_id", call.call_args.args[4])
+            request.assert_called_once_with("routing/cooldown/reset", {"auth_index": "r"}, "POST")
+            refresh.assert_called_once_with(raw)
+            hub.quotas["r"]["resets"]["available"] = 0
+            with patch.object(hub, "call") as call, self.assertRaises(ValueError):
+                hub.use_reset(raw)
+            call.assert_not_called()
+
+    def test_claude_reset_retries_an_unknown_outcome_with_the_same_request(self):
+        org = "12345678-1234-1234-1234-123456789abc"
+        grant = {"id": "g1", "left": 1, "total": 1, "reason": None}
+        with tempfile.TemporaryDirectory() as folder:
+            hub, raw = self.reset_hub(folder, "claude", {"available": 1, "items": [grant]})
+            profile = (200, {"organization": {"uuid": org}})
+            with patch.object(hub, "call", side_effect=[profile, (502, None), profile, (200, {"result": "reset"})]) as call, \
+                    patch.object(hub, "request"):
+                with self.assertRaisesRegex(ValueError, "outcome is unknown"):
+                    hub.use_reset(raw, "g1")
+                hub.use_reset(raw, "g1")
+            claims = [c.args[4] for c in call.call_args_list if c.args[1] == "POST"]
+            self.assertEqual(claims[0]["request_id"], claims[1]["request_id"])
+            self.assertEqual(claims[0], {"program": "cedar_ember", "grant_id": "g1", "request_id": claims[0]["request_id"]})
+            self.assertIn(f"/api/organizations/{org}/reset_rate_limits", call.call_args_list[1].args[2])
+            self.assertEqual(hub.quotas["r"]["resets"]["available"], 0)
+            self.assertEqual(hub.reset_claims, {})
+
+    def test_claude_reset_refuses_blocked_or_declined_grants(self):
+        org = "12345678-1234-1234-1234-123456789abc"
+        with tempfile.TemporaryDirectory() as folder:
+            hub, raw = self.reset_hub(folder, "claude", {"available": 1, "items": [
+                {"id": "g1", "left": 1, "total": 1, "reason": "Usable once the account hits a limit"}]})
+            with patch.object(hub, "call") as call, self.assertRaisesRegex(ValueError, "can't be used now"):
+                hub.use_reset(raw, "g1")
+            call.assert_not_called()
+            hub.quotas["r"]["resets"]["items"][0]["reason"] = None
+            with patch.object(hub, "call", side_effect=[(200, {"organization": {"uuid": org}}), (200, {"result": "not_limited"})]), \
+                    self.assertRaisesRegex(ValueError, "no reset was used"):
+                hub.use_reset(raw, "g1")
+            self.assertEqual(hub.quotas["r"]["resets"]["available"], 1)
 
     def test_raw_credentials_are_not_relayed(self):
         raw = {"auth_index": "a", "provider": "codex", "access_token": "secret-token",

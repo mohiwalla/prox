@@ -406,6 +406,118 @@ const assert = require("assert/strict");
   await until(() => cooldownBodies.length);
   assert.deepEqual(cooldownBodies, [{ id: accountIds[0] }]);
 
+  // Manual resets: confirm first; Claude picks a grant and retries an unknown
+  // outcome with the same request. The endpoint is mocked; nothing is spent.
+  const resetBodies = [];
+  let resetReplies = [];
+  await page.route("**/dashboard/api/account/reset", (route) => {
+    resetBodies.push(route.request().postDataJSON());
+    const [status, json] = resetReplies.shift() || [200, { status: "ok" }];
+    return route.fulfill({ status, json });
+  });
+  // Fixtures ride on every snapshot, so a background refresh can't undo them.
+  let resetFixtures = {};
+  const stateRoute = async (route) => {
+    const response = await route.fetch();
+    const json = await response.json();
+    json.accounts.forEach((a) => {
+      a.resets = resetFixtures[a.provider] ?? null;
+    });
+    return route.fulfill({ response, json });
+  };
+  await page.route("**/dashboard/api/snapshot**", stateRoute);
+  const resetFixture = async (provider, resets) => {
+    resetFixtures = { [provider]: resets };
+    await page.evaluate(() => load());
+    await page.waitForFunction(
+      ([provider, n]) =>
+        !dashboard.state.loadBusy &&
+        dashboard.state.data.accounts
+          .filter((a) => a.provider === provider)
+          .every((a) => a.resets?.available === n),
+      [provider, resets.available],
+    );
+    return page.evaluate(
+      (provider) =>
+        dashboard.state.data.accounts.find((a) => a.provider === provider)
+          ?.id ?? null,
+      provider,
+    );
+  };
+  const resetMenu = async (id) => {
+    await page.locator(`.account-row[data-account="${id}"] [aria-haspopup="menu"]`).click();
+    await menu.waitFor();
+  };
+  const codexId = await resetFixture("codex", {
+    available: 2,
+    items: [
+      { id: "c1", label: "Full reset", left: 1, total: 1, expires_at: 1796000000, reason: null },
+      { id: "c2", label: "Full reset", left: 1, total: 1, expires_at: 1797000000, reason: null },
+    ],
+  });
+  if (codexId) {
+    assert.match(
+      await page.locator(`.account-row[data-account="${codexId}"] .reset-count`).textContent(),
+      /2 resets/,
+    );
+    await resetMenu(codexId);
+    await menuItem("Use a reset").click();
+    await page.locator("#reset-dialog[open]").waitFor();
+    assert.equal(await page.locator('#reset-list [role="listitem"]').count(), 2);
+    assert.match(await page.locator("#reset-description").textContent(), /one of 2 resets/);
+    await page.locator("#reset-cancel").click();
+    assert.equal(resetBodies.length, 0, "Cancel spends nothing");
+    await resetMenu(codexId);
+    await menuItem("Use a reset").click();
+    await page.locator("#reset-confirm").click();
+    await page.waitForFunction(() => !document.querySelector("#reset-dialog").open);
+    assert.deepEqual(resetBodies.splice(0), [{ id: codexId }]);
+    await page.locator('[data-sonner-toast][data-type="success"]', { hasText: "Reset used" }).first().waitFor();
+  }
+  const claudeId = await resetFixture("claude", {
+    available: 2,
+    items: [
+      { id: "g1", label: "Fable launch reset", left: 1, total: 1, expires_at: 1796000000, reason: "No usage to give back yet" },
+      { id: "g2", label: "One full limit reset", left: 1, total: 1, expires_at: 1797000000, reason: null },
+    ],
+  });
+  if (claudeId) {
+    await resetMenu(claudeId);
+    await menuItem("Use a reset").click();
+    await page.locator("#reset-dialog[open]").waitFor();
+    assert.equal(await page.locator('#reset-list input[value="g1"]').isDisabled(), true);
+    assert.equal(await page.locator('#reset-list input[value="g2"]').isChecked(), true);
+    resetReplies = [[409, { error: "The outcome is unknown and a reset may have been spent." }]];
+    await page.locator("#reset-confirm").click();
+    await page.locator("#reset-error:not([hidden])").waitFor();
+    assert.equal((await page.locator("#reset-confirm").textContent()).trim(), "Retry same request");
+    await page.locator("#reset-confirm").click();
+    await page.waitForFunction(() => !document.querySelector("#reset-dialog").open);
+    assert.deepEqual(resetBodies.splice(0), [
+      { id: claudeId, grant: "g2" },
+      { id: claudeId, grant: "g2" },
+    ]);
+  }
+  // Accounts without resets don't offer the action.
+  resetFixtures = {};
+  await page.evaluate(() => load());
+  await page.waitForFunction(
+    () =>
+      !dashboard.state.loadBusy &&
+      dashboard.state.data.accounts.every((a) => !a.resets),
+  );
+  await rowMenu(0).click();
+  assert.equal(await menuItem("Use a reset").isHidden(), true);
+  await page.keyboard.press("Escape");
+  await page.unroute("**/dashboard/api/snapshot**", stateRoute);
+  await page.evaluate(() => load());
+  // Let the success toasts finish before later checks measure motion.
+  await page.waitForFunction(
+    () => !document.querySelector("[data-sonner-toast]"),
+    null,
+    { timeout: 20000 },
+  );
+
   // Sign in again opens the OAuth dialog directly in its flow step.
   const reloginUrl = "https://auth.example.test/authorize?state=test-state";
   const reloginBodies = await mock("**/dashboard/api/account/relogin", {
@@ -914,6 +1026,7 @@ const assert = require("assert/strict");
         "sign in again opens flow step (mocked)",
         "inline sign in again",
         "remove with confirmation (mocked)",
+        "manual resets with confirmation and safe retry (mocked)",
         "logs: errors viewer and activity states (mocked)",
         "no mutation reached the real proxy",
         "no connection page",
