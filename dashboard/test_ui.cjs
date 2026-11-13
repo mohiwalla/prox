@@ -42,7 +42,10 @@ const assert = require("assert/strict");
   };
   const url = process.env.DASHBOARD_URL || "http://localhost:8318/dashboard/";
   if (process.env.DASHBOARD_SOURCE)
-    await page.route(url, (route) =>
+    // Every page path serves the local file: /dashboard/, /accounts, /logs.
+    await page.route(
+      new RegExp(`^${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(accounts|logs)?(#.*)?$`),
+      (route) =>
       route.fulfill({
         contentType: "text/html",
         body: fs.readFileSync(path.join(__dirname, "index.html"), "utf8"),
@@ -643,6 +646,25 @@ const assert = require("assert/strict");
   await page.waitForFunction(
     () => document.querySelector("#page-title").textContent.trim() === "Logs",
   );
+  // Clean URLs: each page has its own path that survives a reload, back and
+  // forward work, and old #hash links land on the matching path.
+  const title = () => page.locator("#page-title").textContent().then((s) => s.trim());
+  const titleIs = (name) =>
+    page.waitForFunction((n) => document.querySelector("#page-title").textContent.trim() === n, name);
+  assert.equal(new URL(page.url()).pathname, "/dashboard/logs");
+  await page.reload();
+  await titleIs("Logs");
+  await page.goBack();
+  await page.waitForFunction(() => location.pathname !== "/dashboard/logs");
+  assert.notEqual(await title(), "Logs");
+  await page.goForward();
+  await titleIs("Logs");
+  await page.goto(url + "#accounts");
+  await titleIs("Accounts");
+  assert.equal(new URL(page.url()).pathname, "/dashboard/accounts");
+  assert.equal(new URL(page.url()).hash, "");
+  await page.locator('[data-page="logs"]').click();
+  await titleIs("Logs");
   await logsTab("Errors").click();
   const errorItem = page
     .locator(`[data-log-name="${errorName}"]`)
@@ -1039,6 +1061,7 @@ const assert = require("assert/strict");
         "inline sign in again",
         "remove with confirmation (mocked)",
         "manual resets with confirmation and safe retry (mocked)",
+        "clean URLs with reload, back/forward and old #hash links",
         "logs: errors viewer and activity states (mocked)",
         "no mutation reached the real proxy",
         "no connection page",

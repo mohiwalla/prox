@@ -315,6 +315,19 @@ class HTTPTests(unittest.TestCase):
         self.hub.store.renew_session(token_hash, time.time() - 1)
         self.assertEqual(self.request("snapshot", cookie=cookie)[0], 401)
 
+    def test_each_page_path_serves_the_app(self):
+        for path, expected in [("/dashboard/", 200), ("/dashboard/accounts", 200), ("/dashboard/logs/", 200),
+                               ("/dashboard/settings", 401)]:
+            conn = http.client.HTTPConnection("127.0.0.1", self.server.server_port)
+            conn.request("GET", path, headers={"Host": "localhost:8318"})
+            res = conn.getresponse()
+            body = res.read()
+            conn.close()
+            self.assertEqual(res.status, expected, path)
+            if expected == 200:
+                self.assertIn("text/html", res.getheader("Content-Type"))
+                self.assertIn(b"<html", body[:200])
+
     def test_public_cookie_is_secure_and_not_script_readable(self):
         with patch.object(dashboard_server, "PUBLIC_HOSTS", ["proxy.example.test"]):
             code, _, cookie = self.request("login", {"key": "test-only-key"}, host="proxy.example.test")
