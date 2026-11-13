@@ -108,14 +108,18 @@ def parse_antigravity(data):
     return {"plan": "Antigravity", "windows": sorted(windows, key=lambda w: w["label"])}
 
 
-CLAUDE_WINDOWS = [("five_hour", "5-hour limit", 5 * 3600), ("seven_day", "Weekly limit", 7 * 86400),
-                  ("seven_day_opus", "Weekly · Opus", 7 * 86400), ("seven_day_sonnet", "Weekly · Sonnet", 7 * 86400)]
+CLAUDE_WINDOWS = {"five_hour": ("5-hour limit", 5 * 3600), "seven_day": ("Weekly limit", 7 * 86400)}
+# Per-model weekly windows (seven_day_opus, seven_day_sonnet, ...) are read generically so a new
+# model's limit shows up without a code change. OAuth-app usage is not a model limit.
+CLAUDE_MODEL_WINDOW = re.compile(r"seven_day_([a-z0-9_]+)")
+CLAUDE_SKIPPED_WINDOWS = {"seven_day_oauth_apps"}
 
 
 def parse_claude(data):
     # Claude Code's /api/oauth/usage: utilization is percent used; null windows don't apply.
     windows = []
-    for key, label, period in CLAUDE_WINDOWS:
+    model_keys = sorted(k for k in data if CLAUDE_MODEL_WINDOW.fullmatch(k) and k not in CLAUDE_SKIPPED_WINDOWS)
+    for key in [*CLAUDE_WINDOWS, *model_keys]:
         value = data.get(key)
         if not isinstance(value, dict) or value.get("utilization") is None:
             continue
@@ -123,6 +127,8 @@ def parse_claude(data):
         # A present but unreadable value fails the check, so the last good reading is kept.
         if isinstance(used, bool) or not isinstance(used, (int, float)):
             raise ValueError("Claude returned an unreadable quota.")
+        label, period = CLAUDE_WINDOWS.get(key) or (
+            "Weekly · " + CLAUDE_MODEL_WINDOW.fullmatch(key)[1].replace("_", " ").title(), 7 * 86400)
         windows.append(window(key, label, used=used, reset=value.get("resets_at"), period=period))
     return {"plan": "Claude", "windows": windows}
 

@@ -724,6 +724,13 @@
         background: var(--background);
         color: var(--foreground);
       }
+      .segmented.sm {
+        height: 32px;
+      }
+      .segmented.sm button {
+        height: 26px;
+        font-size: 13px;
+      }
       /* Sliding selection: JS writes --indicator-clip around the active button. */
       [data-motion-indicator]::before {
         content: "";
@@ -821,9 +828,13 @@
         font-size: 14px;
       }
       .pool-top select,
+      .pool-windows,
       .pool-window {
         margin-left: auto;
         max-width: 260px;
+      }
+      .pool-windows {
+        max-width: none;
       }
       /* Shown instead of a select when a provider reports a single quota window. */
       .pool-window {
@@ -1868,11 +1879,19 @@
           padding: 16px;
         }
         .pool-top select,
+        .pool-windows,
         .pool-window {
           order: 1;
           flex-basis: 100%;
           max-width: none;
           margin: 4px 0 0;
+        }
+        .segmented.pool-windows {
+          height: 40px;
+        }
+        .segmented.pool-windows button {
+          flex: 1;
+          height: 36px;
         }
         .pool-total {
           gap: 16px;
@@ -2902,6 +2921,7 @@
           "data-view",
           "data-burn",
           "data-hours",
+          "data-window-id",
           "data-pause",
         ])
           if (node.hasAttribute(attr))
@@ -3137,6 +3157,8 @@
         );
         return [...map.values()];
       }
+      // A few quota windows read best as tabs; Antigravity's per-model list keeps a select.
+      const MAX_WINDOW_TABS = 4;
       function selectedWindow(p, accounts) {
         const list = allWindows(accounts);
         if (!list.some((w) => w.id === state.windows[p]))
@@ -3401,7 +3423,7 @@
         const restricted = accounts.filter(
           (a) => status(a)[0] === "Model restriction",
         ).length;
-        return `<section class="pool provider-${p}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span>${list.length > 1 ? `<label class="sr-only" for="window-${p}">Quota window for ${pName(p)}</label><select id="window-${p}" class="sm" data-window="${p}">${list.map((w) => `<option value="${esc(w.id)}" ${metric === w.id ? "selected" : ""}>${esc(w.label)}</option>`).join("")}</select>` : `<span class="pool-window">${esc(list[0]?.label || "Quota unavailable")}</span>`}</div><div class="pool-total"><div><div class="big-number">${morph(items.length ? fmtPct(sum) : "—")}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${morph(empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history")}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${morph(next ? esc(relative(next)) : "Not reported")}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${morph(rate !== null ? fmtPct(rate) + "/h" : "—")}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<div class="breakdown"><div class="breakdown-head"><span class="breakdown-title">Accounts</span><span class="summary-meta">${morph(`${items.length}/${accounts.length} quotas measured`)}</span></div><div class="mini-accounts">${accounts
+        return `<section class="pool provider-${p}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span>${list.length > 1 && list.length <= MAX_WINDOW_TABS ? `<div class="segmented sm pool-windows" role="group" aria-label="Quota window for ${pName(p)}">${list.map((w) => `<button data-window="${p}" data-window-id="${esc(w.id)}" title="${esc(w.label)}" ${choice(metric === w.id)}>${esc(w.label.replace(/ limit$/, ""))}</button>`).join("")}</div>` : list.length > 1 ? `<label class="sr-only" for="window-${p}">Quota window for ${pName(p)}</label><select id="window-${p}" class="sm" data-window="${p}">${list.map((w) => `<option value="${esc(w.id)}" ${metric === w.id ? "selected" : ""}>${esc(w.label)}</option>`).join("")}</select>` : `<span class="pool-window">${esc(list[0]?.label || "Quota unavailable")}</span>`}</div><div class="pool-total"><div><div class="big-number">${morph(items.length ? fmtPct(sum) : "—")}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${morph(empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history")}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${morph(next ? esc(relative(next)) : "Not reported")}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${morph(rate !== null ? fmtPct(rate) + "/h" : "—")}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<div class="breakdown"><div class="breakdown-head"><span class="breakdown-title">Accounts</span><span class="summary-meta">${morph(`${items.length}/${accounts.length} quotas measured`)}</span></div><div class="mini-accounts">${accounts
           .map((a, i) => {
             const w = a.windows.find((w) => w.id === metric),
               [s, c] = status(a);
@@ -3711,6 +3733,9 @@
         if (!b) return;
         if (b.dataset.filter) {
           state.provider = b.dataset.filter;
+          render(true);
+        } else if (b.dataset.windowId) {
+          state.windows[b.dataset.window] = b.dataset.windowId;
           render(true);
         } else if (b.dataset.view) {
           state.view = b.dataset.view;
