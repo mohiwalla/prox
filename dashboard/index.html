@@ -411,13 +411,6 @@
         opacity: 0.5;
       }
       /* Reset list: one bordered group of compact rows (radio rows for Claude). */
-      .reset-summary {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: -8px;
-        font-size: 13px;
-        color: var(--muted-foreground);
-      }
       .reset-list {
         display: flex;
         flex-direction: column;
@@ -2821,7 +2814,6 @@
         <p class="dialog-description" id="reset-description"></p>
       </header>
       <div class="dialog-body">
-        <div class="reset-summary" id="reset-summary"></div>
         <div class="reset-list" id="reset-list"></div>
         <p class="field-error" id="reset-error" role="alert" hidden></p>
         <footer class="dialog-footer">
@@ -4372,12 +4364,10 @@
         };
         const when = (g) =>
           g.expires_at
-            ? `<span class="reset-row-when"><strong>${esc(dateLabel(g.expires_at))}</strong> · ${esc(until(g.expires_at))}</span>`
+            ? `<span class="reset-row-when">Expires <strong>${esc(dateLabel(g.expires_at))}</strong> · ${esc(until(g.expires_at))}</span>`
             : "";
         // Repeated titles ("Full reset" ×3) read better numbered.
         const numbered = new Set(items.map((g) => g.label)).size < items.length;
-        const kind = numbered ? items[0].label.toLowerCase() : "reset";
-        $("#reset-summary").innerHTML = `<span>${a.resets.available} ${esc(kind)}${a.resets.available === 1 ? "" : "s"} available</span>${claude ? "" : "<span>Expires</span>"}`;
         $("#reset-list").setAttribute("role", "radiogroup");
         $("#reset-list").setAttribute("aria-label", "Resets");
         $("#reset-list").innerHTML = items
