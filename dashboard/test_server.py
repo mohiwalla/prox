@@ -222,17 +222,21 @@ class QuotaTests(unittest.TestCase):
             self.assertEqual(len(store.history()), 1)
             self.assertIn("error", hub.quotas["a"])
 
-    def test_history_sends_latest_cycle_per_bucket(self):
+    def test_history_keeps_every_accounts_newest_sample_per_bucket(self):
         with tempfile.TemporaryDirectory() as folder:
             store = Store(Path(folder) / "history.sqlite")
             base = (time.time() // 600) * 600 - 3600  # start of an old bucket
+            window = lambda remaining: [{"id": "primary", "label": "Weekly", "remaining": remaining, "reset_at": None, "period": 604800}]
+            # Codex is checked every cycle; Claude only in the first one (a slower cadence).
             for offset in (0, 30, 60):
                 for account in ("a", "b"):
-                    store.save(account, "codex", {"observed_at": base + offset, "windows": [
-                        {"id": "primary", "label": "Weekly", "remaining": 90 - offset / 30, "reset_at": None, "period": 604800}]})
+                    store.save(account, "codex", {"observed_at": base + offset, "windows": window(90 - offset / 30)})
+            store.save("c", "claude", {"observed_at": base, "windows": window(40)})
             rows = [r for r in store.history(24) if r["ts"] < base + 120]
-            self.assertEqual({r["ts"] for r in rows}, {base + 60})
-            self.assertEqual({r["account"] for r in rows}, {"a", "b"})
+            self.assertEqual(sorted((r["account"], r["ts"]) for r in rows),
+                             [("a", base + 60), ("b", base + 60), ("c", base)])
+            # Long ranges keep the slower provider too.
+            self.assertIn("c", {r["account"] for r in store.history(24 * 14)})
 
     def test_history_survives_restart(self):
         with tempfile.TemporaryDirectory() as folder:
