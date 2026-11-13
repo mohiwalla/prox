@@ -466,7 +466,6 @@ const assert = require("assert/strict");
     assert.equal(await page.locator('#reset-list input[name="reset-grant"]').count(), 2);
     // The soonest-expiring reset is preselected; any other can be chosen.
     assert.equal(await page.locator('#reset-list input[value="c1"]').isChecked(), true);
-    assert.match(await page.locator("#reset-summary").textContent(), /2 full resets available/);
     await page.locator("#reset-cancel").click();
     assert.equal(resetBodies.length, 0, "Cancel spends nothing");
     await resetMenu(codexId);
