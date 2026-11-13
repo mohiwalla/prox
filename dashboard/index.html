@@ -37,7 +37,7 @@
       :root {
         --background: #0a0a0a;
         --foreground: #fafafa;
-        --card: #171717;
+        --card: #101010;
         --card-foreground: #fafafa;
         --popover: #171717;
         --primary: #e5e5e5;
@@ -1062,7 +1062,7 @@
       .chart-crosshair .dot {
         fill: var(--pool-color);
         stroke: var(--card);
-        stroke-width: 2;
+        stroke-width: 3;
       }
       .chart-crosshair .halo {
         fill: var(--pool-color);
@@ -1156,11 +1156,14 @@
       }
       .legend-line {
         width: 16px;
-        height: 0;
-        border-top: 2px solid var(--pool-color);
+        height: 4px;
+        border-radius: 2px;
+        background: var(--pool-color);
       }
       .legend-line.dashed {
-        border-top-style: dashed;
+        background: radial-gradient(circle, var(--pool-color) 2px, transparent 2.5px)
+          0 50% / 8px 4px repeat-x;
+        opacity: 0.7;
       }
       .chart-inspect {
         margin-left: auto;
@@ -3572,9 +3575,9 @@
             : "";
         const latest = points.at(-1);
         const annotation = latest
-          ? `<circle cx="${x(latest.ts)}" cy="${y(latest.value)}" r="4" fill="var(--pool-color)" stroke="var(--card)" stroke-width="2"/><text class="current-value" x="${x(latest.ts) + 9}" y="${Math.max(top + 12, y(latest.value) - 9)}">${esc(fmtPct(latest.value))}</text>`
+          ? `<circle cx="${x(latest.ts)}" cy="${y(latest.value)}" r="6" fill="var(--pool-color)" stroke="var(--card)" stroke-width="3"/><text class="current-value" x="${x(latest.ts) + 11}" y="${Math.max(top + 12, y(latest.value) - 9)}">${esc(fmtPct(latest.value))}</text>`
           : "";
-        return `<figure class="plot" tabindex="0" data-chart="${p}" aria-label="${pName(p)} quota history and forecast. Use left and right arrows to inspect recorded samples."><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${points.length} recorded samples${forecast.length ? ", estimated future usage" : ""}"><defs><linearGradient id="fill-${p}" x1="0" x2="0" y1="0" y2="1"><stop stop-color="var(--pool-color)" stop-opacity=".16"/><stop offset="1" stop-color="var(--pool-color)" stop-opacity="0"/></linearGradient></defs>${ticks}${resetMarks}<line x1="${x(now)}" x2="${x(now)}" y1="${top - 4}" y2="${H - bottom + 2}" stroke="#686868"/><text class="axis-now" x="${x(now)}" y="16" text-anchor="middle">Now</text><g class="chart-data">${area}${points.length > 1 ? `<path d="${path(points)}" stroke="var(--pool-color)" stroke-width="2.25" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${forecast.length ? `<path d="${path(forecast)}" stroke="var(--pool-color)" stroke-opacity=".8" stroke-width="2" stroke-dasharray="6 5" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${annotation}</g><g class="chart-crosshair" hidden><line x1="0" x2="0" y1="${top}" y2="${H - bottom}"/><circle class="halo" r="9"/><circle class="dot" r="4"/></g></svg><div class="chart-tooltip" hidden></div>${points.length < 2 ? '<div class="chart-empty"><strong>History starts here</strong><p>Quotas are recorded every 30 seconds, even with this page closed. Your usage curve will build over time.</p></div>' : ""}<figcaption class="chart-caption"><span>Pool</span><span class="legend"><i class="legend-line"></i>Recorded</span><span class="legend"><i class="legend-line dashed"></i>Projected</span><span class="chart-inspect" aria-live="polite">${forecast.length ? "Estimate from recent usage" : !state.forecast ? "Forecast hidden" : "Forecast needs 10+ minutes of recent samples"}</span></figcaption></figure>`;
+        return `<figure class="plot" tabindex="0" data-chart="${p}" aria-label="${pName(p)} quota history and forecast. Use left and right arrows to inspect recorded samples."><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${points.length} recorded samples${forecast.length ? ", estimated future usage" : ""}"><defs><linearGradient id="fill-${p}" x1="0" x2="0" y1="0" y2="1"><stop stop-color="var(--pool-color)" stop-opacity=".16"/><stop offset="1" stop-color="var(--pool-color)" stop-opacity="0"/></linearGradient></defs>${ticks}${resetMarks}<line x1="${x(now)}" x2="${x(now)}" y1="${top - 4}" y2="${H - bottom + 2}" stroke="#686868"/><text class="axis-now" x="${x(now)}" y="16" text-anchor="middle">Now</text><g class="chart-data">${area}${points.length > 1 ? `<path d="${path(points)}" stroke="var(--pool-color)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${forecast.length ? `<path d="${path(forecast)}" stroke="var(--pool-color)" stroke-opacity=".7" stroke-width="4" stroke-linecap="round" stroke-dasharray="4 10" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${annotation}</g><g class="chart-crosshair" hidden><line x1="0" x2="0" y1="${top}" y2="${H - bottom}"/><circle class="halo" r="12"/><circle class="dot" r="6"/></g></svg><div class="chart-tooltip" hidden></div>${points.length < 2 ? '<div class="chart-empty"><strong>History starts here</strong><p>Quotas are recorded every 30 seconds, even with this page closed. Your usage curve will build over time.</p></div>' : ""}<figcaption class="chart-caption"><span>Pool</span><span class="legend"><i class="legend-line"></i>Recorded</span><span class="legend"><i class="legend-line dashed"></i>Projected</span><span class="chart-inspect" aria-live="polite">${forecast.length ? "Estimate from recent usage" : !state.forecast ? "Forecast hidden" : "Forecast needs 10+ minutes of recent samples"}</span></figcaption></figure>`;
       }
 
       function ratePlot(p, accounts, metric) {
