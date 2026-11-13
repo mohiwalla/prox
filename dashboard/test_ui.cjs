@@ -63,7 +63,16 @@ const assert = require("assert/strict");
     .click();
   await page.locator('[data-pool="codex"]').waitFor();
   await page.evaluate(() => document.fonts.ready);
-  assert.equal(await page.locator("[data-pool]").count(), 2);
+  // Quota cards: one per provider with a quota reader that has accounts.
+  const expectedPools = await page.evaluate(
+    () =>
+      new Set(
+        dashboard.state.data.accounts
+          .map((a) => a.provider)
+          .filter((p) => ["codex", "claude", "antigravity"].includes(p)),
+      ).size,
+  );
+  assert.equal(await page.locator("[data-pool]").count(), expectedPools);
   // The per-account breakdown is always visible: no accordion to open.
   assert.equal(await page.locator("[data-pool] details").count(), 0);
   assert.equal(
@@ -205,11 +214,15 @@ const assert = require("assert/strict");
     );
   };
   await page.locator(".provider-tabs button.active").focus();
-  await arrowCheck(".provider-tabs", "data-filter", "ArrowRight", "codex");
+  // Tabs follow the providers that have accounts, in picker order.
+  const tabOrder = await page
+    .locator(".provider-tabs > button")
+    .evaluateAll((bs) => bs.map((b) => b.dataset.filter));
+  await arrowCheck(".provider-tabs", "data-filter", "ArrowRight", tabOrder[1]);
   assert.equal(await page.locator("[data-pool]").count(), 1);
-  await arrowCheck(".provider-tabs", "data-filter", "End", "antigravity");
+  await arrowCheck(".provider-tabs", "data-filter", "End", tabOrder.at(-1));
   await arrowCheck(".provider-tabs", "data-filter", "Home", "all");
-  assert.equal(await page.locator("[data-pool]").count(), 2);
+  assert.equal(await page.locator("[data-pool]").count(), expectedPools);
   const burnGroup = ".segmented:has([data-burn])";
   await page.locator(`${burnGroup} button.active`).focus();
   assert.ok(
@@ -587,7 +600,7 @@ const assert = require("assert/strict");
     await page.locator('[data-filter="all"]').getAttribute("aria-pressed"),
     "true",
   );
-  assert.equal(await page.locator("[data-pool]").count(), 2);
+  assert.equal(await page.locator("[data-pool]").count(), expectedPools);
   const indicators = await page.evaluate(() =>
     [...document.querySelectorAll(".provider-tabs, .segmented")].every((g) => {
       const active = g.querySelector("button.active");

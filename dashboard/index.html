@@ -56,8 +56,14 @@
         --destructive: #ff6467;
         --success: #86efac;
         --warning: #fcd34d;
-        --chart-1: #82aafa;
-        --chart-2: #e59a75;
+        /* Provider colors come from each provider's mark. */
+        --provider-codex: #f5f5f5;
+        --provider-claude: #d97757;
+        --provider-antigravity: #3186ff;
+        --provider-xai: #f5f5f5;
+        --provider-kimi: #027aff;
+        --provider-meta: #0082fb;
+        --provider-other: #a1a1a1;
         --brand: #e8b17d;
         --radius-sm: 6px;
         --radius-md: 8px;
@@ -774,15 +780,31 @@
 
       /* Pool card */
       .pool {
-        --pool-color: var(--chart-1);
+        --pool-color: var(--provider-other);
         margin-bottom: 16px;
         padding: 24px;
         border: 1px solid var(--border);
         border-radius: var(--radius-xl);
         background: var(--card);
       }
-      .pool.agy {
-        --pool-color: var(--chart-2);
+      .provider-codex {
+        --pool-color: var(--provider-codex);
+      }
+      .provider-claude {
+        --pool-color: var(--provider-claude);
+      }
+      .provider-antigravity {
+        --pool-color: var(--provider-antigravity);
+      }
+      .provider-xai {
+        --pool-color: var(--provider-xai);
+      }
+      .provider-kimi,
+      .provider-kimi-ai {
+        --pool-color: var(--provider-kimi);
+      }
+      .provider-meta {
+        --pool-color: var(--provider-meta);
       }
       .pool-top {
         display: flex;
@@ -1128,6 +1150,7 @@
         color: var(--muted-foreground);
       }
       .account-list {
+        --pool-color: var(--provider-other);
         border: 1px solid var(--border);
         border-radius: var(--radius-xl);
         background: var(--card);
@@ -1135,7 +1158,6 @@
       }
       /* Compact, single-line rows (shadcn Table density). */
       .account-row {
-        --pool-color: var(--chart-1);
         display: grid;
         grid-template-columns:
           minmax(0, 1.5fr) minmax(180px, 1fr) minmax(0, 1.5fr)
@@ -1145,10 +1167,6 @@
         padding: 10px 16px;
         font-size: 14px;
         line-height: 20px;
-      }
-      .account-row.agy,
-      .meter.agy {
-        --pool-color: var(--chart-2);
       }
       .account-row + .account-row {
         border-top: 1px solid var(--border);
@@ -1201,7 +1219,8 @@
         font-variant-numeric: tabular-nums;
       }
       .account-meta {
-        width: 56px;
+        width: 64px;
+        white-space: nowrap;
         font-size: 13px;
       }
       .account-status > button {
@@ -2753,7 +2772,8 @@
         );
       const icon = (name, extra = "") =>
         `<svg class="icon ${extra}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
-      // Every sign-in CLIProxyAPI offers; quotas are read for Codex and Antigravity.
+      // Every sign-in CLIProxyAPI offers. Quotas are read for QUOTA_PROVIDERS; other
+      // accounts still appear on the Accounts page.
       const PROVIDERS = {
         claude: { name: "Claude", note: "Anthropic account", mark: "claude" },
         codex: { name: "Codex", note: "ChatGPT plan", mark: "codex" },
@@ -2772,7 +2792,13 @@
         devin: { name: "Devin", note: "Cognition account", mark: "devin" },
         meta: { name: "Meta", note: "Meta AI account", mark: "meta" },
       };
+      const QUOTA_PROVIDERS = ["codex", "claude", "antigravity"];
       const pName = (p) => PROVIDERS[p]?.name || p;
+      // Providers that have at least one account, in picker order.
+      const presentProviders = () =>
+        Object.keys(PROVIDERS).filter((p) =>
+          (state.data?.accounts || []).some((a) => a.provider === p),
+        );
       const providerIcon = (p) =>
         `<span class="provider-icon" aria-hidden="true"><svg><use href="#brand-${PROVIDERS[p]?.mark || "codex"}"/></svg></span>`;
       // Text that changes in place morphs with Torph (assets/vendor.js).
@@ -3047,8 +3073,11 @@
       }
       function age(ts) {
         if (!ts) return "Not checked";
-        let n = Math.max(0, Math.floor((Date.now() / 1000 - ts) / 60));
-        return n === 0 ? "just now" : `${n}m ago`;
+        const n = Math.max(0, Math.floor((Date.now() / 1000 - ts) / 60));
+        if (n === 0) return "just now";
+        if (n < 60) return `${n}m ago`;
+        if (n < 1440) return `${Math.floor(n / 60)}h ago`;
+        return `${Math.floor(n / 1440)}d ago`;
       }
       function accountLabel(a, i) {
         return a.email || `${pName(a.provider)} account ${i + 1}`;
@@ -3086,8 +3115,7 @@
       function tabs() {
         return `<div class="provider-tabs" role="group" aria-label="Filter provider">${[
           ["all", "All"],
-          ["codex", "Codex"],
-          ["antigravity", "Antigravity"],
+          ...presentProviders().map((p) => [p, pName(p)]),
         ]
           .map(
             ([p, n]) =>
@@ -3116,11 +3144,13 @@
             p === "codex"
               ? list.find((w) => w.id === "rate_limit:primary_window")?.id ||
                 list[0]?.id
-              : list.find(
-                  (w) =>
-                    /gemini.*flash/i.test(w.label) &&
-                    !/image|lite/i.test(w.label),
-                )?.id || list[0]?.id;
+              : p === "claude"
+                ? list.find((w) => w.id === "five_hour")?.id || list[0]?.id
+                : list.find(
+                    (w) =>
+                      /gemini.*flash/i.test(w.label) &&
+                      !/image|lite/i.test(w.label),
+                  )?.id || list[0]?.id;
         return state.windows[p];
       }
       function usableWindows(accounts, metric) {
@@ -3371,7 +3401,7 @@
         const restricted = accounts.filter(
           (a) => status(a)[0] === "Model restriction",
         ).length;
-        return `<section class="pool ${p === "antigravity" ? "agy" : ""}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span>${list.length > 1 ? `<label class="sr-only" for="window-${p}">Quota window for ${pName(p)}</label><select id="window-${p}" class="sm" data-window="${p}">${list.map((w) => `<option value="${esc(w.id)}" ${metric === w.id ? "selected" : ""}>${esc(w.label)}</option>`).join("")}</select>` : `<span class="pool-window">${esc(list[0]?.label || "Quota unavailable")}</span>`}</div><div class="pool-total"><div><div class="big-number">${morph(items.length ? fmtPct(sum) : "—")}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${morph(empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history")}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${morph(next ? esc(relative(next)) : "Not reported")}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${morph(rate !== null ? fmtPct(rate) + "/h" : "—")}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<div class="breakdown"><div class="breakdown-head"><span class="breakdown-title">Accounts</span><span class="summary-meta">${morph(`${items.length}/${accounts.length} quotas measured`)}</span></div><div class="mini-accounts">${accounts
+        return `<section class="pool provider-${p}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span>${list.length > 1 ? `<label class="sr-only" for="window-${p}">Quota window for ${pName(p)}</label><select id="window-${p}" class="sm" data-window="${p}">${list.map((w) => `<option value="${esc(w.id)}" ${metric === w.id ? "selected" : ""}>${esc(w.label)}</option>`).join("")}</select>` : `<span class="pool-window">${esc(list[0]?.label || "Quota unavailable")}</span>`}</div><div class="pool-total"><div><div class="big-number">${morph(items.length ? fmtPct(sum) : "—")}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${morph(empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history")}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${morph(next ? esc(relative(next)) : "Not reported")}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${morph(rate !== null ? fmtPct(rate) + "/h" : "—")}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<div class="breakdown"><div class="breakdown-head"><span class="breakdown-title">Accounts</span><span class="summary-meta">${morph(`${items.length}/${accounts.length} quotas measured`)}</span></div><div class="mini-accounts">${accounts
           .map((a, i) => {
             const w = a.windows.find((w) => w.id === metric),
               [s, c] = status(a);
@@ -3409,9 +3439,9 @@
           .join(
             "",
           )}</div></div></div>${restricted.length && state.provider !== "antigravity" ? `<div class="notice">${icon("warning")}<span>${restricted.length} Codex account${restricted.length === 1 ? " has" : "s have"} a model restriction. Available quota does not guarantee access to every model.</span><button data-go="accounts" class="ghost sm">View accounts</button></div>` : ""}${[
-          "codex",
-          "antigravity",
+          ...QUOTA_PROVIDERS,
         ]
+          .filter((p) => presentProviders().includes(p))
           .filter((p) => state.provider === "all" || p === state.provider)
           .map(pool)
           .join("")}`;
@@ -3425,7 +3455,7 @@
                 a.windows.find((w) => /flash/i.test(w.label)) ||
                 a.windows[0];
             const label = accountLabel(a, i);
-            return `<article class="account-row ${a.provider === "codex" ? "" : "agy"}" data-account="${esc(a.id)}"><div class="account-identity">${providerIcon(a.provider)}<span class="account-label" title="${esc(label)}">${esc(label)}</span><span class="account-sub">${esc([planLabel(a.plan), pName(a.provider)].filter((v, n, all) => v && all.indexOf(v) === n).join(" · "))}</span></div><div class="account-quota"><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="quota-value">${morph(w ? fmtPct(w.remaining) : "—")}</span><span class="account-meta">${morph(esc(age(a.quota_at)) + (a.quota_error ? " · last known" : ""))}</span></div><div class="account-status"><span class="tag ${c}">${morph(s)}</span><span class="account-reason" title="${esc(statusReason(a))}">${morph(esc(statusReason(a)))}</span>${a.requires_sign_in ? `<button class="outline sm" data-relogin="${esc(a.id)}">Sign in again</button>` : ""}</div><div class="account-actions"><button class="switch" role="switch" aria-checked="${!a.disabled}" aria-label="Include ${esc(label)} in rotation" title="${a.disabled ? "Paused: excluded from rotation" : "In rotation"}" data-pause="${esc(a.id)}" data-disabled="${!a.disabled}"><span class="switch-thumb"></span></button><button class="ghost icon-btn sm row-menu" data-menu="${esc(a.id)}" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu" aria-label="More actions for ${esc(label)}">${icon("more")}</button></div></article>`;
+            return `<article class="account-row provider-${esc(a.provider)}" data-account="${esc(a.id)}"><div class="account-identity">${providerIcon(a.provider)}<span class="account-label" title="${esc(label)}">${esc(label)}</span><span class="account-sub">${esc([planLabel(a.plan), pName(a.provider)].filter((v, n, all) => v && all.indexOf(v) === n).join(" · "))}</span></div><div class="account-quota"><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="quota-value">${morph(w ? fmtPct(w.remaining) : "—")}</span><span class="account-meta">${morph(esc(age(a.quota_at)) + (a.quota_error ? " · last known" : ""))}</span></div><div class="account-status"><span class="tag ${c}">${morph(s)}</span><span class="account-reason" title="${esc(statusReason(a))}">${morph(esc(statusReason(a)))}</span>${a.requires_sign_in ? `<button class="outline sm" data-relogin="${esc(a.id)}">Sign in again</button>` : ""}</div><div class="account-actions"><button class="switch" role="switch" aria-checked="${!a.disabled}" aria-label="Include ${esc(label)} in rotation" title="${a.disabled ? "Paused: excluded from rotation" : "In rotation"}" data-pause="${esc(a.id)}" data-disabled="${!a.disabled}"><span class="switch-thumb"></span></button><button class="ghost icon-btn sm row-menu" data-menu="${esc(a.id)}" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu" aria-label="More actions for ${esc(label)}">${icon("more")}</button></div></article>`;
           })
           .join(
             "",
@@ -3447,7 +3477,7 @@
         const pick = (value, allowed) =>
           allowed.includes(value) ? value : undefined;
         state.provider =
-          pick(saved.provider, ["all", "codex", "antigravity"]) ??
+          pick(saved.provider, ["all", ...Object.keys(PROVIDERS)]) ??
           state.provider;
         state.view = pick(saved.view, ["remaining", "drain"]) ?? state.view;
         state.hours = pick(saved.hours, [24, 168, 336]) ?? state.hours;
@@ -3470,6 +3500,11 @@
       restorePrefs();
       function render(animate = false) {
         if (!state.data) return;
+        if (
+          state.provider !== "all" &&
+          !presentProviders().includes(state.provider)
+        )
+          state.provider = "all";
         const body = $("#page-body");
         state.page = ["quotas", "accounts", "logs"].includes(
           location.hash.slice(1),
@@ -3506,7 +3541,7 @@
         );
         const next = document.createElement("template");
         if (!count && state.page !== "logs") {
-          next.innerHTML = `<div class="state-card"><h2>${state.data.error ? "Waiting for the proxy" : "Your account pool starts here"}</h2><p>${state.data.error ? "The connection will be checked automatically." : "Add a Codex or Antigravity account to start tracking its quotas."}</p><button class="primary" data-add>${icon("plus")}Add login</button></div>`;
+          next.innerHTML = `<div class="state-card"><h2>${state.data.error ? "Waiting for the proxy" : "Your account pool starts here"}</h2><p>${state.data.error ? "The connection will be checked automatically." : "Add a login to start pooling accounts and tracking their quotas."}</p><button class="primary" data-add>${icon("plus")}Add login</button></div>`;
         } else
           next.innerHTML =
             state.page === "quotas"
