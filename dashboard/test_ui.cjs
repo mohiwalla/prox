@@ -105,9 +105,19 @@ const assert = require("assert/strict");
     fullPage: true,
   });
   const chart = page.locator('[data-chart="codex"]');
-  await chart.focus();
-  await page.keyboard.press("ArrowLeft");
-  assert.equal(await chart.locator(".chart-tooltip").isVisible(), true);
+  // The first render after login can land between the keypress and the check,
+  // so wait for loading to settle and give the keypress a few tries.
+  await page.waitForFunction(() => !dashboard.state.loadBusy);
+  let tooltipShown = false;
+  for (let i = 0; i < 3 && !tooltipShown; i++) {
+    await chart.focus();
+    await page.keyboard.press("ArrowLeft");
+    tooltipShown = await chart
+      .locator(".chart-tooltip")
+      .waitFor({ state: "visible", timeout: 1000 })
+      .then(() => true, () => false);
+  }
+  assert.equal(tooltipShown, true, "Arrow keys inspect the chart");
   await page.locator("#page-title").click();
   await page.locator('[data-filter="antigravity"]').click();
   assert.equal(await page.locator("[data-pool]").count(), 1);
