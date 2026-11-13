@@ -114,10 +114,13 @@ def parse_claude(data):
     windows = []
     for key, label, period in CLAUDE_WINDOWS:
         value = data.get(key)
-        if isinstance(value, dict):
-            item = window(key, label, used=value.get("utilization"), reset=value.get("resets_at"), period=period)
-            if item:
-                windows.append(item)
+        if not isinstance(value, dict) or value.get("utilization") is None:
+            continue
+        used = value["utilization"]
+        # A present but unreadable value fails the check, so the last good reading is kept.
+        if isinstance(used, bool) or not isinstance(used, (int, float)):
+            raise ValueError("Claude returned an unreadable quota.")
+        windows.append(window(key, label, used=used, reset=value.get("resets_at"), period=period))
     return {"plan": "Claude", "windows": windows}
 
 
