@@ -59,6 +59,21 @@ class QuotaTests(unittest.TestCase):
                 hub.refresh_one(files[0])
                 fetch.assert_called_once()
 
+    def test_claude_quota_checks_respect_its_slower_interval(self):
+        with tempfile.TemporaryDirectory() as folder:
+            hub = Hub(Store(Path(folder) / "history.sqlite"))
+            claude, codex = {"auth_index": "c", "provider": "claude"}, {"auth_index": "x", "provider": "codex"}
+            with patch.object(hub, "fetch_quota", return_value={"windows": [], "observed_at": 1}) as fetch:
+                for _ in range(3):
+                    hub.refresh_one(claude)
+                    hub.refresh_one(codex)
+            self.assertEqual([c.args[0]["provider"] for c in fetch.call_args_list].count("claude"), 1)
+            self.assertEqual([c.args[0]["provider"] for c in fetch.call_args_list].count("codex"), 3)
+            hub.quota_attempts["c"] -= 181
+            with patch.object(hub, "fetch_quota", return_value={"windows": [], "observed_at": 2}) as fetch:
+                hub.refresh_one(claude)
+                fetch.assert_called_once()
+
     def test_raw_credentials_are_not_relayed(self):
         raw = {"auth_index": "a", "provider": "codex", "access_token": "secret-token",
                "id_token": {"chatgpt_account_id": "private-id", "plan_type": "go"},
