@@ -3414,31 +3414,25 @@
         }
         return seconds >= 600 ? (consumed / seconds) * 3600 : null;
       }
+      // Pool totals: each account keeps its latest value until its next sample, so
+      // accounts checked at different times still add up. A value older than the
+      // forecast's gap tolerance counts as missing, and no total is drawn then.
       function historyPoints(accounts, metric) {
         const ids = new Set(accounts.map((a) => a.id)),
-          byTime = new Map();
-        state.data.history
+          gap = Math.max(900, 2.5 * (state.data.history_bucket || 0)),
+          latest = new Map(),
+          out = [];
+        const rows = state.data.history
           .filter((r) => ids.has(r.account) && r.metric === metric)
-          .forEach((r) => {
-            const bucket = r.ts;
-            if (!byTime.has(bucket)) byTime.set(bucket, new Map());
-            byTime.get(bucket).set(r.account, r);
-          });
-        return [...byTime]
-          .sort((a, b) => a[0] - b[0])
-          .flatMap(([ts, values]) =>
-            values.size === ids.size
-              ? [
-                  {
-                    ts,
-                    value: [...values.values()].reduce(
-                      (s, r) => s + r.remaining,
-                      0,
-                    ),
-                  },
-                ]
-              : [],
-          );
+          .sort((a, b) => a.ts - b.ts);
+        rows.forEach((r, i) => {
+          latest.set(r.account, r);
+          if (rows[i + 1]?.ts === r.ts) return;
+          const values = [...latest.values()];
+          if (latest.size === ids.size && values.every((v) => r.ts - v.ts <= gap))
+            out.push({ ts: r.ts, value: values.reduce((s, v) => s + v.remaining, 0) });
+        });
+        return out;
       }
       function forecastPoints(items, metric, now, end) {
         const rates = items.map(({ a }) => drainFor(a, metric, now));

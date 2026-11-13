@@ -308,14 +308,15 @@ class Store:
         return max(120, hours * 3600 / HISTORY_POINTS)
 
     def history(self, hours=24):
-        # Keep every sample on disk, but send one refresh cycle per bucket: all accounts
-        # in a cycle share a timestamp, so pooled sums stay exact.
+        # Keep every sample on disk, but send each account's newest sample per bucket.
+        # Providers are checked at different rates (Claude every 3 minutes), so picking
+        # one cycle per bucket across all accounts would drop the slower ones.
         size = self.bucket(hours)
         with self.connect() as db:
             rows = db.execute(
-                "WITH b AS (SELECT MAX(ts) m FROM samples WHERE ts>=? GROUP BY CAST(ts/? AS INTEGER)) "
-                "SELECT ts,account,provider,metric,remaining,reset_at,period FROM samples JOIN b ON ts=b.m ORDER BY ts",
-                (time.time() - hours * 3600, size)).fetchall()
+                "WITH b AS (SELECT account a, MAX(ts) m FROM samples WHERE ts>=? GROUP BY account, CAST(ts/? AS INTEGER)) "
+                "SELECT ts,account,provider,metric,remaining,reset_at,period FROM samples JOIN b ON account=b.a AND ts=b.m "
+                "ORDER BY ts", (time.time() - hours * 3600, size)).fetchall()
         return [dict(zip(["ts", "account", "provider", "metric", "remaining", "reset_at", "period"], r)) for r in rows]
 
 
