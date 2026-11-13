@@ -292,11 +292,34 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request("logout", {}, cookie=cookie)[0], 200)
         self.assertEqual(self.request("snapshot", cookie=cookie)[0], 401)
 
+    def test_sessions_survive_a_restart_renew_and_end_on_key_rotation(self):
+        cookie = self.login()
+        token_hash = Handler.digest(cookie.split("=", 1)[1])
+        self.assertNotIn(cookie.split("=", 1)[1], Path(self.folder.name, "test.sqlite").read_bytes().decode("latin-1"))
+        # A restart builds a new hub; the stored session still signs in.
+        restarted = Hub(Store(Path(self.folder.name) / "test.sqlite"))
+        restarted.management_key = lambda: "test-only-key"
+        with patch.object(self.server, "hub", restarted):
+            status, _, renewed = self.request("snapshot", cookie=cookie)
+        self.assertEqual(status, 200)
+        self.assertIsNone(renewed, "A fresh session is not re-issued on every request")
+        # An older session is renewed for another 400 days on use.
+        self.hub.store.renew_session(token_hash, time.time() + 3600)
+        status, _, renewed = self.request("snapshot", cookie=cookie)
+        self.assertEqual(status, 200)
+        self.assertIn(f"Max-Age={dashboard_server.SESSION_TTL}", renewed)
+        self.assertGreater(self.hub.store.session(token_hash)[0], time.time() + dashboard_server.SESSION_TTL - 60)
+        # Rotating the management key ends sessions issued under the old one.
+        with patch.object(self.hub, "management_key", return_value="rotated-key"):
+            self.assertEqual(self.request("snapshot", cookie=cookie)[0], 401)
+        self.hub.store.renew_session(token_hash, time.time() - 1)
+        self.assertEqual(self.request("snapshot", cookie=cookie)[0], 401)
+
     def test_public_cookie_is_secure_and_not_script_readable(self):
         with patch.object(dashboard_server, "PUBLIC_HOSTS", ["proxy.example.test"]):
             code, _, cookie = self.request("login", {"key": "test-only-key"}, host="proxy.example.test")
         self.assertEqual(code, 200)
-        for flag in ["HttpOnly", "Secure", "SameSite=Strict", "Path=/dashboard"]:
+        for flag in ["HttpOnly", "Secure", "SameSite=Strict", "Path=/dashboard", "Max-Age=34560000"]:
             self.assertIn(flag, cookie)
 
     def test_only_configured_public_hosts_are_served(self):
