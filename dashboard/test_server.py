@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 import server as dashboard_server
-from server import ERROR_LOG_LIMIT, Handler, Hub, ProxyError, Store, ThreadingHTTPServer, parse_antigravity, parse_codex, safe_account
+from server import ERROR_LOG_LIMIT, Handler, Hub, ProxyError, Store, ThreadingHTTPServer, parse_antigravity, parse_claude, parse_codex, safe_account
 
 
 class QuotaTests(unittest.TestCase):
@@ -32,6 +32,27 @@ class QuotaTests(unittest.TestCase):
         self.assertEqual([w["id"] for w in result["windows"]], ["flash"])
         self.assertEqual(result["windows"][0]["remaining"], 0)
         self.assertIsNone(result["windows"][0]["period"])
+
+    def test_claude_reads_utilization_and_skips_null_windows(self):
+        result = parse_claude({
+            "five_hour": {"utilization": 68.0, "resets_at": "2026-11-13T18:00:00+00:00"},
+            "seven_day": {"utilization": 100, "resets_at": "2026-11-18T00:00:00Z"},
+            "seven_day_opus": None, "seven_day_sonnet": {"utilization": None}})
+        self.assertEqual([(w["id"], w["remaining"]) for w in result["windows"]], [("five_hour", 32.0), ("seven_day", 0.0)])
+        self.assertEqual(result["windows"][0]["period"], 5 * 3600)
+        self.assertIsNotNone(result["windows"][1]["reset_at"])
+
+    def test_every_provider_is_listed_but_only_quota_providers_are_checked(self):
+        with tempfile.TemporaryDirectory() as folder:
+            hub = Hub(Store(Path(folder) / "history.sqlite"))
+            files = [{"auth_index": "c", "provider": "claude"}, {"auth_index": "x", "provider": "xai"}]
+            with patch.object(hub, "request", return_value={"files": files}):
+                self.assertEqual([f["auth_index"] for f in hub.read_files()], ["c", "x"])
+            with patch.object(hub, "fetch_quota", return_value={"windows": [], "observed_at": 1}) as fetch:
+                hub.refresh_one(files[1])
+                fetch.assert_not_called()
+                hub.refresh_one(files[0])
+                fetch.assert_called_once()
 
     def test_raw_credentials_are_not_relayed(self):
         raw = {"auth_index": "a", "provider": "codex", "access_token": "secret-token",

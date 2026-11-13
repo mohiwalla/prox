@@ -29,7 +29,7 @@ CREDENTIALS = Path.home() / "cliproxyapi/credentials.json"
 # name and a Cloudflare Tunnel hostname). The first one is advertised as the API endpoint.
 PUBLIC_HOSTS = [h.strip() for h in os.environ.get("DASHBOARD_HOSTS", "").split(",") if h.strip()]
 LOCAL_HOSTS = {"127.0.0.1:8318", "localhost:8318"}
-PROVIDERS = {"codex", "antigravity"}  # providers with quota readers
+QUOTA_PROVIDERS = {"codex", "antigravity", "claude"}  # providers with quota readers
 QUOTA_INTERVAL = 30  # seconds between live quota checks
 HISTORY_POINTS = 720  # most points per series sent to the browser
 # Every OAuth flow CLIProxyAPI v8 exposes through /oauth/auth-url.
@@ -103,6 +103,22 @@ def parse_antigravity(data):
         if item:
             windows.append(item)
     return {"plan": "Antigravity", "windows": sorted(windows, key=lambda w: w["label"])}
+
+
+CLAUDE_WINDOWS = [("five_hour", "5-hour limit", 5 * 3600), ("seven_day", "Weekly limit", 7 * 86400),
+                  ("seven_day_opus", "Weekly · Opus", 7 * 86400), ("seven_day_sonnet", "Weekly · Sonnet", 7 * 86400)]
+
+
+def parse_claude(data):
+    # Claude Code's /api/oauth/usage: utilization is percent used; null windows don't apply.
+    windows = []
+    for key, label, period in CLAUDE_WINDOWS:
+        value = data.get(key)
+        if isinstance(value, dict):
+            item = window(key, label, used=value.get("utilization"), reset=value.get("resets_at"), period=period)
+            if item:
+                windows.append(item)
+    return {"plan": "Claude", "windows": windows}
 
 
 def safe_account(raw, quota=None):
@@ -207,7 +223,8 @@ class Hub:
 
     def read_files(self):
         result = self.request("credentials")
-        files = [f for f in result.get("files", []) if f.get("provider") in PROVIDERS]
+        # Every signed-in account is listed; only QUOTA_PROVIDERS also get quota checks.
+        files = [f for f in result.get("files", []) if f.get("provider")]
         with self.lock:
             self.files, self.updated, self.error = files, time.time(), None
         return files
@@ -220,6 +237,10 @@ class Hub:
                 headers["Chatgpt-Account-Id"] = account_id
             headers["User-Agent"] = "codex-tui/0.149.1"
             payload = {"method": "GET", "url": "https://chatgpt.com/backend-api/wham/usage", "header": headers}
+        elif raw["provider"] == "claude":
+            headers["anthropic-beta"] = "oauth-2025-04-20"
+            headers["User-Agent"] = "claude-cli/2.1.0 (external, cli)"
+            payload = {"method": "GET", "url": "https://api.anthropic.com/api/oauth/usage", "header": headers}
         else:
             headers["User-Agent"] = "antigravity/hub/2.23.0 linux/amd64"
             payload = {"method": "POST", "url": "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
@@ -229,7 +250,7 @@ class Hub:
         if not 200 <= response.get("status_code", 0) < 300:
             raise ValueError(f"Quota request returned HTTP {response.get('status_code', 'unknown')}. Try refreshing or signing in again.")
         data = json.loads(response.get("body", "{}"))
-        parsed = parse_codex(data) if raw["provider"] == "codex" else parse_antigravity(data)
+        parsed = {"codex": parse_codex, "claude": parse_claude}.get(raw["provider"], parse_antigravity)(data)
         if not parsed["windows"]:
             raise ValueError("The provider returned no quota windows.")
         parsed["observed_at"] = time.time()
@@ -237,7 +258,7 @@ class Hub:
 
     def refresh_one(self, raw, observed_at=None):
         idx = raw["auth_index"]
-        if raw.get("disabled"):
+        if raw.get("disabled") or raw.get("provider") not in QUOTA_PROVIDERS:
             return
         try:
             quota = self.fetch_quota(raw)
