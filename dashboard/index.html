@@ -410,17 +410,104 @@
         cursor: not-allowed;
         opacity: 0.5;
       }
+      /* Reset list: one bordered group of compact rows (radio rows for Claude). */
+      .reset-summary {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: -8px;
+        font-size: 13px;
+        color: var(--muted-foreground);
+      }
       .reset-list {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+      }
+      .reset-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 44px;
+        padding: 10px 12px;
+        transition: background-color var(--duration-fast) ease;
+      }
+      .reset-row + .reset-row {
+        border-top: 1px solid var(--border);
+      }
+      .reset-row-text {
         display: grid;
-        gap: 8px;
+        flex: 1;
+        min-width: 0;
       }
-      .reset-option.static,
-      .reset-option.static:hover {
-        cursor: default;
-        background: var(--input-fill);
+      .reset-row-title {
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 20px;
       }
-      .reset-option .provider-option-text span {
-        white-space: normal;
+      .reset-row-meta,
+      .reset-row-when {
+        font-size: 13px;
+        line-height: 18px;
+        color: var(--muted-foreground);
+        font-variant-numeric: tabular-nums;
+      }
+      .reset-row-when {
+        flex-shrink: 0;
+        text-align: right;
+      }
+      .reset-row-when strong {
+        font-weight: 400;
+        color: var(--foreground);
+      }
+      label.reset-row {
+        cursor: pointer;
+      }
+      label.reset-row:hover,
+      .reset-row:has(input:checked) {
+        background: rgb(255 255 255 / 4%);
+      }
+      .reset-row input[type="radio"] {
+        display: grid;
+        flex-shrink: 0;
+        place-content: center;
+        width: 16px;
+        min-width: 16px;
+        height: 16px;
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        border: 1px solid var(--input);
+        border-radius: 50%;
+        appearance: none;
+        transition: border-color var(--duration-fast) ease;
+      }
+      .reset-row input::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--foreground);
+        transform: scale(0);
+        transition: transform var(--duration-fast) var(--ease-out, ease);
+      }
+      .reset-row input:checked {
+        border-color: var(--foreground);
+      }
+      .reset-row input:checked::before {
+        transform: scale(1);
+      }
+      .reset-row input:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px rgb(115 115 115 / 50%);
+      }
+      label.reset-row:has(input:disabled) {
+        cursor: not-allowed;
+        background: transparent;
+      }
+      .reset-row:has(input:disabled) > * {
+        opacity: 0.5;
       }
       .provider-option .provider-icon {
         width: 20px;
@@ -2734,6 +2821,7 @@
         <p class="dialog-description" id="reset-description"></p>
       </header>
       <div class="dialog-body">
+        <div class="reset-summary" id="reset-summary"></div>
         <div class="reset-list" id="reset-list"></div>
         <p class="field-error" id="reset-error" role="alert" hidden></p>
         <footer class="dialog-footer">
@@ -4275,30 +4363,48 @@
           claude = a.provider === "claude";
         resetTarget = id;
         $("#reset-title").textContent = `Use a reset on ${label}?`;
-        $("#reset-description").textContent = claude
-          ? "Spends a banked reset to clear this account's usage limits right away. Resets are limited and can't be given back."
-          : `Spends one of ${a.resets.available} resets to clear this account's usage limits right away. Resets are limited and can't be given back.`;
+        $("#reset-description").textContent =
+          "Choose a reset. It clears this account's usage limits right away and can't be given back.";
         const firstUsable = items.find((g) => !g.reason && g.left > 0);
-        $("#reset-list").setAttribute("role", claude ? "radiogroup" : "list");
+        const until = (ts) => {
+          const days = Math.round((ts - Date.now() / 1000) / 86400);
+          return days >= 1 ? `in ${days} day${days === 1 ? "" : "s"}` : relative(ts);
+        };
+        const when = (g) =>
+          g.expires_at
+            ? `<span class="reset-row-when"><strong>${esc(dateLabel(g.expires_at))}</strong> · ${esc(until(g.expires_at))}</span>`
+            : "";
+        // Repeated titles ("Full reset" ×3) read better numbered.
+        const numbered = new Set(items.map((g) => g.label)).size < items.length;
+        const kind = numbered ? items[0].label.toLowerCase() : "reset";
+        $("#reset-summary").innerHTML = `<span>${a.resets.available} ${esc(kind)}${a.resets.available === 1 ? "" : "s"} available</span>${claude ? "" : "<span>Expires</span>"}`;
+        $("#reset-list").setAttribute("role", "radiogroup");
         $("#reset-list").setAttribute("aria-label", "Resets");
         $("#reset-list").innerHTML = items
-          .map((g) => {
-            const expiry = g.expires_at
-              ? `Expires ${dateLabel(g.expires_at)}`
-              : "No expiry";
-            const text = `<span class="provider-option-text"><strong>${esc(g.label)}</strong><span>${esc(claude ? `${g.left} of ${g.total} left · ${g.reason || expiry}` : expiry)}</span></span>`;
-            return claude
-              ? `<label class="provider-option reset-option"><input type="radio" name="reset-grant" value="${esc(g.id)}" ${g === firstUsable ? "checked" : ""} ${g.reason || g.left <= 0 ? "disabled" : ""}/>${text}</label>`
-              : `<div class="provider-option reset-option static" role="listitem">${text}</div>`;
+          .map((g, i) => {
+            const title = numbered ? `Reset ${i + 1}` : g.label,
+              radio = `<input type="radio" name="reset-grant" value="${esc(g.id)}" ${g === firstUsable ? "checked" : ""} ${g.reason || g.left <= 0 ? "disabled" : ""}/>`;
+            // Codex credits come soonest-expiring first, so the default spends the one that runs out first.
+            if (!claude)
+              return `<label class="reset-row">${radio}<span class="reset-row-text"><span class="reset-row-title">${esc(title)}</span></span>${when(g)}</label>`;
+            // Grant titles are long, so the expiry sits under the title instead of beside it.
+            const meta = [
+              g.total > 1 ? `${g.left} of ${g.total} left` : "",
+              g.reason ||
+                (g.expires_at
+                  ? `Expires ${dateLabel(g.expires_at)} · ${until(g.expires_at)}`
+                  : ""),
+            ]
+              .filter(Boolean)
+              .join(" · ");
+            return `<label class="reset-row">${radio}<span class="reset-row-text"><span class="reset-row-title">${esc(title)}</span>${meta ? `<span class="reset-row-meta">${esc(meta)}</span>` : ""}</span></label>`;
           })
           .join("");
         resetError("");
         setBusy($("#reset-confirm"), false);
         $("#reset-confirm").textContent = "Use reset";
         $("#reset-confirm").idleHTML = $("#reset-confirm").innerHTML;
-        $("#reset-confirm").disabled = claude
-          ? !firstUsable
-          : !a.resets.available;
+        $("#reset-confirm").disabled = !firstUsable;
         $("#reset-dialog").showModal();
         $("#reset-cancel").focus();
       }

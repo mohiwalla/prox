@@ -463,15 +463,18 @@ const assert = require("assert/strict");
     await resetMenu(codexId);
     await menuItem("Use a reset").click();
     await page.locator("#reset-dialog[open]").waitFor();
-    assert.equal(await page.locator('#reset-list [role="listitem"]').count(), 2);
-    assert.match(await page.locator("#reset-description").textContent(), /one of 2 resets/);
+    assert.equal(await page.locator('#reset-list input[name="reset-grant"]').count(), 2);
+    // The soonest-expiring reset is preselected; any other can be chosen.
+    assert.equal(await page.locator('#reset-list input[value="c1"]').isChecked(), true);
+    assert.match(await page.locator("#reset-summary").textContent(), /2 full resets available/);
     await page.locator("#reset-cancel").click();
     assert.equal(resetBodies.length, 0, "Cancel spends nothing");
     await resetMenu(codexId);
     await menuItem("Use a reset").click();
+    await page.locator('#reset-list label:has(input[value="c2"])').click();
     await page.locator("#reset-confirm").click();
     await page.waitForFunction(() => !document.querySelector("#reset-dialog").open);
-    assert.deepEqual(resetBodies.splice(0), [{ id: codexId }]);
+    assert.deepEqual(resetBodies.splice(0), [{ id: codexId, grant: "c2" }]);
     await page.locator('[data-sonner-toast][data-type="success"]', { hasText: "Reset used" }).first().waitFor();
   }
   const claudeId = await resetFixture("claude", {
