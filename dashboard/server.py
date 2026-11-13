@@ -40,7 +40,11 @@ RESET_INTERVAL = 600
 # A Claude reset claim with an unknown outcome may be retried with the same request ID for 10 minutes.
 RESET_RETRY_WINDOW = 600
 CODEX_RESETS_URL = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits"
-CLAUDE_UA = "claude-cli/2.1.280 (external, cli)"  # seconds between live quota checks
+CLAUDE_UA = "claude-cli/2.1.280 (external, cli)"
+# Sign in once: sessions survive restarts and renew while used. 400 days is the longest
+# cookie lifetime browsers accept; renewal happens at most once a day.
+SESSION_TTL = 400 * 86400
+SESSION_RENEW_AFTER = 86400  # seconds between live quota checks
 HISTORY_POINTS = 720  # most points per series sent to the browser
 # Every OAuth flow CLIProxyAPI v8 exposes through /oauth/auth-url.
 OAUTH_PROVIDERS = {"claude", "codex", "antigravity", "xai", "kimi", "kimi-ai", "devin", "meta"}
@@ -252,6 +256,8 @@ class Store:
             db.execute("CREATE TABLE IF NOT EXISTS samples (ts REAL, account TEXT, provider TEXT, metric TEXT, remaining REAL, reset_at REAL, period REAL, PRIMARY KEY(ts,account,metric))")
             db.execute("CREATE INDEX IF NOT EXISTS samples_time ON samples(ts)")
             db.execute("CREATE TABLE IF NOT EXISTS latest (account TEXT PRIMARY KEY, data TEXT)")
+            # Only a hash of each session token is stored, with the management key it was issued for.
+            db.execute("CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, expires REAL, key_hash TEXT)")
 
     @contextmanager
     def connect(self):
@@ -273,6 +279,23 @@ class Store:
                 db.execute("INSERT OR REPLACE INTO samples VALUES (?,?,?,?,?,?,?)", (
                     quota["observed_at"], account, provider, w["id"], w["remaining"], w["reset_at"], w["period"]))
             db.execute("DELETE FROM samples WHERE ts < ?", (time.time() - 30 * 86400,))
+
+    def add_session(self, token_hash, expires, key_hash):
+        with self.connect() as db:
+            db.execute("DELETE FROM sessions WHERE expires < ?", (time.time(),))
+            db.execute("INSERT OR REPLACE INTO sessions VALUES (?,?,?)", (token_hash, expires, key_hash))
+
+    def session(self, token_hash):
+        with self.connect() as db:
+            return db.execute("SELECT expires, key_hash FROM sessions WHERE token_hash = ?", (token_hash,)).fetchone()
+
+    def renew_session(self, token_hash, expires):
+        with self.connect() as db:
+            db.execute("UPDATE sessions SET expires = ? WHERE token_hash = ?", (expires, token_hash))
+
+    def end_session(self, token_hash):
+        with self.connect() as db:
+            db.execute("DELETE FROM sessions WHERE token_hash = ?", (token_hash,))
 
     def forget(self, account):
         """Drop an account's latest reading; its history samples stay for the charts."""
@@ -310,7 +333,6 @@ class Hub:
         self.updated = None
         self.refreshing = False
         self.wake = threading.Event()
-        self.sessions = {}
         self.oauth = {}
         self.login_attempts = {}
 
@@ -632,6 +654,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+        cookie = cookie or getattr(self, "renewed_cookie", None)
         if cookie:
             self.send_header("Set-Cookie", cookie)
         self.end_headers()
@@ -646,15 +669,29 @@ class Handler(BaseHTTPRequestHandler):
                 return forwarded.strip()
         return self.client_address[0]
 
+    @staticmethod
+    def digest(value):
+        return hashlib.sha256(value.encode()).hexdigest()
+
+    def session_cookie(self, token, max_age=SESSION_TTL):
+        secure = "" if self.headers.get("Host", "") in LOCAL_HOSTS else "; Secure"
+        return f"prox_session={token}; Path=/dashboard; HttpOnly; SameSite=Strict; Max-Age={max_age}{secure}"
+
     def session(self):
         try:
             cookies = http.cookies.SimpleCookie(self.headers.get("Cookie", ""))
             token = cookies["prox_session"].value
         except (KeyError, http.cookies.CookieError):
             return None
-        with self.hub.lock:
-            expiry = self.hub.sessions.get(token, 0)
-            return token if expiry > time.time() else None
+        token_hash, now = self.digest(token), time.time()
+        row = self.hub.store.session(token_hash)
+        # A rotated management key ends every session issued under the old one.
+        if not row or row[0] <= now or not hmac.compare_digest(row[1], self.digest(self.hub.management_key())):
+            return None
+        if row[0] - now < SESSION_TTL - SESSION_RENEW_AFTER:
+            self.hub.store.renew_session(token_hash, now + SESSION_TTL)
+            self.renewed_cookie = self.session_cookie(token)
+        return token
 
     def route(self):
         host = self.headers.get("Host", "")
@@ -689,7 +726,6 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length) or b"{}")
             if not isinstance(body, dict):
                 raise ValueError("Expected a JSON object.")
-        secure = "" if host in LOCAL_HOSTS else "; Secure"
         if path == "/api/login" and self.command == "POST":
             now = time.time()
             with self.hub.lock:
@@ -703,20 +739,18 @@ class Handler(BaseHTTPRequestHandler):
                 self.send(401, {"error": "Management key not recognized."})
                 return
             token = secrets.token_urlsafe(32)
+            self.hub.store.add_session(self.digest(token), now + SESSION_TTL, self.digest(supplied))
             with self.hub.lock:
-                self.hub.sessions = {k: v for k, v in self.hub.sessions.items() if v > now}
-                self.hub.sessions[token] = now + 12 * 3600
                 self.hub.login_attempts.pop(self.client_ip(), None)
-            self.send(200, {"ok": True}, cookie=f"prox_session={token}; Path=/dashboard; HttpOnly; SameSite=Strict; Max-Age=43200{secure}")
+            self.send(200, {"ok": True}, cookie=self.session_cookie(token))
             return
         session = self.session()
         if not session:
             self.send(401, {"error": "Sign in with your management key."})
             return
         if path == "/api/logout" and self.command == "POST":
-            with self.hub.lock:
-                self.hub.sessions.pop(session, None)
-            self.send(200, {"ok": True}, cookie=f"prox_session=; Path=/dashboard; Max-Age=0; HttpOnly; SameSite=Strict{secure}")
+            self.hub.store.end_session(self.digest(session))
+            self.send(200, {"ok": True}, cookie=self.session_cookie("", max_age=0))
         elif path == "/api/snapshot" and self.command == "GET":
             hours = int(urllib.parse.parse_qs(url.query).get("hours", ["24"])[0])
             self.send(200, self.hub.snapshot(min(max(hours, 1), 24 * 30)))
@@ -855,6 +889,7 @@ class Handler(BaseHTTPRequestHandler):
         self.handle_route()
 
     def handle_route(self):
+        self.renewed_cookie = None
         try:
             self.route()
         except (ValueError, KeyError, json.JSONDecodeError):
