@@ -2724,7 +2724,7 @@
             >
               <svg class="icon" aria-hidden="true"><use href="#i-menu" /></svg>
             </button>
-            <h1 id="page-title">Quota management</h1>
+            <h1 id="page-title"></h1>
             <span class="page-meta" id="page-meta">Connecting…</span>
           </div>
           <div class="actions">
@@ -3728,9 +3728,23 @@
           .replace(/\/$/, "");
         return PAGES.includes(page) ? page : "quotas";
       }
+      const PAGE_TITLES = {
+        quotas: "Quota management",
+        accounts: "Accounts",
+        logs: "Logs",
+      };
       // Old #accounts-style links land on the matching clean path.
       if (PAGES.includes(location.hash.slice(1)))
         history.replaceState(null, "", pagePath(location.hash.slice(1)));
+      // Show the right heading and nav item before any data arrives (first
+      // paint, or back/forward while loading); only real page changes morph.
+      function showPageChrome() {
+        $("#page-title").textContent = PAGE_TITLES[pageFromPath()];
+        $$("[data-page]").forEach((a) =>
+          a.classList.toggle("active", a.dataset.page === pageFromPath()),
+        );
+      }
+      showPageChrome();
       function navigate(page) {
         if (!PAGES.includes(page)) return;
         if (location.pathname !== pagePath(page))
@@ -3776,14 +3790,7 @@
           state.provider = "all";
         const body = $("#page-body");
         state.page = pageFromPath();
-        morphText(
-          $("#page-title"),
-          {
-            quotas: "Quota management",
-            accounts: "Accounts",
-            logs: "Logs",
-          }[state.page],
-        );
+        morphText($("#page-title"), PAGE_TITLES[state.page]);
         const count = state.data.accounts.length,
           measured = state.data.accounts.filter((a) => a.windows.length).length;
         morphText(
@@ -3952,7 +3959,8 @@
       });
       window.addEventListener("popstate", () => {
         setMenu(false);
-        render(true);
+        if (state.data) render(true);
+        else showPageChrome();
       });
       // Sidebar links navigate in place; modified clicks still open a new tab.
       document.addEventListener("click", (e) => {
