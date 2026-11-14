@@ -103,6 +103,18 @@ const assert = require("assert/strict");
     await page.evaluate(() => document.fonts.check("14px Geist")),
     true,
   );
+  // A tab group must hold all of its tabs, or the active one spills out.
+  const assertTabsFit = async (where) =>
+    assert.deepEqual(
+      await page.evaluate(() =>
+        [...document.querySelectorAll(".segmented")]
+          .filter((g) => g.offsetWidth && g.scrollWidth > g.clientWidth)
+          .map((g) => g.getAttribute("aria-label")),
+      ),
+      [],
+      `tab groups overflow at ${where}`,
+    );
+  await assertTabsFit("first load");
   await page.screenshot({
     path: path.join(artifacts, "dashboard-desktop.png"),
     fullPage: true,
@@ -799,6 +811,7 @@ const assert = require("assert/strict");
       ),
       true,
     );
+    await assertTabsFit(`${width}px`);
   }
 
   // Exercise motion with the actual controls and browser animations enabled.
