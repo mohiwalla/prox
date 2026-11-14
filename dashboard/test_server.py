@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import server as dashboard_server
 from server import (ERROR_LOG_LIMIT, Handler, Hub, ProxyError, Store, ThreadingHTTPServer, parse_antigravity, parse_claude,
-                    parse_claude_resets, parse_codex, parse_codex_resets, safe_account)
+                    parse_claude_plan, parse_claude_resets, parse_codex, parse_codex_resets, safe_account)
 
 
 class QuotaTests(unittest.TestCase):
@@ -21,6 +21,32 @@ class QuotaTests(unittest.TestCase):
         self.assertEqual(len(result["windows"]), 1)
         self.assertEqual(result["windows"][0]["remaining"], 0)
         self.assertEqual(result["windows"][0]["period"], 2592000)
+
+    def test_claude_plan_names_the_plan_and_seat(self):
+        cases = [
+            ({"organization_type": "claude_team", "seat_tier": "team_standard", "rate_limit_tier": "default_raven"}, "Team · Standard"),
+            ({"organization_type": "claude_team", "seat_tier": "team_premium"}, "Team · Premium"),
+            ({"organization_type": "claude_enterprise"}, "Enterprise"),
+            ({"organization_type": "claude_max", "rate_limit_tier": "default_claude_max_20x"}, "Max 20x"),
+            ({"organization_type": "claude_max", "rate_limit_tier": "default_claude_max_5x"}, "Max 5x"),
+            ({"organization_type": "claude_pro"}, "Pro"),
+            ({}, None)]
+        for org, plan in cases:
+            self.assertEqual(parse_claude_plan({"organization": org}), plan, org)
+
+    def test_claude_plan_is_read_rarely_and_kept_when_a_read_fails(self):
+        with tempfile.TemporaryDirectory() as folder:
+            hub = Hub(Store(Path(folder) / "history.sqlite"))
+            raw = {"auth_index": "c1", "provider": "claude"}
+            team = (200, {"organization": {"organization_type": "claude_team", "seat_tier": "team_premium"}})
+            with patch.object(hub, "call", return_value=team) as call:
+                self.assertEqual(hub.claude_plan(raw), "Team · Premium")
+                hub.quotas["c1"] = {"plan": "Team · Premium"}
+                self.assertEqual(hub.claude_plan(raw), "Team · Premium")
+            call.assert_called_once()
+            hub.plan_reads["c1"] = 0
+            with patch.object(hub, "call", return_value=(500, None)):
+                self.assertEqual(hub.claude_plan(raw), "Team · Premium")
 
     def test_missing_codex_percent_is_unknown(self):
         self.assertEqual(parse_codex({"rate_limit": {"primary_window": {"reset_at": 123}}})["windows"], [])
