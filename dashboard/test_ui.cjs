@@ -51,6 +51,16 @@ const assert = require("assert/strict");
         body: fs.readFileSync(path.join(__dirname, "index.html"), "utf8"),
       }),
     );
+  // Over the tailnet the dashboard may sign this browser in by its Tailscale login. Report
+  // only key sessions here so the key sign-in flow is still exercised (tailnet is checked below).
+  await page.route("**/dashboard/api/session", (route) =>
+    route.fulfill({
+      json: {
+        authenticated: (route.request().headers().cookie || "").includes("prox_session="),
+        tailnet: false,
+      },
+    }),
+  );
   await page.goto(url);
   await page
     .getByLabel("Management key", { exact: true })

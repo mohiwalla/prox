@@ -67,6 +67,33 @@ class ProxyError(ValueError):
         self.body = body
 
 
+# Opens the original panel (management.html) already signed in, when the tailnet proxy in front
+# supplies the management key itself (see the README). The panel then holds only a placeholder.
+# It accepts a remembered session only in its own obfuscated format: XOR with a key made from
+# a fixed string and the host, base64, prefixed. If the placeholder isn't accepted, the panel
+# opens normally and asks for the key.
+PANEL_SIGN_IN = """<!doctype html><meta charset="utf-8"><meta name="color-scheme" content="dark">
+<title>prox</title><body style="background:#0a0a0a"><script>
+(async () => {
+  const placeholder = "tailnet";
+  try {
+    const r = await fetch("/v0/management/config", { headers: { Authorization: "Bearer " + placeholder } });
+    if (r.ok) {
+      const enc = new TextEncoder(), key = enc.encode("cli-proxy-api-webui::secure-storage|" + location.host);
+      const state = { apiBase: location.origin, managementKey: placeholder, rememberPassword: true, serverVersion: null, serverBuildDate: null };
+      let bytes = "";
+      enc.encode(JSON.stringify({ state, version: 0 })).forEach((b, i) => (bytes += String.fromCharCode(b ^ key[i % key.length])));
+      localStorage.setItem("cli-proxy-auth", "enc::v2::" + btoa(bytes));
+      localStorage.setItem("isLoggedIn", "true");
+    }
+  } catch {}
+  // Lets a proxy send direct visits to management.html here once (without it they'd loop).
+  document.cookie = "prox_panel=1; Path=/; Max-Age=34560000; SameSite=Strict; Secure";
+  location.replace("/management.html");
+})();
+</script>"""
+
+
 def timestamp(value):
     if isinstance(value, (int, float)):
         return float(value)
@@ -793,6 +820,9 @@ class Handler(BaseHTTPRequestHandler):
         url = urllib.parse.urlsplit(self.path)
         path = url.path.removeprefix("/dashboard").rstrip("/") or "/"
         # Pages use clean paths (/dashboard/accounts); each one serves the same app.
+        if self.command == "GET" and path == "/panel":
+            self.send(200, PANEL_SIGN_IN.encode(), "text/html; charset=utf-8")
+            return
         if self.command == "GET" and path in PAGES:
             self.send(200, (ROOT / "index.html").read_bytes(), "text/html; charset=utf-8")
             return
