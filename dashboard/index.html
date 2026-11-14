@@ -1169,6 +1169,47 @@
         margin-left: auto;
         font-variant-numeric: tabular-nums;
       }
+      /* Usage per interval, stacked by account. */
+      .plot.usage {
+        margin-top: 8px;
+      }
+      .plot.usage svg {
+        height: 112px;
+      }
+      .usage-hover {
+        fill: rgb(255 255 255 / 6%);
+      }
+      .usage-hover[hidden] {
+        display: none;
+      }
+      .usage-empty {
+        position: absolute;
+        top: 36px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 13px;
+        color: var(--muted-foreground);
+        pointer-events: none;
+      }
+      .tip-row small {
+        margin-left: 12px;
+        color: var(--muted-foreground);
+        font-size: 11px;
+      }
+      .tip-total {
+        margin-top: 2px;
+        padding-top: 6px;
+        border-top: 1px solid var(--border);
+      }
+      .mini-swatch {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-right: 8px;
+        border-radius: 2px;
+        vertical-align: 0;
+      }
       .rate-card {
         margin: 16px 0 8px;
         padding: 48px 16px;
@@ -2034,6 +2075,9 @@
         }
         .plot svg {
           height: 200px;
+        }
+        .plot.usage svg {
+          height: 96px;
         }
         .chart-tooltip {
           top: 16px;
@@ -3004,6 +3048,7 @@
         forecast: true,
         windows: {},
         charts: {},
+        usage: {},
         session: false,
         oauth: null,
         oauthTimer: null,
@@ -3379,11 +3424,32 @@
                   )?.id || list[0]?.id;
         return state.windows[p];
       }
+      // Plans differ in size, but the quota APIs only report percentages. Each
+      // account counts as a multiple of its provider's base plan; these sizes
+      // are estimates from the plans' published tiers.
+      const PLAN_UNIT = { codex: "Plus", claude: "Pro" };
+      function planWeight(a) {
+        if (a.provider === "codex")
+          return { free: 0.2, go: 0.5, plus: 1, prolite: 5, pro: 20 }[a.plan] ?? 1;
+        if (a.provider === "claude") {
+          const max = /(\d+)x/i.exec(a.plan || "");
+          if (max) return Number(max[1]);
+          return /premium/i.test(a.plan || "") ? 5 : 1;
+        }
+        return 1;
+      }
+      // One shade of the provider color per account, the largest plan brightest.
+      const shade = (i, n) =>
+        `color-mix(in oklab, var(--pool-color) ${n > 1 ? Math.round(100 - (i * 50) / (n - 1)) : 100}%, var(--card))`;
+      const fmtUnits = (n) => (n >= 10 ? n.toFixed(0) : n.toFixed(1));
+      const shortLabel = (label) => label.split("@")[0];
+      // Largest plan first, so it sits at the bottom of stacked charts.
       function usableWindows(accounts, metric) {
         return accounts
           .filter((a) => !a.disabled)
           .map((a) => ({ a, w: a.windows.find((w) => w.id === metric) }))
-          .filter((o) => o.w);
+          .filter((o) => o.w)
+          .sort((x, y) => planWeight(y.a) - planWeight(x.a));
       }
       function drainFor(a, metric, now) {
         // Longer ranges arrive downsampled; treat gaps up to ~2.5 buckets as continuous.
@@ -3421,11 +3487,14 @@
         }
         return seconds >= 600 ? (consumed / seconds) * 3600 : null;
       }
-      // Pool totals: each account keeps its latest value until its next sample, so
+      // Pool totals, as a share of the whole pool with each account counted by its
+      // plan size: each account keeps its latest value until its next sample, so
       // accounts checked at different times still add up. A value older than the
       // forecast's gap tolerance counts as missing, and no total is drawn then.
       function historyPoints(accounts, metric) {
         const ids = new Set(accounts.map((a) => a.id)),
+          weights = accounts.map(planWeight),
+          size = weights.reduce((s, w) => s + w, 0),
           gap = Math.max(900, 2.5 * (state.data.history_bucket || 0)),
           latest = new Map(),
           out = [];
@@ -3436,8 +3505,12 @@
           latest.set(r.account, r);
           if (rows[i + 1]?.ts === r.ts) return;
           const values = [...latest.values()];
-          if (latest.size === ids.size && values.every((v) => r.ts - v.ts <= gap))
-            out.push({ ts: r.ts, value: values.reduce((s, v) => s + v.remaining, 0) });
+          if (latest.size === ids.size && values.every((v) => r.ts - v.ts <= gap)) {
+            const parts = accounts.map(
+              (a, i) => (weights[i] * latest.get(a.id).remaining) / size,
+            );
+            out.push({ ts: r.ts, value: parts.reduce((s, v) => s + v, 0), parts });
+          }
         });
         return out;
       }
@@ -3463,11 +3536,12 @@
             times.add(w.reset_at);
           }
         });
+        const weights = items.map(({ a }) => planWeight(a)),
+          size = weights.reduce((s, w) => s + w, 0);
         return [...times]
           .sort((a, b) => a - b)
-          .map((ts) => ({
-            ts,
-            value: items.reduce((sum, { w }, i) => {
+          .map((ts) => {
+            const parts = items.map(({ w }, i) => {
               let last = now,
                 remaining = w.remaining;
               if (w.reset_at && ts >= w.reset_at && w.reset_at > now) {
@@ -3475,10 +3549,13 @@
                 remaining = 100;
               }
               return (
-                sum + Math.max(0, remaining - (rates[i] * (ts - last)) / 3600)
+                (weights[i] *
+                  Math.max(0, remaining - (rates[i] * (ts - last)) / 3600)) /
+                size
               );
-            }, 0),
-          }));
+            });
+            return { ts, value: parts.reduce((s, v) => s + v, 0), parts };
+          });
       }
       function plot(p, accounts, metric) {
         const now = state.data.now,
@@ -3486,7 +3563,13 @@
         const start = now - range * (state.forecast ? 0.3 : 1),
           end = state.forecast ? now + range * 0.7 : now;
         const items = usableWindows(accounts, metric),
-          cap = items.length * 100;
+          cap = 100,
+          weights = items.map(({ a }) => planWeight(a)),
+          size = weights.reduce((s, w) => s + w, 0),
+          series = items.map(({ a }, i) => ({
+            name: shortLabel(accountLabel(a, accounts.indexOf(a))),
+            color: shade(i, items.length),
+          }));
         let points = historyPoints(
           items.map((o) => o.a),
           metric,
@@ -3499,9 +3582,11 @@
           actualAt >= start &&
           !items.some((o) => o.a.quota_error)
         ) {
+          const parts = items.map((o, i) => (weights[i] * o.w.remaining) / size);
           const latest = {
             ts: actualAt,
-            value: items.reduce((sum, o) => sum + o.w.remaining, 0),
+            value: parts.reduce((s, v) => s + v, 0),
+            parts,
           };
           if (!points.length || Math.abs(points.at(-1).ts - latest.ts) > 1)
             points.push(latest);
@@ -3534,6 +3619,7 @@
           H,
           left,
           right,
+          series,
         };
         // Monotone cubic curve (as d3's curveMonotoneX): smooth, passes through
         // every sample, and never overshoots between them, so it invents no values.
@@ -3604,23 +3690,119 @@
               `<line class="chart-reset" x1="${x(t)}" x2="${x(t)}" y1="${top}" y2="${H - bottom}"/><text class="reset-label" x="${x(t)}" y="16" text-anchor="middle">Reset</text>`,
           )
           .join("");
-        const area =
-          points.length > 1
+        // Several accounts: stack one band per account, each sized by its plan.
+        const stacked = points.length > 1 && items.length > 1 && points.every((r) => r.parts);
+        const level = (k) =>
+          points.map((r) => ({ ts: r.ts, value: r.parts.slice(0, k).reduce((s, v) => s + v, 0) }));
+        const area = stacked
+          ? series
+              .map(
+                (s, k) =>
+                  `<path d="${path(level(k + 1))} ${path(level(k).reverse()).replace(/^M/, "L")} Z" fill="${s.color}" fill-opacity=".45"/>${k < series.length - 1 ? `<path d="${path(level(k + 1))}" stroke="${s.color}" stroke-opacity=".7" stroke-width="1.5" vector-effect="non-scaling-stroke" fill="none"/>` : ""}`,
+              )
+              .join("")
+          : points.length > 1
             ? `<path d="${path(points)} L${x(points.at(-1).ts)},${y(0)} L${x(points[0].ts)},${y(0)} Z" fill="url(#fill-${p})"/>`
             : "";
         const latest = points.at(-1);
         const annotation = latest
           ? `<circle cx="${x(latest.ts)}" cy="${y(latest.value)}" r="6" fill="var(--pool-color)" stroke="var(--card)" stroke-width="3"/><text class="current-value" x="${x(latest.ts) + 11}" y="${Math.max(top + 12, y(latest.value) - 9)}">${esc(fmtPct(latest.value))}</text>`
           : "";
-        return `<figure class="plot" tabindex="0" data-chart="${p}" aria-label="${pName(p)} quota history and forecast. Use left and right arrows to inspect recorded samples."><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${points.length} recorded samples${forecast.length ? ", estimated future usage" : ""}"><defs><linearGradient id="fill-${p}" x1="0" x2="0" y1="0" y2="1"><stop stop-color="var(--pool-color)" stop-opacity=".16"/><stop offset="1" stop-color="var(--pool-color)" stop-opacity="0"/></linearGradient></defs>${ticks}${resetMarks}<line x1="${x(now)}" x2="${x(now)}" y1="${top - 4}" y2="${H - bottom + 2}" stroke="#686868"/><text class="axis-now" x="${x(now)}" y="16" text-anchor="middle">Now</text><g class="chart-data">${area}${points.length > 1 ? `<path d="${path(points)}" stroke="var(--pool-color)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${forecast.length ? `<path d="${path(forecast)}" stroke="var(--pool-color)" stroke-opacity=".7" stroke-width="4" stroke-linecap="round" stroke-dasharray="4 10" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${annotation}</g><g class="chart-crosshair" hidden><line x1="0" x2="0" y1="${top}" y2="${H - bottom}"/><circle class="halo" r="12"/><circle class="dot" r="6"/></g></svg><div class="chart-tooltip" hidden></div>${points.length < 2 ? '<div class="chart-empty"><strong>History starts here</strong><p>Quotas are recorded every 30 seconds, even with this page closed. Your usage curve will build over time.</p></div>' : ""}<figcaption class="chart-caption"><span>Pool</span><span class="legend"><i class="legend-line"></i>Recorded</span><span class="legend"><i class="legend-line dashed"></i>Projected</span><span class="chart-inspect" aria-live="polite">${forecast.length ? "Estimate from recent usage" : !state.forecast ? "Forecast hidden" : "Forecast needs 10+ minutes of recent samples"}</span></figcaption></figure>`;
+        return `<figure class="plot" tabindex="0" data-chart="${p}" aria-label="${pName(p)} quota history and forecast. Use left and right arrows to inspect recorded samples."><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${points.length} recorded samples${forecast.length ? ", estimated future usage" : ""}"><defs><linearGradient id="fill-${p}" x1="0" x2="0" y1="0" y2="1"><stop stop-color="var(--pool-color)" stop-opacity=".16"/><stop offset="1" stop-color="var(--pool-color)" stop-opacity="0"/></linearGradient></defs>${ticks}${resetMarks}<line x1="${x(now)}" x2="${x(now)}" y1="${top - 4}" y2="${H - bottom + 2}" stroke="#686868"/><text class="axis-now" x="${x(now)}" y="16" text-anchor="middle">Now</text><g class="chart-data">${area}${points.length > 1 ? `<path d="${path(points)}" stroke="var(--pool-color)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${forecast.length ? `<path d="${path(forecast)}" stroke="var(--pool-color)" stroke-opacity=".7" stroke-width="4" stroke-linecap="round" stroke-dasharray="4 10" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${annotation}</g><g class="chart-crosshair" hidden><line x1="0" x2="0" y1="${top}" y2="${H - bottom}"/><circle class="halo" r="12"/><circle class="dot" r="6"/></g></svg><div class="chart-tooltip" hidden></div>${points.length < 2 ? '<div class="chart-empty"><strong>History starts here</strong><p>Quotas are recorded every 30 seconds, even with this page closed. Your usage curve will build over time.</p></div>' : ""}<figcaption class="chart-caption"><span>Pool left</span><span class="legend"><i class="legend-line"></i>Recorded</span><span class="legend"><i class="legend-line dashed"></i>Projected</span><span class="chart-inspect" aria-live="polite">${forecast.length ? "Estimate from recent usage" : !state.forecast ? "Forecast hidden" : "Forecast needs 10+ minutes of recent samples"}</span></figcaption></figure>${usagePlot(p, accounts, metric)}`;
+      }
+      // Quota each account used per interval, as a share of the whole pool.
+      function usageBuckets(items, metric, start, end) {
+        const size =
+            [300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400].find(
+              (s) => (end - start) / s <= 48,
+            ) || 86400,
+          first = Math.floor(start / size) * size,
+          gap = Math.max(900, 2.5 * (state.data.history_bucket || 0)),
+          weights = items.map(({ a }) => planWeight(a)),
+          total = weights.reduce((s, w) => s + w, 0);
+        const buckets = Array.from(
+          { length: Math.ceil((end - first) / size) },
+          (_, i) => ({ ts: first + i * size, parts: items.map(() => 0) }),
+        );
+        items.forEach(({ a }, k) => {
+          const rows = state.data.history
+            .filter((r) => r.account === a.id && r.metric === metric)
+            .sort((a, b) => a.ts - b.ts);
+          for (let i = 1; i < rows.length; i++) {
+            const prev = rows[i - 1],
+              next = rows[i];
+            // Resets show up as increases, so only drops count as use.
+            if (next.ts <= start || next.ts > end || next.ts - prev.ts > gap) continue;
+            const used = prev.remaining - next.remaining,
+              b = buckets[Math.floor((next.ts - first) / size)];
+            if (used > 0 && b) b.parts[k] += (weights[k] * used) / total;
+          }
+        });
+        buckets.forEach((b) => (b.value = b.parts.reduce((s, v) => s + v, 0)));
+        return { size, buckets };
+      }
+      function usagePlot(p, accounts, metric) {
+        const items = usableWindows(accounts, metric);
+        if (!items.length) return "";
+        const now = state.data.now,
+          start = now - state.hours * 3600,
+          { size, buckets } = usageBuckets(items, metric, start, now);
+        const W = state.charts[p]?.W || 600,
+          H = innerWidth <= 760 ? 96 : 112,
+          left = 46,
+          right = 10,
+          top = 8,
+          bottom = 24;
+        const x = (t) => left + ((t - start) / (now - start)) * (W - left - right);
+        const peak = Math.max(...buckets.map((b) => b.value)),
+          step = [0.5, 1, 2, 5, 10, 20, 50].find((s) => peak <= s) || 100,
+          y = (v) => H - bottom - (v / step) * (H - top - bottom);
+        const series = items.map(({ a }, i) => ({
+          name: shortLabel(accountLabel(a, accounts.indexOf(a))),
+          color: shade(i, items.length),
+          weight: planWeight(a),
+        }));
+        const total = series.reduce((s, r) => s + r.weight, 0);
+        state.usage[p] = { buckets, size, x, start, end: now, W, left, right, series, total };
+        let marks = `<line class="grid-line" x1="${left}" x2="${W - right}" y1="${y(step)}" y2="${y(step)}"/><text x="${left - 10}" y="${y(step) + 4}" text-anchor="end">${step}%</text><line x1="${left}" x2="${W - right}" y1="${y(0)}" y2="${y(0)}" stroke="var(--border)"/>`;
+        const tickCount = innerWidth <= 760 ? 3 : 6;
+        for (let i = 0; i <= tickCount; i++) {
+          const ts = start + ((now - start) * i) / tickCount;
+          const label = new Date(ts * 1000).toLocaleString(
+            undefined,
+            state.hours === 24 ? { hour: "numeric" } : { month: "short", day: "numeric" },
+          );
+          marks += `<text x="${x(ts)}" y="${H - 6}" text-anchor="${i === 0 ? "start" : i === tickCount ? "end" : "middle"}">${esc(label)}</text>`;
+        }
+        const bars = buckets
+          .map((b) => {
+            const x0 = Math.max(left, x(b.ts)),
+              width = Math.max(1, Math.min(W - right, x(b.ts + size)) - x0 - 2);
+            let acc = 0;
+            return series
+              .map((s, k) => {
+                const v = b.parts[k];
+                if (v <= 0) return "";
+                const rect = `<rect x="${x0 + 1}" y="${y(acc + v)}" width="${width}" height="${Math.max(1.5, y(acc) - y(acc + v))}" rx="1.5" fill="${s.color}"/>`;
+                acc += v;
+                return rect;
+              })
+              .join("");
+          })
+          .join("");
+        const quiet = !buckets.some((b) => b.value > 0);
+        const label = size >= 3600 ? `${size / 3600} hour${size === 3600 ? "" : "s"}` : `${size / 60} min`;
+        return `<figure class="plot usage" data-usage="${p}" aria-label="${pName(p)} quota used per ${label}, by account"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">${marks}<rect class="usage-hover" x="0" y="${top}" width="0" height="${H - top - bottom}" hidden/><g class="chart-data">${bars}</g></svg><div class="chart-tooltip" hidden></div>${quiet ? '<div class="usage-empty">No quota used in this range</div>' : ""}<figcaption class="chart-caption"><span>Used per ${label}</span>${series.map((s) => `<span class="legend"><i class="tip-swatch" style="background:${s.color}"></i>${esc(s.name)}</span>`).join("")}<span class="chart-inspect">Share of the whole pool</span></figcaption></figure>`;
       }
 
       function ratePlot(p, accounts, metric) {
         const now = state.data.now,
           items = usableWindows(accounts, metric);
-        const rates = items.map(({ a }) => drainFor(a, metric, now));
+        const rates = items.map(({ a }) => drainFor(a, metric, now)),
+          weights = items.map(({ a }) => planWeight(a)),
+          size = weights.reduce((s, w) => s + w, 0);
         const ready = rates.every((r) => r !== null) && rates.length;
-        return `<div class="rate-card"><div class="big-number">${morph(ready ? fmtPct(rates.reduce((s, r) => s + r, 0)) : "—")}<small>/ hour</small></div><p>${ready ? `Measured consumption over the last ${state.burn} hours. Quota reset increases are excluded.` : "Drain rate will appear after at least 10 minutes of samples. No usage rate is assumed before then."}</p></div>`;
+        return `<div class="rate-card"><div class="big-number">${morph(ready ? fmtPct(rates.reduce((s, r, i) => s + (weights[i] * r) / size, 0)) : "—")}<small>/ hour</small></div><p>${ready ? `Measured consumption over the last ${state.burn} hours. Quota reset increases are excluded.` : "Drain rate will appear after at least 10 minutes of samples. No usage rate is assumed before then."}</p></div>`;
       }
       function pool(p) {
         const accounts = filteredAccounts(p);
@@ -3628,11 +3810,17 @@
         const metric = selectedWindow(p, accounts),
           list = allWindows(accounts),
           items = usableWindows(accounts, metric),
-          sum = items.reduce((s, o) => s + o.w.remaining, 0),
+          weights = items.map(({ a }) => planWeight(a)),
+          size = weights.reduce((s, w) => s + w, 0),
+          left = items.reduce((s, o, i) => s + (weights[i] * o.w.remaining) / 100, 0),
+          share = size ? (left / size) * 100 : 0,
+          unit = PLAN_UNIT[p],
+          mixed = new Set(weights).size > 1,
+          colors = new Map(items.map(({ a }, i) => [a.id, shade(i, items.length)])),
           now = state.data.now,
           rates = items.map(({ a }) => drainFor(a, metric, now));
         const known = rates.length && rates.every((r) => r !== null),
-          rate = known ? rates.reduce((s, r) => s + r, 0) : null;
+          rate = known ? rates.reduce((s, r, i) => s + (weights[i] * r) / size, 0) : null;
         const next = items
           .map(({ w }) => w.reset_at)
           .filter((t) => t > now)
@@ -3653,12 +3841,16 @@
         const restricted = accounts.filter(
           (a) => status(a)[0] === "Model restriction",
         ).length;
-        return `<section class="pool provider-${p}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span>${windowPicker(p, list, metric)}</div><div class="pool-total"><div><div class="big-number">${morph(items.length ? fmtPct(sum) : "—")}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${morph(empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history")}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${morph(next ? esc(relative(next)) : "Not reported")}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${morph(rate !== null ? fmtPct(rate) + "/h" : "—")}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<div class="breakdown"><div class="breakdown-head"><span class="breakdown-title">Accounts</span><span class="summary-meta">${morph(`${items.length}/${accounts.filter((a) => !a.windows.length || a.windows.some((w) => w.id === metric)).length} quotas measured`)}</span></div><div class="mini-accounts">${accounts
+        return `<section class="pool provider-${p}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span>${windowPicker(p, list, metric)}</div><div class="pool-total"><div><div class="big-number">${morph(items.length ? fmtPct(share) : "—")}<small>of the pool left</small></div><div class="capacity-note">${unit && items.length ? `≈ ${fmtUnits(left)} of ${fmtUnits(size)} ${unit}-sized plans left · ` : ""}${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}${mixed ? "<br>Accounts count by plan size, estimated from each plan's tier." : ""}</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${morph(empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history")}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${morph(next ? esc(relative(next)) : "Not reported")}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${morph(rate !== null ? fmtPct(rate) + "/h" : "—")}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<div class="breakdown"><div class="breakdown-head"><span class="breakdown-title">Accounts</span><span class="summary-meta">${morph(`${items.length}/${accounts.filter((a) => !a.windows.length || a.windows.some((w) => w.id === metric)).length} quotas measured`)}</span></div><div class="mini-accounts">${accounts
           .map((a, i) => {
             const w = a.windows.find((w) => w.id === metric),
               [s, c] = status(a);
             const label = accountLabel(a, i);
-            return `<div class="mini-account" data-account="${esc(a.id)}"><span class="mini-name"><span class="mini-label" title="${esc(label)}">${esc(label)}</span><span class="mini-plan">${esc(planLabel(a.plan))}</span></span><span class="tag ${c}">${morph(s)}</span>${!w && a.windows.length ? `<span class="mini-none">No ${esc(windowName(list.find((w) => w.id === metric) || { label: "such" }).toLowerCase())} limit</span>` : `<div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="mini-value">${morph(w ? fmtPct(w.remaining) : "—")}</span>`}</div>`;
+            const weight = planWeight(a),
+              size = unit && mixed && w && !a.disabled
+                ? `${planLabel(a.plan) === unit ? "" : ` · ≈${weight}× ${unit}`} · ${fmtUnits((weight * w.remaining) / 100)} of ${weight} left`
+                : "";
+            return `<div class="mini-account" data-account="${esc(a.id)}"><span class="mini-name"><span class="mini-label" title="${esc(label)}">${colors.has(a.id) && items.length > 1 ? `<i class="mini-swatch" style="background:${colors.get(a.id)}"></i>` : ""}${esc(label)}</span><span class="mini-plan">${esc(planLabel(a.plan) + size)}</span></span><span class="tag ${c}">${morph(s)}</span>${!w && a.windows.length ? `<span class="mini-none">No ${esc(windowName(list.find((w) => w.id === metric) || { label: "such" }).toLowerCase())} limit</span>` : `<div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="mini-value">${morph(w ? fmtPct(w.remaining) : "—")}</span>`}</div>`;
           })
           .join("")}</div></div></section>`;
       }
@@ -4104,7 +4296,16 @@
         const px = chart.x(point.ts),
           py = chart.y(point.value),
           entering = group.hasAttribute("hidden");
-        tooltip.innerHTML = `<div class="tip-label">${esc(dateLabel(point.ts))}</div><div class="tip-row"><i class="tip-swatch${isFuture ? " dashed" : ""}"></i><span>${isFuture ? "Projected" : "Recorded"}</span><strong>${esc(fmtPct(point.value))}</strong></div>`;
+        const parts =
+          point.parts && chart.series?.length > 1
+            ? chart.series
+                .map(
+                  (s, i) =>
+                    `<div class="tip-row"><i class="tip-swatch" style="background:${s.color}"></i><span>${esc(s.name)}</span><strong>${esc(fmtPct(point.parts[i]))}</strong></div>`,
+                )
+                .join("")
+            : "";
+        tooltip.innerHTML = `<div class="tip-label">${esc(dateLabel(point.ts))}</div><div class="tip-row"><i class="tip-swatch${isFuture ? " dashed" : ""}"></i><span>${isFuture ? "Projected" : "Recorded"}</span><strong>${esc(fmtPct(point.value))}</strong></div>${parts}`;
         // Sit beside the point: above it when there is room, flipped left near the edge.
         const width = svg.clientWidth,
           ax = (px / chart.W) * width,
@@ -4203,6 +4404,7 @@
           return {
             ts,
             value: a.value + (b.value - a.value) * k,
+            parts: a.parts && b.parts && a.parts.map((v, j) => v + (b.parts[j] - v) * k),
             projected: true,
           };
         }
@@ -4231,6 +4433,49 @@
           inspectChart(plot, seriesAt(chart, ts));
         });
       }
+      // Usage bars: the pointer picks an interval and lists what each account used.
+      function inspectUsage(e) {
+        const fig = e.target.closest("[data-usage]"),
+          usage = fig && state.usage[fig.dataset.usage];
+        if (!usage) return;
+        const svg = $("svg", fig),
+          rect = svg.getBoundingClientRect(),
+          px = ((e.clientX - rect.left) / rect.width) * usage.W,
+          ts = usage.start + ((px - usage.left) / (usage.W - usage.left - usage.right)) * (usage.end - usage.start),
+          b = usage.buckets.find((b) => ts >= b.ts && ts < b.ts + usage.size);
+        const hover = $(".usage-hover", fig),
+          tooltip = $(".chart-tooltip", fig);
+        if (!b) return clearUsage(fig);
+        const x0 = Math.max(usage.left, usage.x(b.ts)),
+          x1 = Math.min(usage.W - usage.right, usage.x(b.ts + usage.size));
+        hover.setAttribute("x", x0);
+        hover.setAttribute("width", Math.max(1, x1 - x0));
+        hover.removeAttribute("hidden");
+        const end = Math.min(b.ts + usage.size, usage.end),
+          time = (t) => new Date(t * 1000).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+        tooltip.innerHTML = `<div class="tip-label">${esc(dateLabel(b.ts, false))} · ${esc(time(b.ts))} – ${esc(time(end))}</div>${usage.series
+          .map(
+            (s, i) =>
+              `<div class="tip-row"><i class="tip-swatch" style="background:${s.color}"></i><span>${esc(s.name)}</span><small>${esc(fmtPct((b.parts[i] * usage.total) / s.weight))} of its own</small><strong>${esc(fmtPct(b.parts[i]))}</strong></div>`,
+          )
+          .join("")}<div class="tip-row tip-total"><span>Pool used</span><strong>${esc(fmtPct(b.value))}</strong></div>`;
+        tooltip.hidden = false;
+        const ax = (((x0 + x1) / 2) / usage.W) * svg.clientWidth,
+          tw = tooltip.offsetWidth;
+        let left = ax + 14;
+        if (left + tw > svg.clientWidth) left = ax - 14 - tw;
+        tooltip.style.transform = `translate3d(${Math.max(0, left)}px, ${-tooltip.offsetHeight + 8}px, 0)`;
+      }
+      function clearUsage(fig) {
+        $(".usage-hover", fig)?.setAttribute("hidden", "");
+        const tooltip = $(".chart-tooltip", fig);
+        if (tooltip) tooltip.hidden = true;
+      }
+      $("#page-body").addEventListener("pointermove", inspectUsage);
+      $("#page-body").addEventListener("pointerout", (e) => {
+        const fig = e.target.closest("[data-usage]");
+        if (fig && !fig.contains(e.relatedTarget)) clearUsage(fig);
+      });
       $("#page-body").addEventListener("pointermove", inspectPointer);
       $("#page-body").addEventListener("pointerdown", inspectPointer);
       $("#page-body").addEventListener("pointerout", (e) => {
