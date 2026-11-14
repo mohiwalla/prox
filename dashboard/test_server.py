@@ -368,6 +368,18 @@ class HTTPTests(unittest.TestCase):
         # With no logins listed, the header means nothing.
         self.assertEqual(self.request("snapshot", extra=me)[0], 401)
 
+    def test_panel_sign_in_page_is_served_without_a_session(self):
+        conn = http.client.HTTPConnection("127.0.0.1", self.server.server_port)
+        conn.request("GET", "/dashboard/panel", headers={"Host": "localhost:8318"})
+        res = conn.getresponse()
+        body = res.read().decode()
+        conn.close()
+        self.assertEqual(res.status, 200)
+        # Only a placeholder reaches the browser; the real key never appears.
+        self.assertIn('placeholder = "tailnet"', body)
+        self.assertNotIn("test-only-key", body)
+        self.assertIn('location.replace("/management.html")', body)
+
     def test_sessions_survive_a_restart_renew_and_end_on_key_rotation(self):
         cookie = self.login()
         token_hash = Handler.digest(cookie.split("=", 1)[1])
