@@ -4969,6 +4969,8 @@
       (async () => {
         try {
           const r = await api("session");
+          // Signed in by the tailnet: there is no session to end.
+          $("#logout").hidden = !!r.tailnet;
           r.authenticated ? showApp() : showLogin();
         } catch (e) {
           showLogin();

@@ -1077,6 +1077,15 @@ const assert = require("assert/strict");
     (c) => c.name === "prox_session",
   );
   assert.ok(cookie.httpOnly && cookie.secure && cookie.sameSite === "Strict");
+  // Signed in by the tailnet: no key prompt and no Sign out (there is no session to end).
+  assert.equal(await page.locator("#logout").isVisible(), true);
+  await page.route("**/dashboard/api/session", (route) =>
+    route.fulfill({ json: { authenticated: true, tailnet: true } }),
+  );
+  await page.reload();
+  await page.locator("[data-pool]").first().waitFor();
+  assert.equal(await page.locator("#logout").isHidden(), true);
+  await page.unroute("**/dashboard/api/session");
   assert.deepEqual(escaped, [], "No real account or config mutation escaped");
   console.log(
     JSON.stringify({
@@ -1109,6 +1118,7 @@ const assert = require("assert/strict");
         "logs: errors viewer and activity states (mocked)",
         "no mutation reached the real proxy",
         "no connection page",
+        "tailnet sign-in hides Sign out",
         "390px layout",
         "mobile navigation",
         "interruptible motion",

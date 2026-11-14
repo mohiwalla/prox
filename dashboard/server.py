@@ -30,6 +30,10 @@ CREDENTIALS = Path.home() / "cliproxyapi/credentials.json"
 # name and a Cloudflare Tunnel hostname). The first one is advertised as the API endpoint.
 PUBLIC_HOSTS = [h.strip() for h in os.environ.get("DASHBOARD_HOSTS", "").split(",") if h.strip()]
 LOCAL_HOSTS = {"127.0.0.1:8318", "localhost:8318"}
+# Tailscale logins that may use the dashboard without the management key, comma-separated
+# (e.g. you@github). The tailnet proxy in front (Caddy's tailscale_auth or `tailscale serve`)
+# sets Tailscale-User-Login on every request, replacing any value the client sent.
+TAILNET_USERS = {u.strip() for u in os.environ.get("DASHBOARD_TAILNET_USERS", "").split(",") if u.strip()}
 QUOTA_PROVIDERS = {"codex", "antigravity", "claude"}  # providers with quota readers
 # Slower checks for providers whose quota endpoint is rate-limited. Anthropic's
 # /api/oauth/usage answers about one call per two minutes per account.
@@ -773,6 +777,14 @@ class Handler(BaseHTTPRequestHandler):
             self.renewed_cookie = self.session_cookie(token)
         return token
 
+    def tailnet_user(self):
+        login = self.headers.get("Tailscale-User-Login", "")
+        # Only a proxy on this machine can vouch for a login, and never one relaying the public internet.
+        if (login in TAILNET_USERS and self.client_address[0] in {"127.0.0.1", "::1"}
+                and not self.headers.get("CF-Connecting-IP")):
+            return login
+        return None
+
     def route(self):
         host = self.headers.get("Host", "")
         if host not in LOCAL_HOSTS and host not in PUBLIC_HOSTS:
@@ -796,7 +808,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send(403, {"error": "Reload the dashboard and try again."})
                 return
         if path == "/api/session" and self.command == "GET":
-            self.send(200, {"authenticated": bool(self.session())})
+            tailnet = bool(self.tailnet_user())
+            self.send(200, {"authenticated": tailnet or bool(self.session()), "tailnet": tailnet})
             return
         body = {}
         if self.command == "POST":
@@ -826,11 +839,12 @@ class Handler(BaseHTTPRequestHandler):
             self.send(200, {"ok": True}, cookie=self.session_cookie(token))
             return
         session = self.session()
-        if not session:
+        if not session and not self.tailnet_user():
             self.send(401, {"error": "Sign in with your management key."})
             return
         if path == "/api/logout" and self.command == "POST":
-            self.hub.store.end_session(self.digest(session))
+            if session:
+                self.hub.store.end_session(self.digest(session))
             self.send(200, {"ok": True}, cookie=self.session_cookie("", max_age=0))
         elif path == "/api/snapshot" and self.command == "GET":
             hours = int(urllib.parse.parse_qs(url.query).get("hours", ["24"])[0])
