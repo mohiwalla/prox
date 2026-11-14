@@ -354,6 +354,20 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request("logout", {}, cookie=cookie)[0], 200)
         self.assertEqual(self.request("snapshot", cookie=cookie)[0], 401)
 
+    def test_listed_tailnet_login_needs_no_key_but_cannot_be_forged_publicly(self):
+        me = {"Tailscale-User-Login": "me@github"}
+        with patch.object(dashboard_server, "TAILNET_USERS", {"me@github"}):
+            self.assertEqual(self.request("session", extra=me)[1], {"authenticated": True, "tailnet": True})
+            self.assertEqual(self.request("snapshot", extra=me)[0], 200)
+            self.assertEqual(self.request("logout", {}, extra=me)[0], 200)
+            # Anyone else, or no header, still needs the key.
+            self.assertEqual(self.request("snapshot", extra={"Tailscale-User-Login": "other@github"})[0], 401)
+            self.assertEqual(self.request("session")[1], {"authenticated": False, "tailnet": False})
+            # A request relayed from the public internet can't vouch for itself.
+            self.assertEqual(self.request("snapshot", extra={**me, "CF-Connecting-IP": "203.0.113.9"})[0], 401)
+        # With no logins listed, the header means nothing.
+        self.assertEqual(self.request("snapshot", extra=me)[0], 401)
+
     def test_sessions_survive_a_restart_renew_and_end_on_key_rotation(self):
         cookie = self.login()
         token_hash = Handler.digest(cookie.split("=", 1)[1])

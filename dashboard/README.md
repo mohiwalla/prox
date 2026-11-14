@@ -36,7 +36,13 @@ the public host names in `DASHBOARD_HOSTS` (other Host headers are refused):
 # ~/.config/systemd/user/cliproxy-dashboard.service.d/hosts.conf
 [Service]
 Environment=DASHBOARD_HOSTS=proxy.example.com,box.tailnet.ts.net:8317
+# Optional: these Tailscale logins skip the management key (tailnet-only setups).
+Environment=DASHBOARD_TAILNET_USERS=you@github
 ```
+
+`DASHBOARD_TAILNET_USERS` trusts the `Tailscale-User-Login` header, so only set it when
+every route to the dashboard goes through a tailnet proxy that sets that header (Caddy's
+`tailscale_auth`, or `tailscale serve`), never through a public tunnel.
 
 A Cloudflare Tunnel should allowlist routes so the management API never becomes public
 (requests arrive from loopback, so CLIProxyAPI treats them as local):
