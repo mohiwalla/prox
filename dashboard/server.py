@@ -91,19 +91,38 @@ def window(key, label, used=None, remaining=None, reset=None, period=None):
             "reset_at": timestamp(reset), "period": number(period)}
 
 
+def codex_window_key(group, slot, period):
+    # Plans put different limits in the same slot (Plus: 5-hour primary, weekly secondary;
+    # Pro: weekly primary only), so a window is keyed by its length, not its slot.
+    if not period:
+        return f"{group}:{slot}"
+    return f"{group}:{period / 86400:g}d" if period >= 86400 else f"{group}:{period / 3600:g}h"
+
+
+def codex_window_label(period):
+    if not period:
+        return "Usage limit"
+    if period == 7 * 86400:
+        return "Weekly limit"
+    return f"{period / 86400:g}-day limit" if period >= 86400 else f"{period / 3600:g}-hour limit"
+
+
 def parse_codex(data):
     windows = []
-    for group, title in [("rate_limit", "Usage"), ("code_review_rate_limit", "Code review")]:
+    for group, title in [("rate_limit", ""), ("code_review_rate_limit", "Code review · ")]:
         for slot in ["primary_window", "secondary_window"]:
             value = (data.get(group) or {}).get(slot)
             if not isinstance(value, dict):
                 continue
             period = number(value.get("limit_window_seconds"))
-            duration = f"{period / 86400:g} days" if period and period >= 86400 else f"{(period or 0) / 3600:g} hours"
-            item = window(f"{group}:{slot}", f"{title} · {duration}", used=value.get("used_percent"),
+            key = codex_window_key(group, slot, period)
+            if any(w["id"] == key for w in windows):
+                key = f"{group}:{slot}"
+            item = window(key, title + codex_window_label(period), used=value.get("used_percent"),
                           reset=value.get("reset_at"), period=period)
             if item:
                 windows.append(item)
+    windows.sort(key=lambda w: (w["id"].startswith("code_review"), w["period"] or math.inf))
     return {"plan": str(data.get("plan_type") or "Unknown"), "windows": windows}
 
 
@@ -276,6 +295,28 @@ class Store:
             db.execute("CREATE TABLE IF NOT EXISTS latest (account TEXT PRIMARY KEY, data TEXT)")
             # Only a hash of each session token is stored, with the management key it was issued for.
             db.execute("CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, expires REAL, key_hash TEXT)")
+            self.migrate_codex_windows(db)
+
+    @staticmethod
+    def migrate_codex_windows(db):
+        # Codex windows used to be keyed by slot; re-key stored readings by length (see codex_window_key).
+        old = re.compile(r"(rate_limit|code_review_rate_limit):(primary|secondary)_window")
+        for metric, period in db.execute("SELECT DISTINCT metric, period FROM samples WHERE provider='codex'").fetchall():
+            match = old.fullmatch(metric)
+            if match and period:
+                db.execute("UPDATE OR REPLACE samples SET metric=? WHERE provider='codex' AND metric=? AND period=?",
+                           (codex_window_key(match[1], None, period), metric, period))
+        for account, data in db.execute("SELECT account, data FROM latest").fetchall():
+            quota = json.loads(data)
+            changed = False
+            for w in quota.get("windows", []):
+                match = old.fullmatch(str(w.get("id")))
+                if match and w.get("period"):
+                    w["id"] = codex_window_key(match[1], None, w["period"])
+                    w["label"] = ("Code review · " if match[1] == "code_review_rate_limit" else "") + codex_window_label(w["period"])
+                    changed = True
+            if changed:
+                db.execute("UPDATE latest SET data=? WHERE account=?", (json.dumps(quota), account))
 
     @contextmanager
     def connect(self):
