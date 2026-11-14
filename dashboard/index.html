@@ -1106,6 +1106,21 @@
         border-radius: 2px;
         background: var(--pool-color);
       }
+      .tip-line {
+        width: 10px;
+        height: 3px;
+        flex-shrink: 0;
+        border-radius: 2px;
+        background: var(--pool-color);
+      }
+      .tip-line.dashed {
+        background: radial-gradient(circle, var(--pool-color) 1.5px, transparent 2px)
+          0 50% / 5px 3px repeat-x;
+      }
+      /* Several accounts: the pool total is neutral, the accounts carry the hues. */
+      .plot.stacked {
+        --pool-color: var(--foreground);
+      }
       .tip-swatch.dashed {
         border: 1.5px dashed var(--pool-color);
         background: transparent;
@@ -3438,9 +3453,14 @@
         }
         return 1;
       }
-      // One shade of the provider color per account, the largest plan brightest.
-      const shade = (i, n) =>
-        `color-mix(in oklab, var(--pool-color) ${n > 1 ? Math.round(100 - (i * 50) / (n - 1)) : 100}%, var(--card))`;
+      // Accounts are told apart by hue: a categorical palette validated on the
+      // card surface. The color follows the account (its place among the
+      // provider's accounts), so sorting or pausing never repaints the others.
+      const ACCOUNT_COLORS = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"];
+      function accountColor(a) {
+        const i = state.data.accounts.filter((x) => x.provider === a.provider).indexOf(a);
+        return ACCOUNT_COLORS[i] || "var(--muted-foreground)";
+      }
       const fmtUnits = (n) => (n >= 10 ? n.toFixed(0) : n.toFixed(1));
       const shortLabel = (label) => label.split("@")[0];
       // Largest plan first, so it sits at the bottom of stacked charts.
@@ -3568,7 +3588,7 @@
           size = weights.reduce((s, w) => s + w, 0),
           series = items.map(({ a }, i) => ({
             name: shortLabel(accountLabel(a, accounts.indexOf(a))),
-            color: shade(i, items.length),
+            color: accountColor(a),
           }));
         let points = historyPoints(
           items.map((o) => o.a),
@@ -3698,7 +3718,7 @@
           ? series
               .map(
                 (s, k) =>
-                  `<path d="${path(level(k + 1))} ${path(level(k).reverse()).replace(/^M/, "L")} Z" fill="${s.color}" fill-opacity=".45"/>${k < series.length - 1 ? `<path d="${path(level(k + 1))}" stroke="${s.color}" stroke-opacity=".7" stroke-width="1.5" vector-effect="non-scaling-stroke" fill="none"/>` : ""}`,
+                  `<path d="${path(level(k + 1))} ${path(level(k).reverse()).replace(/^M/, "L")} Z" fill="${s.color}" fill-opacity=".55"/>${k < series.length - 1 ? `<path d="${path(level(k + 1))}" stroke="var(--card)" stroke-width="2" vector-effect="non-scaling-stroke" fill="none"/>` : ""}`,
               )
               .join("")
           : points.length > 1
@@ -3708,7 +3728,7 @@
         const annotation = latest
           ? `<circle cx="${x(latest.ts)}" cy="${y(latest.value)}" r="6" fill="var(--pool-color)" stroke="var(--card)" stroke-width="3"/><text class="current-value" x="${x(latest.ts) + 11}" y="${Math.max(top + 12, y(latest.value) - 9)}">${esc(fmtPct(latest.value))}</text>`
           : "";
-        return `<figure class="plot" tabindex="0" data-chart="${p}" aria-label="${pName(p)} quota history and forecast. Use left and right arrows to inspect recorded samples."><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${points.length} recorded samples${forecast.length ? ", estimated future usage" : ""}"><defs><linearGradient id="fill-${p}" x1="0" x2="0" y1="0" y2="1"><stop stop-color="var(--pool-color)" stop-opacity=".16"/><stop offset="1" stop-color="var(--pool-color)" stop-opacity="0"/></linearGradient></defs>${ticks}${resetMarks}<line x1="${x(now)}" x2="${x(now)}" y1="${top - 4}" y2="${H - bottom + 2}" stroke="#686868"/><text class="axis-now" x="${x(now)}" y="16" text-anchor="middle">Now</text><g class="chart-data">${area}${points.length > 1 ? `<path d="${path(points)}" stroke="var(--pool-color)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${forecast.length ? `<path d="${path(forecast)}" stroke="var(--pool-color)" stroke-opacity=".7" stroke-width="4" stroke-linecap="round" stroke-dasharray="4 10" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${annotation}</g><g class="chart-crosshair" hidden><line x1="0" x2="0" y1="${top}" y2="${H - bottom}"/><circle class="halo" r="12"/><circle class="dot" r="6"/></g></svg><div class="chart-tooltip" hidden></div>${points.length < 2 ? '<div class="chart-empty"><strong>History starts here</strong><p>Quotas are recorded every 30 seconds, even with this page closed. Your usage curve will build over time.</p></div>' : ""}<figcaption class="chart-caption"><span>Pool left</span><span class="legend"><i class="legend-line"></i>Recorded</span><span class="legend"><i class="legend-line dashed"></i>Projected</span><span class="chart-inspect" aria-live="polite">${forecast.length ? "Estimate from recent usage" : !state.forecast ? "Forecast hidden" : "Forecast needs 10+ minutes of recent samples"}</span></figcaption></figure>${usagePlot(p, accounts, metric)}`;
+        return `<figure class="plot${stacked ? " stacked" : ""}" tabindex="0" data-chart="${p}" aria-label="${pName(p)} quota history and forecast. Use left and right arrows to inspect recorded samples."><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${points.length} recorded samples${forecast.length ? ", estimated future usage" : ""}"><defs><linearGradient id="fill-${p}" x1="0" x2="0" y1="0" y2="1"><stop stop-color="var(--pool-color)" stop-opacity=".16"/><stop offset="1" stop-color="var(--pool-color)" stop-opacity="0"/></linearGradient></defs>${ticks}${resetMarks}<line x1="${x(now)}" x2="${x(now)}" y1="${top - 4}" y2="${H - bottom + 2}" stroke="#686868"/><text class="axis-now" x="${x(now)}" y="16" text-anchor="middle">Now</text><g class="chart-data">${area}${points.length > 1 ? `<path d="${path(points)}" stroke="var(--pool-color)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${forecast.length ? `<path d="${path(forecast)}" stroke="var(--pool-color)" stroke-opacity=".7" stroke-width="4" stroke-linecap="round" stroke-dasharray="4 10" vector-effect="non-scaling-stroke" fill="none"/>` : ""}${annotation}</g><g class="chart-crosshair" hidden><line x1="0" x2="0" y1="${top}" y2="${H - bottom}"/><circle class="halo" r="12"/><circle class="dot" r="6"/></g></svg><div class="chart-tooltip" hidden></div>${points.length < 2 ? '<div class="chart-empty"><strong>History starts here</strong><p>Quotas are recorded every 30 seconds, even with this page closed. Your usage curve will build over time.</p></div>' : ""}<figcaption class="chart-caption"><span>Pool left</span><span class="legend"><i class="legend-line"></i>Recorded</span><span class="legend"><i class="legend-line dashed"></i>Projected</span>${stacked ? series.map((s) => `<span class="legend"><i class="tip-swatch" style="background:${s.color}"></i>${esc(s.name)}</span>`).join("") : ""}<span class="chart-inspect" aria-live="polite">${forecast.length ? "Estimate from recent usage" : !state.forecast ? "Forecast hidden" : "Forecast needs 10+ minutes of recent samples"}</span></figcaption></figure>${usagePlot(p, accounts, metric)}`;
       }
       // Quota each account used per interval, as a share of the whole pool.
       function usageBuckets(items, metric, start, end) {
@@ -3759,7 +3779,7 @@
           y = (v) => H - bottom - (v / step) * (H - top - bottom);
         const series = items.map(({ a }, i) => ({
           name: shortLabel(accountLabel(a, accounts.indexOf(a))),
-          color: shade(i, items.length),
+          color: accountColor(a),
           weight: planWeight(a),
         }));
         const total = series.reduce((s, r) => s + r.weight, 0);
@@ -3783,7 +3803,8 @@
               .map((s, k) => {
                 const v = b.parts[k];
                 if (v <= 0) return "";
-                const rect = `<rect x="${x0 + 1}" y="${y(acc + v)}" width="${width}" height="${Math.max(1.5, y(acc) - y(acc + v))}" rx="1.5" fill="${s.color}"/>`;
+                const h = y(acc) - y(acc + v),
+                  rect = `<rect x="${x0 + 1}" y="${y(acc + v)}" width="${width}" height="${Math.max(1.5, acc ? h - 2 : h)}" rx="1.5" fill="${s.color}"/>`;
                 acc += v;
                 return rect;
               })
@@ -3792,7 +3813,7 @@
           .join("");
         const quiet = !buckets.some((b) => b.value > 0);
         const label = size >= 3600 ? `${size / 3600} hour${size === 3600 ? "" : "s"}` : `${size / 60} min`;
-        return `<figure class="plot usage" data-usage="${p}" aria-label="${pName(p)} quota used per ${label}, by account"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">${marks}<rect class="usage-hover" x="0" y="${top}" width="0" height="${H - top - bottom}" hidden/><g class="chart-data">${bars}</g></svg><div class="chart-tooltip" hidden></div>${quiet ? '<div class="usage-empty">No quota used in this range</div>' : ""}<figcaption class="chart-caption"><span>Used per ${label}</span>${series.map((s) => `<span class="legend"><i class="tip-swatch" style="background:${s.color}"></i>${esc(s.name)}</span>`).join("")}<span class="chart-inspect">Share of the whole pool</span></figcaption></figure>`;
+        return `<figure class="plot usage" data-usage="${p}" aria-label="${pName(p)} quota used per ${label}, by account"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">${marks}<rect class="usage-hover" x="0" y="${top}" width="0" height="${H - top - bottom}" hidden/><g class="chart-data">${bars}</g></svg><div class="chart-tooltip" hidden></div>${quiet ? '<div class="usage-empty">No quota used in this range</div>' : ""}<figcaption class="chart-caption"><span>Used per ${label}</span><span class="chart-inspect">Share of the whole pool, by account</span></figcaption></figure>`;
       }
 
       function ratePlot(p, accounts, metric) {
@@ -3816,7 +3837,7 @@
           share = size ? (left / size) * 100 : 0,
           unit = PLAN_UNIT[p],
           mixed = new Set(weights).size > 1,
-          colors = new Map(items.map(({ a }, i) => [a.id, shade(i, items.length)])),
+          colors = new Map(items.map(({ a }) => [a.id, accountColor(a)])),
           now = state.data.now,
           rates = items.map(({ a }) => drainFor(a, metric, now));
         const known = rates.length && rates.every((r) => r !== null),
@@ -4305,7 +4326,7 @@
                 )
                 .join("")
             : "";
-        tooltip.innerHTML = `<div class="tip-label">${esc(dateLabel(point.ts))}</div><div class="tip-row"><i class="tip-swatch${isFuture ? " dashed" : ""}"></i><span>${isFuture ? "Projected" : "Recorded"}</span><strong>${esc(fmtPct(point.value))}</strong></div>${parts}`;
+        tooltip.innerHTML = `<div class="tip-label">${esc(dateLabel(point.ts))}</div><div class="tip-row"><i class="tip-line${isFuture ? " dashed" : ""}"></i><span>${isFuture ? "Projected" : "Recorded"}</span><strong>${esc(fmtPct(point.value))}</strong></div>${parts}`;
         // Sit beside the point: above it when there is room, flipped left near the edge.
         const width = svg.clientWidth,
           ax = (px / chart.W) * width,
@@ -4456,7 +4477,9 @@
         tooltip.innerHTML = `<div class="tip-label">${esc(dateLabel(b.ts, false))} · ${esc(time(b.ts))} – ${esc(time(end))}</div>${usage.series
           .map(
             (s, i) =>
-              `<div class="tip-row"><i class="tip-swatch" style="background:${s.color}"></i><span>${esc(s.name)}</span><small>${esc(fmtPct((b.parts[i] * usage.total) / s.weight))} of its own</small><strong>${esc(fmtPct(b.parts[i]))}</strong></div>`,
+              b.parts[i] <= 0
+                ? ""
+                : `<div class="tip-row"><i class="tip-swatch" style="background:${s.color}"></i><span>${esc(s.name)}</span><small>${esc(fmtPct((b.parts[i] * usage.total) / s.weight))} of its own</small><strong>${esc(fmtPct(b.parts[i]))}</strong></div>`,
           )
           .join("")}<div class="tip-row tip-total"><span>Pool used</span><strong>${esc(fmtPct(b.value))}</strong></div>`;
         tooltip.hidden = false;
