@@ -27,6 +27,7 @@ class QuotaTests(unittest.TestCase):
         cases = [
             ({"organization_type": "claude_team", "seat_tier": "team_standard", "rate_limit_tier": "default_raven"}, "Team · Standard"),
             ({"organization_type": "claude_team", "seat_tier": "team_premium"}, "Team · Premium"),
+            ({"organization_type": "claude_team", "seat_tier": "team_tier_1", "rate_limit_tier": "default_claude_max_5x"}, "Team · Premium"),
             ({"organization_type": "claude_enterprise"}, "Enterprise"),
             ({"organization_type": "claude_max", "rate_limit_tier": "default_claude_max_20x"}, "Max 20x"),
             ({"organization_type": "claude_max", "rate_limit_tier": "default_claude_max_5x"}, "Max 5x"),

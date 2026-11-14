@@ -228,12 +228,17 @@ def parse_claude(data):
     return result
 
 
+CLAUDE_SEATS = {"standard": "Standard", "premium": "Premium", "tier_1": "Premium"}
+
+
 def parse_claude_plan(profile):
     # /api/oauth/profile: the organization says which plan, and for Team/Enterprise which seat.
     org, account = (profile or {}).get("organization") or {}, (profile or {}).get("account") or {}
     kind, seat = str(org.get("organization_type") or ""), str(org.get("seat_tier") or "")
     if kind in {"claude_team", "claude_enterprise"}:
-        seat = re.sub(r"^(team|enterprise)_", "", seat).replace("_", " ").title()
+        # Anthropic reports the Premium seat as tier_1; name seats the way the pricing page does.
+        seat = re.sub(r"^(team|enterprise)_", "", seat)
+        seat = CLAUDE_SEATS.get(seat, seat.replace("_", " ").title())
         name = "Team" if kind == "claude_team" else "Enterprise"
         return f"{name} · {seat}" if seat else name
     if kind == "claude_max" or account.get("has_claude_max"):
