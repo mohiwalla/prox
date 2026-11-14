@@ -1,5 +1,6 @@
 import http.client
 import json
+import sqlite3
 from pathlib import Path
 import tempfile
 import threading
@@ -47,6 +48,37 @@ class QuotaTests(unittest.TestCase):
             hub.plan_reads["c1"] = 0
             with patch.object(hub, "call", return_value=(500, None)):
                 self.assertEqual(hub.claude_plan(raw), "Team · Premium")
+    def test_codex_windows_are_keyed_by_length_across_plans(self):
+        plus = parse_codex({"plan_type": "plus", "rate_limit": {
+            "primary_window": {"used_percent": 86, "limit_window_seconds": 18000},
+            "secondary_window": {"used_percent": 13, "limit_window_seconds": 604800}}})
+        pro = parse_codex({"plan_type": "prolite", "rate_limit": {
+            "primary_window": {"used_percent": 55, "limit_window_seconds": 604800}, "secondary_window": None}})
+        self.assertEqual([(w["id"], w["label"]) for w in plus["windows"]],
+                         [("rate_limit:5h", "5-hour limit"), ("rate_limit:7d", "Weekly limit")])
+        # Pro's only limit is weekly, so it pools with Plus's weekly limit, not its 5-hour one.
+        self.assertEqual([(w["id"], w["label"], w["remaining"]) for w in pro["windows"]],
+                         [("rate_limit:7d", "Weekly limit", 45)])
+
+    def test_store_rekeys_codex_slot_history_by_length(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "quota.sqlite"
+            with sqlite3.connect(path) as db:
+                db.execute("CREATE TABLE samples (ts REAL, account TEXT, provider TEXT, metric TEXT, remaining REAL, reset_at REAL, period REAL, PRIMARY KEY(ts,account,metric))")
+                db.execute("CREATE TABLE latest (account TEXT PRIMARY KEY, data TEXT)")
+                db.executemany("INSERT INTO samples VALUES (?,?,?,?,?,?,?)", [
+                    (1, "plus", "codex", "rate_limit:primary_window", 14, None, 18000),
+                    (1, "plus", "codex", "rate_limit:secondary_window", 87, None, 604800),
+                    (1, "pro", "codex", "rate_limit:primary_window", 45, None, 604800),
+                    (1, "c", "claude", "five_hour", 100, None, 18000)])
+                db.execute("INSERT INTO latest VALUES (?,?)", ("pro", json.dumps({"windows": [
+                    {"id": "rate_limit:primary_window", "label": "Usage · 7 days", "period": 604800}]})))
+            store = Store(path)
+            with sqlite3.connect(path) as db:
+                self.assertEqual(sorted(db.execute("SELECT account, metric FROM samples")), [
+                    ("c", "five_hour"), ("plus", "rate_limit:5h"), ("plus", "rate_limit:7d"), ("pro", "rate_limit:7d")])
+            self.assertEqual(store.load()["pro"]["windows"][0], {"id": "rate_limit:7d", "label": "Weekly limit", "period": 604800})
+            Store(path)  # A second start finds nothing left to move.
 
     def test_missing_codex_percent_is_unknown(self):
         self.assertEqual(parse_codex({"rate_limit": {"primary_window": {"reset_at": 123}}})["windows"], [])

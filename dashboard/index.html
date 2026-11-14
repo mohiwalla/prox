@@ -1232,6 +1232,13 @@
         line-height: 16px;
         color: var(--muted-foreground);
       }
+      /* The account's plan has no such limit, so there is nothing to measure. */
+      .mini-none {
+        grid-column: 3 / -1;
+        text-align: right;
+        color: var(--muted-foreground);
+        white-space: nowrap;
+      }
       .mini-value {
         text-align: right;
         font-family: var(--font-mono);
@@ -2049,7 +2056,7 @@
           margin-left: 0;
         }
         .mini-account {
-          grid-template-columns: minmax(0, 1fr) auto 56px;
+          grid-template-columns: minmax(0, 1fr) auto minmax(56px, auto);
           gap: 8px;
         }
         .mini-account .meter {
@@ -3291,14 +3298,15 @@
         accounts.forEach((a) =>
           a.windows.forEach((w) => {
             if (!map.has(w.id)) map.set(w.id, { ...w });
-            else if (map.get(w.id).label !== w.label)
-              map.get(w.id).label =
-                w.id === "rate_limit:primary_window"
-                  ? "Usage · primary limits"
-                  : "Usage · secondary limits";
           }),
         );
-        return [...map.values()];
+        // Shortest window first within each group, whichever account listed it first.
+        const groups = [...new Set([...map.values()].map((w) => w.group))];
+        return [...map.values()].sort(
+          (a, b) =>
+            groups.indexOf(a.group) - groups.indexOf(b.group) ||
+            (a.period ?? Infinity) - (b.period ?? Infinity),
+        );
       }
       // A few quota windows read best as tabs; a long list keeps a select.
       const MAX_WINDOW_TABS = 4;
@@ -3363,8 +3371,7 @@
         if (!list.some((w) => w.id === state.windows[p]))
           state.windows[p] =
             p === "codex"
-              ? list.find((w) => w.id === "rate_limit:primary_window")?.id ||
-                list[0]?.id
+              ? list.find((w) => w.id === "rate_limit:5h")?.id || list[0]?.id
               : p === "claude"
                 ? list.find((w) => w.id === "five_hour")?.id || list[0]?.id
                 : list.find(
@@ -3646,12 +3653,12 @@
         const restricted = accounts.filter(
           (a) => status(a)[0] === "Model restriction",
         ).length;
-        return `<section class="pool provider-${p}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span>${windowPicker(p, list, metric)}</div><div class="pool-total"><div><div class="big-number">${morph(items.length ? fmtPct(sum) : "—")}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${morph(empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history")}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${morph(next ? esc(relative(next)) : "Not reported")}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${morph(rate !== null ? fmtPct(rate) + "/h" : "—")}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<div class="breakdown"><div class="breakdown-head"><span class="breakdown-title">Accounts</span><span class="summary-meta">${morph(`${items.length}/${accounts.length} quotas measured`)}</span></div><div class="mini-accounts">${accounts
+        return `<section class="pool provider-${p}" data-pool="${p}"><div class="pool-top">${providerIcon(p)}<h2>${pName(p)}</h2><span class="muted">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span>${windowPicker(p, list, metric)}</div><div class="pool-total"><div><div class="big-number">${morph(items.length ? fmtPct(sum) : "—")}<small>of ${items.length * 100}%</small></div><div class="capacity-note">${items.length} measured${accounts.some((a) => a.disabled) ? ` · ${accounts.filter((a) => a.disabled).length} paused` : ""}${restricted ? ` · ${restricted} with model restrictions` : ""}${stale ? " · last known quotas" : ""}<br>Sum of account percentages; plans have different capacity.</div></div><dl class="metrics"><div class="metric"><dt>Pool empty</dt><dd>${morph(empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history")}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(next))}">${morph(next ? esc(relative(next)) : "Not reported")}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${morph(rate !== null ? fmtPct(rate) + "/h" : "—")}</dd></div></dl></div>${state.view === "remaining" ? plot(p, accounts, metric) : ratePlot(p, accounts, metric)}<div class="breakdown"><div class="breakdown-head"><span class="breakdown-title">Accounts</span><span class="summary-meta">${morph(`${items.length}/${accounts.filter((a) => !a.windows.length || a.windows.some((w) => w.id === metric)).length} quotas measured`)}</span></div><div class="mini-accounts">${accounts
           .map((a, i) => {
             const w = a.windows.find((w) => w.id === metric),
               [s, c] = status(a);
             const label = accountLabel(a, i);
-            return `<div class="mini-account" data-account="${esc(a.id)}"><span class="mini-name"><span class="mini-label" title="${esc(label)}">${esc(label)}</span><span class="mini-plan">${esc(planLabel(a.plan))}</span></span><span class="tag ${c}">${morph(s)}</span><div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="mini-value">${morph(w ? fmtPct(w.remaining) : "—")}</span></div>`;
+            return `<div class="mini-account" data-account="${esc(a.id)}"><span class="mini-name"><span class="mini-label" title="${esc(label)}">${esc(label)}</span><span class="mini-plan">${esc(planLabel(a.plan))}</span></span><span class="tag ${c}">${morph(s)}</span>${!w && a.windows.length ? `<span class="mini-none">No ${esc(windowName(list.find((w) => w.id === metric) || { label: "such" }).toLowerCase())} limit</span>` : `<div class="meter"><span style="transform:scaleX(${Math.max(0, Math.min(100, w?.remaining || 0)) / 100})"></span></div><span class="mini-value">${morph(w ? fmtPct(w.remaining) : "—")}</span>`}</div>`;
           })
           .join("")}</div></div></section>`;
       }
@@ -3696,7 +3703,6 @@
           .map((a, i) => {
             const [s, c] = status(a),
               w =
-                a.windows.find((w) => w.id === "rate_limit:primary_window") ||
                 a.windows.find((w) => w.period === 5 * 3600) ||
                 a.windows[0];
             const label = accountLabel(a, i);
