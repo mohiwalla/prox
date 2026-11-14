@@ -37,6 +37,7 @@ QUOTA_MIN_INTERVAL = {"claude": 180}
 QUOTA_INTERVAL = 30
 # Codex reset credits change rarely: read them every 10 minutes and right after one is used.
 RESET_INTERVAL = 600
+PLAN_INTERVAL = 6 * 3600  # an account's plan rarely changes
 # A Claude reset claim with an unknown outcome may be retried with the same request ID for 10 minutes.
 RESET_RETRY_WINDOW = 600
 CODEX_RESETS_URL = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits"
@@ -175,6 +176,22 @@ def parse_claude(data):
     if resets is not None:
         result["resets"] = resets
     return result
+
+
+def parse_claude_plan(profile):
+    # /api/oauth/profile: the organization says which plan, and for Team/Enterprise which seat.
+    org, account = (profile or {}).get("organization") or {}, (profile or {}).get("account") or {}
+    kind, seat = str(org.get("organization_type") or ""), str(org.get("seat_tier") or "")
+    if kind in {"claude_team", "claude_enterprise"}:
+        seat = re.sub(r"^(team|enterprise)_", "", seat).replace("_", " ").title()
+        name = "Team" if kind == "claude_team" else "Enterprise"
+        return f"{name} · {seat}" if seat else name
+    if kind == "claude_max" or account.get("has_claude_max"):
+        size = re.search(r"(\d+)x", str(org.get("rate_limit_tier") or ""))
+        return f"Max {size[1]}x" if size else "Max"
+    if kind == "claude_pro" or account.get("has_claude_pro"):
+        return "Pro"
+    return None
 
 
 def parse_codex_resets(data):
@@ -328,6 +345,7 @@ class Hub:
         self.quotas = store.load()
         self.quota_attempts = {}
         self.reset_reads = {}
+        self.plan_reads = {}
         self.reset_claims = {}
         self.resetting = set()
         self.files = []
@@ -437,6 +455,8 @@ class Hub:
                 quota["observed_at"] = observed_at
             if raw["provider"] == "codex":
                 quota["resets"] = self.codex_resets(raw)
+            if raw["provider"] == "claude":
+                quota["plan"] = self.claude_plan(raw)
             self.store.save(idx, raw["provider"], quota)
         except Exception as exc:
             with self.lock:
@@ -459,6 +479,23 @@ class Hub:
             return self.fetch_codex_resets(raw)
         except Exception:
             return known
+
+    def claude_plan(self, raw):
+        # Read every few hours; a failed read keeps the last known plan.
+        idx, now = raw["auth_index"], time.time()
+        with self.lock:
+            known = (self.quotas.get(idx) or {}).get("plan")
+            due = now - self.plan_reads.get(idx, 0) >= PLAN_INTERVAL
+            if due:
+                self.plan_reads[idx] = now
+        plan = None
+        if due:
+            try:
+                status, profile = self.call(raw, "GET", "https://api.anthropic.com/api/oauth/profile", self.headers(raw))
+                plan = parse_claude_plan(profile) if 200 <= status < 300 else None
+            except Exception:
+                pass
+        return plan or known or "Claude"
 
     def use_reset(self, raw, grant_id=None):
         idx = raw["auth_index"]
