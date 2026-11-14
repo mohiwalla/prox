@@ -21,6 +21,7 @@ import (
 	configaccess "github.com/router-for-me/CLIProxyAPI/v8/internal/access/config_access"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/api"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/buildinfo"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/clientkeys"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/cmd"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/githubauth"
@@ -699,6 +700,16 @@ func run() (exitStatus int) {
 
 	// Register built-in access providers before constructing services.
 	configaccess.Register(&cfg.SDKConfig)
+	if clientKeyStore, errClientKeys := clientkeys.Open(filepath.Dir(configFilePath)); errClientKeys != nil {
+		log.Errorf("client keys disabled: %v", errClientKeys)
+	} else {
+		clientkeys.Install(clientKeyStore)
+		defer func() {
+			if errClose := clientKeyStore.Close(); errClose != nil {
+				log.Errorf("client keys: save usage: %v", errClose)
+			}
+		}()
+	}
 	pluginHost.ApplyConfig(context.Background(), cfg)
 	if configLoadedFromHome && homePluginStatusReady {
 		errHomePluginLoad := homeplugins.MarkLoadResults(&homePluginSyncReport, pluginHost)

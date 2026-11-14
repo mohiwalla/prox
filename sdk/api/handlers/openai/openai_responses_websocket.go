@@ -19,6 +19,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/clientkeys"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/interfaces"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/logging"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
@@ -407,6 +408,7 @@ func (h *OpenAIResponsesAPIHandler) authenticateResponsesWebsocketTurn(c *gin.Co
 			reqCtx := usage.WithAPIKey(c.Request.Context(), result.Principal)
 			reqCtx = usage.WithAccessProvider(reqCtx, result.Provider)
 			reqCtx = usage.WithIsNativeKey(reqCtx, usage.IsNativeAccessProvider(result.Provider))
+			reqCtx = clientkeys.Attach(c, reqCtx, result.Provider, result.Principal)
 			c.Request = c.Request.WithContext(reqCtx)
 		}
 	}

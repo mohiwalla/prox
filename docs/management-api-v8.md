@@ -140,6 +140,11 @@ retain the corresponding business operation's fields.
 | `/observability/logs/requests/<id>` | GET | Get a request log. |
 | `/observability/usage/api-keys` | GET | Get API-key usage. |
 | `/observability/usage/queue` | GET | Get queued usage events. |
+| `/access/client-keys` | GET, POST | List client keys with their weekly usage, or create one (the secret is returned once). |
+| `/access/client-keys/<id>` | PATCH, DELETE | Change a client key's fields, or delete it with its usage. |
+| `/access/client-keys/<id>/rotate` | POST | Replace a client key's secret (the new secret is returned once). |
+| `/access/client-keys/usage?hours=<n>&key=<id>` | GET | Hourly usage per key, provider, account and model (default 168 hours, up to 2160). |
+| `/access/client-keys/options` | GET | Providers, accounts and models a client key can be limited to. |
 | `/credentials` | GET, POST, DELETE | List, upload, or delete credential files. |
 | `/credentials/models` | GET | Get credential models. |
 | `/credentials/download` | GET | Download a credential file. |
@@ -159,6 +164,29 @@ retain the corresponding business operation's fields.
 | `/plugins/store` | GET | List the plugin store (supports optional `?refresh=true` to bypass cached release checks). |
 | `/plugins/store/<id>/install` | POST | Install or update a plugin. |
 | `/plugins/<id>/quota` | GET, POST, DELETE | Read, fetch, or reset plugin quota. |
+
+### Client keys
+
+Client keys are per-client API keys kept in `client-keys.json` next to the config
+file; only a SHA-256 of each secret is stored. They are accepted alongside
+`access.api-keys`. Each key has:
+
+- `name` and `enabled`.
+- `providers`, `accounts` and `models`: empty means any. Providers and accounts use
+  the identifiers from `/access/client-keys/options`. Model patterns match the
+  requested or resolved model name, case-insensitively; `*` matches any run of
+  characters and `?` one character.
+- `weekly_token_limit`: tokens over the rolling last 7 days, counting input and
+  output but not cache reads; `0` means no limit.
+
+Requests for a model, provider or account set a key may not use get 403. A key at
+its limit gets 429 with `Retry-After`. Model lists only show what the key may use.
+Usage is kept in hourly buckets in `client-key-usage.json` for 90 days.
+
+```json
+POST /v8/management/access/client-keys
+{"name": "alice", "providers": ["codex"], "models": ["gpt-5*"], "weekly_token_limit": 5000000}
+```
 
 ## OAuth
 

@@ -42,6 +42,14 @@ func (s *Server) registerManagementV8Routes() {
 	v8.GET("/observability/usage/api-keys", s.mgmt.GetAPIKeyUsage)
 	v8.GET("/observability/usage/queue", s.mgmt.GetUsageQueue)
 
+	v8.GET("/access/client-keys", s.mgmt.ListClientKeys)
+	v8.POST("/access/client-keys", s.mgmt.CreateClientKey)
+	v8.GET("/access/client-keys/usage", s.mgmt.GetClientKeyUsage)
+	v8.GET("/access/client-keys/options", s.mgmt.GetClientKeyOptions)
+	v8.PATCH("/access/client-keys/:id", s.mgmt.UpdateClientKey)
+	v8.DELETE("/access/client-keys/:id", s.mgmt.DeleteClientKey)
+	v8.POST("/access/client-keys/:id/rotate", s.mgmt.RotateClientKey)
+
 	v8.GET("/credentials", s.mgmt.ListAuthFiles)
 	v8.POST("/credentials", s.mgmt.UploadAuthFileV8)
 	v8.DELETE("/credentials", s.mgmt.DeleteAuthFileV8)
