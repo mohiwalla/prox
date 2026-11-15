@@ -360,6 +360,10 @@
         line-height: 20px;
         color: var(--muted-foreground);
       }
+      .field-description code {
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
       .field-error {
         font-size: 13px;
         line-height: 20px;
@@ -1662,6 +1666,354 @@
         font-size: 13px;
       }
 
+      /* Keys page */
+      .keys {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+      }
+      .keys .page-toolbar {
+        margin-bottom: 0;
+      }
+      .key-list,
+      .key-detail {
+        --pool-color: var(--provider-other);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--card);
+        overflow: hidden;
+      }
+      .key-row {
+        display: grid;
+        grid-template-columns:
+          minmax(0, 1.2fr) minmax(0, 1.5fr) minmax(180px, 1fr)
+          auto;
+        align-items: center;
+        gap: 24px;
+        padding: 10px 16px;
+        font-size: 14px;
+        line-height: 20px;
+        cursor: pointer;
+      }
+      .key-row + .key-row {
+        border-top: 1px solid var(--border);
+      }
+      .key-row:hover {
+        background: rgb(255 255 255 / 2%);
+      }
+      .key-row[aria-current="true"] {
+        background: rgb(255 255 255 / 4%);
+      }
+      .key-identity,
+      .key-scope,
+      .key-usage {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .key-scope {
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .key-name {
+        display: block;
+        min-width: 0;
+        height: auto;
+        padding: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        background: transparent;
+        font-weight: 500;
+      }
+      .key-name:hover {
+        background: transparent;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      .key-name:active:not(:disabled) {
+        transform: none;
+      }
+      .key-row[data-enabled="false"] .key-name {
+        color: var(--muted-foreground);
+      }
+      .key-hint {
+        flex-shrink: 0;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--muted-foreground);
+      }
+      .key-scope .tag .provider-icon,
+      .key-scope .tag .icon {
+        width: 12px;
+        height: 12px;
+      }
+      .key-scope .tag.model {
+        font-family: var(--font-mono);
+        font-weight: 400;
+      }
+      .key-scope .tag:not(.any) {
+        max-width: 200px;
+      }
+      .key-scope .tag span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .key-usage .meter {
+        flex: 1;
+        min-width: 64px;
+      }
+      .meter.warning span {
+        background: var(--warning);
+      }
+      .meter.full span {
+        background: var(--destructive);
+      }
+      .key-usage-value {
+        flex-shrink: 0;
+        min-width: 96px;
+        text-align: right;
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+        color: var(--muted-foreground);
+      }
+      .key-usage-value strong {
+        font-weight: 500;
+        color: var(--foreground);
+      }
+      .key-detail-title {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 500;
+      }
+      .key-detail-body {
+        padding: 16px;
+      }
+      .key-detail .plot {
+        margin-top: 16px;
+      }
+      .key-detail .plot.usage svg {
+        height: 160px;
+      }
+      .key-chart-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 24px;
+      }
+      .key-breakdowns {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 24px;
+      }
+      .key-share {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(48px, 96px) auto auto;
+        align-items: center;
+        gap: 12px;
+        font-size: 13px;
+      }
+      .key-share .mini-label {
+        font-weight: 400;
+      }
+      .key-share .mini-value {
+        min-width: 48px;
+      }
+      .key-share .key-requests {
+        min-width: 64px;
+        text-align: right;
+        color: var(--muted-foreground);
+        font-variant-numeric: tabular-nums;
+      }
+      .key-empty {
+        font-size: 13px;
+        color: var(--muted-foreground);
+      }
+      /* Key dialog: multi-select chips, a checkbox list and pattern chips. */
+      fieldset.field {
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+      fieldset.field legend {
+        margin-bottom: 8px;
+        padding: 0;
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 500;
+      }
+      .chip-picker {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .chip-option {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid var(--input);
+        border-radius: 999px;
+        background: var(--input-fill);
+        font-size: 13px;
+        cursor: pointer;
+        transition:
+          border-color var(--duration-fast) ease,
+          background-color var(--duration-fast) ease;
+      }
+      .chip-option:hover {
+        background: rgb(255 255 255 / 7%);
+      }
+      .chip-option input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .chip-option:has(input:checked) {
+        border-color: var(--foreground);
+        background: rgb(255 255 255 / 7%);
+      }
+      .chip-option:has(input:focus-visible) {
+        box-shadow: var(--ring-shadow);
+      }
+      .chip-option .provider-icon {
+        width: 14px;
+        height: 14px;
+      }
+      .account-picker {
+        display: grid;
+        gap: 12px;
+        max-height: 240px;
+        overflow: auto;
+      }
+      .account-group-title {
+        margin-bottom: 4px;
+        font-size: 12px;
+        line-height: 16px;
+        color: var(--muted-foreground);
+      }
+      .reset-row input[type="checkbox"] {
+        display: grid;
+        flex-shrink: 0;
+        place-content: center;
+        width: 16px;
+        min-width: 16px;
+        height: 16px;
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        border: 1px solid var(--input);
+        border-radius: 4px;
+        appearance: none;
+        transition:
+          border-color var(--duration-fast) ease,
+          background-color var(--duration-fast) ease;
+      }
+      .reset-row input[type="checkbox"]::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        background: var(--primary-foreground);
+        clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        transform: scale(0);
+        transition: transform var(--duration-fast) var(--ease-out);
+      }
+      .reset-row input[type="checkbox"]:checked {
+        border-color: var(--primary);
+        background: var(--primary);
+      }
+      .reset-row input[type="checkbox"]:checked::before {
+        transform: scale(1);
+      }
+      .chip-input {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        min-height: 36px;
+        padding: 3px 6px;
+        border: 1px solid var(--input);
+        border-radius: var(--radius-md);
+        background: var(--input-fill);
+        cursor: text;
+        transition:
+          border-color var(--duration-fast) ease,
+          box-shadow var(--duration-fast) ease;
+      }
+      .chip-input:has(input:focus-visible) {
+        border-color: var(--ring);
+        box-shadow: var(--ring-shadow);
+      }
+      .chip-input input {
+        flex: 1;
+        min-width: 120px;
+        height: 28px;
+        padding: 0 6px;
+        border: 0;
+        background: transparent;
+        box-shadow: none !important;
+      }
+      .chip-input .tag {
+        height: 24px;
+        padding: 0 2px 0 8px;
+        font-family: var(--font-mono);
+        font-weight: 400;
+      }
+      .chip-remove {
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--muted-foreground);
+      }
+      .chip-remove:hover {
+        color: var(--foreground);
+      }
+      .chip-remove .icon {
+        width: 12px;
+        height: 12px;
+      }
+      .code-sample {
+        display: flex;
+        align-items: flex-start;
+        gap: 4px;
+        padding-right: 2px;
+        border: 1px solid var(--input);
+        border-radius: var(--radius-md);
+        background: var(--input-fill);
+      }
+      .code-sample pre {
+        flex: 1;
+        min-width: 0;
+        margin: 0;
+        padding: 10px 0 10px 12px;
+        overflow: auto;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        line-height: 18px;
+        white-space: pre;
+      }
+      .code-sample button {
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+      .secret-warning {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--warning);
+      }
+
       /* Generic states */
       .state-card {
         padding: 48px 24px;
@@ -1873,6 +2225,14 @@
         .metrics {
           gap: 24px;
         }
+        .key-row {
+          grid-template-columns: minmax(0, 1fr) minmax(160px, 1fr) auto;
+          gap: 8px 16px;
+        }
+        .key-row .key-scope {
+          grid-row: 2;
+          grid-column: 1 / -1;
+        }
         .account-row {
           grid-template-columns: minmax(0, 1fr) minmax(160px, 1fr) auto;
           gap: 8px 16px;
@@ -2071,6 +2431,35 @@
         }
         .account-row .account-status {
           grid-row: 3;
+        }
+        .key-row {
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 8px 12px;
+          padding: 12px;
+        }
+        .key-row .key-scope,
+        .key-row .key-usage {
+          grid-column: 1 / -1;
+        }
+        .key-row .key-usage {
+          grid-row: 3;
+        }
+        .key-row .account-actions {
+          grid-row: 1;
+          grid-column: 2;
+        }
+        .key-breakdowns {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .key-detail .plot.usage svg {
+          height: 120px;
+        }
+        .key-detail .button-label {
+          display: none;
+        }
+        .key-detail .log-viewer-head .sm {
+          width: 32px;
+          padding: 0;
         }
         .dialog-footer {
           flex-direction: column-reverse;
@@ -2550,6 +2939,17 @@
         <symbol id="i-reset" viewBox="0 0 24 24">
           <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" />
         </symbol>
+        <symbol id="i-key" viewBox="0 0 24 24">
+          <path
+            d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"
+          />
+          <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" />
+        </symbol>
+        <symbol id="i-edit" viewBox="0 0 24 24">
+          <path
+            d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497zM15 5l4 4"
+          />
+        </symbol>
         <symbol id="i-trash" viewBox="0 0 24 24">
           <path
             d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"
@@ -2674,6 +3074,9 @@
                 <use href="#i-accounts" /></svg
               ><span>Accounts</span
               ><span class="sidebar-badge" id="nav-account-count"></span></a
+            ><a class="sidebar-item" href="/dashboard/keys" data-page="keys"
+              ><svg class="icon" aria-hidden="true"><use href="#i-key" /></svg
+              ><span>Keys</span></a
             ><a class="sidebar-item" href="/dashboard/logs" data-page="logs"
               ><svg class="icon" aria-hidden="true"><use href="#i-logs" /></svg
               ><span>Logs</span></a
@@ -2894,6 +3297,164 @@
       </div>
       <p id="oauth-error" class="form-error" role="alert" hidden></p>
     </dialog>
+    <dialog
+      id="key-dialog"
+      aria-labelledby="key-title"
+      aria-describedby="key-description"
+    >
+      <button
+        type="button"
+        class="dialog-close ghost icon-btn sm"
+        id="key-close"
+        aria-label="Close"
+      >
+        <svg class="icon" aria-hidden="true"><use href="#i-close" /></svg>
+      </button>
+      <header class="dialog-header">
+        <h2 id="key-title">New key</h2>
+        <p class="dialog-description" id="key-description">
+          Leave a restriction empty to allow anything.
+        </p>
+      </header>
+      <form id="key-form" class="dialog-body" novalidate>
+        <div class="field">
+          <label for="key-name">Name</label
+          ><input
+            id="key-name"
+            maxlength="80"
+            autocomplete="off"
+            placeholder="Who uses this key"
+            aria-describedby="key-name-error"
+          />
+          <p class="field-error" id="key-name-error" hidden></p>
+        </div>
+        <fieldset class="field">
+          <legend>Providers</legend>
+          <div class="chip-picker" id="key-providers"></div>
+        </fieldset>
+        <fieldset class="field">
+          <legend>Accounts</legend>
+          <div class="account-picker" id="key-accounts"></div>
+        </fieldset>
+        <div class="field">
+          <label for="key-model-input">Models</label>
+          <div class="chip-input" id="key-models">
+            <input
+              id="key-model-input"
+              list="key-model-options"
+              autocomplete="off"
+              placeholder="Any model"
+              aria-describedby="key-model-help"
+            />
+          </div>
+          <datalist id="key-model-options"></datalist>
+          <p class="field-description" id="key-model-help">
+            Press Enter to add. <code>*</code> matches anything,
+            <code>?</code> one character, e.g. <code>gpt-5*</code>.
+          </p>
+        </div>
+        <div class="field">
+          <label for="key-limit">Weekly token limit</label
+          ><input
+            id="key-limit"
+            inputmode="decimal"
+            autocomplete="off"
+            placeholder="No limit"
+            aria-describedby="key-limit-help"
+          />
+          <p class="field-description" id="key-limit-help"></p>
+        </div>
+        <p id="key-error" class="form-error" role="alert" hidden></p>
+        <footer class="dialog-footer">
+          <button type="button" class="outline" id="key-cancel">Cancel</button
+          ><button type="submit" class="primary" id="key-save">
+            Create key
+          </button>
+        </footer>
+      </form>
+    </dialog>
+    <dialog
+      id="secret-dialog"
+      aria-labelledby="secret-title"
+      aria-describedby="secret-description"
+    >
+      <header class="dialog-header">
+        <h2 id="secret-title">Copy the new key</h2>
+        <p class="dialog-description" id="secret-description"></p>
+      </header>
+      <div class="dialog-body">
+        <p class="secret-warning">
+          <svg class="icon" aria-hidden="true"><use href="#i-warning" /></svg
+          ><span>You won’t see this key again. If it’s lost, rotate it.</span>
+        </p>
+        <div class="field">
+          <label id="secret-key-label">API key</label>
+          <div class="codebox" aria-labelledby="secret-key-label">
+            <code id="secret-key"></code
+            ><button
+              type="button"
+              class="ghost icon-btn sm copy-button"
+              id="secret-copy"
+              aria-label="Copy API key"
+            >
+              <span class="copy-icons"
+                ><svg class="icon copy-idle" aria-hidden="true">
+                  <use href="#i-copy" /></svg
+                ><svg class="icon copy-done" aria-hidden="true">
+                  <use href="#i-check" /></svg
+              ></span>
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label id="secret-base-label">Base URL</label>
+          <div class="codebox" aria-labelledby="secret-base-label">
+            <code id="secret-base"></code
+            ><button
+              type="button"
+              class="ghost icon-btn sm copy-button"
+              id="secret-base-copy"
+              aria-label="Copy base URL"
+            >
+              <span class="copy-icons"
+                ><svg class="icon copy-idle" aria-hidden="true">
+                  <use href="#i-copy" /></svg
+                ><svg class="icon copy-done" aria-hidden="true">
+                  <use href="#i-check" /></svg
+              ></span>
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label id="secret-example-label">Example request</label>
+          <div class="code-sample" aria-labelledby="secret-example-label">
+            <pre id="secret-example" tabindex="0"></pre>
+            <button
+              type="button"
+              class="ghost icon-btn sm copy-button"
+              id="secret-example-copy"
+              aria-label="Copy example request"
+            >
+              <span class="copy-icons"
+                ><svg class="icon copy-idle" aria-hidden="true">
+                  <use href="#i-copy" /></svg
+                ><svg class="icon copy-done" aria-hidden="true">
+                  <use href="#i-check" /></svg
+              ></span>
+            </button>
+          </div>
+          <p class="field-description">
+            Send the key as <code>Authorization: Bearer …</code>. OpenAI-style
+            clients take the base URL with <code>/v1</code>.
+          </p>
+        </div>
+        <footer class="dialog-footer">
+          <button type="button" class="primary" id="secret-done">
+            Done
+          </button>
+        </footer>
+      </div>
+    </dialog>
     <script src="/dashboard/assets/vendor.js"></script>
     <script>
       "use strict";
@@ -2984,6 +3545,16 @@
         oauthTimer: null,
         oauthMode: "add",
         loadBusy: false,
+        keys: {
+          list: null,
+          options: null,
+          base: "",
+          error: "",
+          open: null,
+          usage: null,
+          usageError: "",
+          unit: "hour",
+        },
         logs: {
           tab: "errors",
           files: null,
@@ -3046,6 +3617,8 @@
           "data-window-group",
           "data-window-id",
           "data-pause",
+          "data-key",
+          "data-key-unit",
         ])
           if (node.hasAttribute(attr))
             return `${attr}:${node.getAttribute(attr)}`;
@@ -3685,8 +4258,8 @@
 
       // Chart choices survive reloads (per browser; storage may be unavailable).
       const PREFS_KEY = "prox:prefs";
-      // Pages live at clean paths: /dashboard/, /dashboard/accounts, /dashboard/logs.
-      const PAGES = ["quotas", "accounts", "logs"];
+      // Pages live at clean paths: /dashboard/, /dashboard/accounts, /dashboard/keys, /dashboard/logs.
+      const PAGES = ["quotas", "accounts", "keys", "logs"];
       const pagePath = (page) =>
         page === "quotas" ? "/dashboard/" : `/dashboard/${page}`;
       function pageFromPath() {
@@ -3698,6 +4271,7 @@
       const PAGE_TITLES = {
         quotas: "Quota management",
         accounts: "Accounts",
+        keys: "Keys",
         logs: "Logs",
       };
       // Old #accounts-style links land on the matching clean path.
@@ -3762,7 +4336,9 @@
           measured = state.data.accounts.filter((a) => a.windows.length).length;
         morphText(
           $("#page-meta"),
-          `${count} account${count === 1 ? "" : "s"} · ${measured} quotas loaded`,
+          state.page === "keys"
+            ? keysMeta()
+            : `${count} account${count === 1 ? "" : "s"} · ${measured} quotas loaded`,
         );
         morphText($("#nav-account-count"), count);
         $$("[data-page]").forEach((a) => {
@@ -3779,7 +4355,8 @@
           state.data.refreshing ? "Refreshing…" : "Refresh all quotas",
         );
         const next = document.createElement("template");
-        if (!count && state.page !== "logs") {
+        // Logs and keys don't need any signed-in account.
+        if (!count && state.page !== "logs" && state.page !== "keys") {
           next.innerHTML = `<div class="state-card"><h2>${state.data.error ? "Waiting for the proxy" : "Your account pool starts here"}</h2><p>${state.data.error ? "The connection will be checked automatically." : "Add a login to start pooling accounts and tracking their quotas."}</p><button class="primary" data-add>${icon("plus")}Add login</button></div>`;
         } else
           next.innerHTML =
@@ -3787,7 +4364,9 @@
               ? quotaPage()
               : state.page === "accounts"
                 ? accountsPage()
-                : logsPage();
+                : state.page === "keys"
+                  ? keysPage()
+                  : logsPage();
         const selection = JSON.stringify([
           state.provider,
           state.view,
@@ -3803,6 +4382,7 @@
         patchChildren(body, next.content);
         if (state.page === "logs") ensureLogs(pageChanged);
         else stopLogs();
+        if (state.page === "keys") ensureKeys();
         syncMenu();
         updateIndicators();
         // Draw each chart's data in from the left the first time it mounts.
@@ -3964,7 +4544,16 @@
       });
       $("#page-body").addEventListener("click", async (e) => {
         const b = e.target.closest("button");
-        if (!b) return;
+        if (!b) {
+          // A key row opens its usage from anywhere outside its controls.
+          const row = e.target.closest(".key-row");
+          if (row && !getSelection().toString()) toggleKey(row.dataset.key);
+          return;
+        }
+        if (b.closest(".keys")) {
+          keyAction(b);
+          return;
+        }
         if (b.dataset.filter) {
           state.provider = b.dataset.filter;
           render(true);
@@ -4341,44 +4930,63 @@
         }
       }
 
-      let removeTarget = null;
+      // One confirmation dialog for every action that can't be undone.
+      let confirmAction = null;
+      function askConfirm(action) {
+        confirmAction = action;
+        const button = $("#confirm-remove");
+        $("#confirm-title").textContent = action.title;
+        $("#confirm-description").textContent = action.description;
+        button.idleHTML = esc(action.label);
+        setBusy(button, false);
+        $("#confirm-dialog").showModal();
+        $("#confirm-cancel").focus();
+      }
       function confirmRemove(id) {
         const a = accountById(id);
         if (!a) return;
-        removeTarget = id;
-        $("#confirm-title").textContent = `Remove ${labelFor(a)}?`;
-        setBusy($("#confirm-remove"), false);
-        $("#confirm-dialog").showModal();
-        $("#confirm-cancel").focus();
+        askConfirm({
+          title: `Remove ${labelFor(a)}?`,
+          description:
+            "The proxy stops using this login and deletes its credential file. This can’t be undone.",
+          label: "Remove",
+          busy: "Removing…",
+          failure: "Couldn't remove the account",
+          returnFocus: () => $(`[data-menu="${CSS.escape(id)}"]`)?.focus(),
+          run: () => api("account/remove", { id }),
+          async done() {
+            notify(
+              "Account removed",
+              "success",
+              `${labelFor(a)} is no longer in the pool.`,
+            );
+            await load();
+          },
+        });
       }
       $("#confirm-cancel").addEventListener("click", () =>
         $("#confirm-dialog").close(),
       );
       $("#confirm-dialog").addEventListener("close", () => {
-        const trigger =
-          removeTarget && $(`[data-menu="${CSS.escape(removeTarget)}"]`);
-        removeTarget = null;
-        trigger?.focus();
+        const action = confirmAction;
+        confirmAction = null;
+        action?.returnFocus?.();
       });
       $("#confirm-remove").addEventListener("click", async () => {
-        const id = removeTarget,
-          a = accountById(id);
-        if (!id) return;
-        setBusy($("#confirm-remove"), true, "Removing…");
+        const action = confirmAction;
+        if (!action) return;
+        setBusy($("#confirm-remove"), true, action.busy);
+        let result;
         try {
-          await api("account/remove", { id });
-          removeTarget = null;
-          $("#confirm-dialog").close();
-          notify(
-            "Account removed",
-            "success",
-            `${a ? labelFor(a) : "The login"} is no longer in the pool.`,
-          );
-          await load();
+          result = await action.run();
         } catch (e) {
           setBusy($("#confirm-remove"), false);
-          notify("Couldn't remove the account", "error", e.message);
+          notify(action.failure, "error", e.message);
+          return;
         }
+        confirmAction = null;
+        $("#confirm-dialog").close();
+        action.done(result);
       });
 
       // ---- Manual resets ----
@@ -4683,6 +5291,676 @@
           notify("Couldn't enable the activity log", "error", e.message);
         }
       }
+
+      // ---- Client keys ----
+      // Each client gets its own key; the proxy enforces its restrictions and
+      // weekly token limit. A secret is shown once, right after create or rotate.
+      const keyById = (id) => state.keys.list?.find((k) => k.id === id);
+      function fmtTokens(n) {
+        n = Number(n) || 0;
+        for (const [size, suffix] of [
+          [1e12, "T"],
+          [1e9, "B"],
+          [1e6, "M"],
+          [1e3, "k"],
+        ])
+          if (n >= size) {
+            const v = n / size;
+            return `${+v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0)}${suffix}`;
+          }
+        return String(Math.round(n));
+      }
+      // "5M", "500k", "1.5b", "2,000,000"; empty or 0 means no limit.
+      function parseTokens(text) {
+        const t = String(text).toLowerCase().replace(/[\s,_]/g, "");
+        if (!t) return 0;
+        const m = /^(\d+(?:\.\d+)?|\.\d+)([kmbt]?)$/.exec(t);
+        if (!m) return NaN;
+        const n = Math.round(
+          Number(m[1]) * { "": 1, k: 1e3, m: 1e6, b: 1e9, t: 1e12 }[m[2]],
+        );
+        return n <= 1e15 ? n : NaN;
+      }
+      // The proxy's model patterns: case-insensitive, * any run, ? one character.
+      const modelPattern = (p) =>
+        new RegExp(
+          `^${p.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`,
+          "i",
+        );
+      const keyAccount = (id) =>
+        state.keys.options?.accounts.find((a) => a.id === id);
+      const keyAccountLabel = (id) =>
+        id ? keyAccount(id)?.label || id : "Unknown account";
+      function keysMeta() {
+        const list = state.keys.list;
+        if (!list) return "Loading keys…";
+        const on = list.filter((k) => k.enabled).length;
+        return `${list.length} key${list.length === 1 ? "" : "s"} · ${on} enabled`;
+      }
+      function keysPage() {
+        return `<div class="keys" id="keys-live" data-live></div>`;
+      }
+      function ensureKeys() {
+        if (!$("#keys-live")) return;
+        if (!$("#keys-live").firstChild) renderKeys();
+        // Entering the page and every snapshot refresh re-read keys and usage.
+        loadKeys();
+      }
+      async function loadKeys() {
+        const keys = state.keys;
+        try {
+          const [list, options] = await Promise.all([
+            api("keys"),
+            api("keys/options"),
+          ]);
+          keys.list = list.keys || [];
+          keys.base = list.base_url || location.origin;
+          keys.options = options;
+          keys.error = "";
+          if (keys.open && !keyById(keys.open)) {
+            keys.open = null;
+            keys.usage = null;
+          }
+        } catch (e) {
+          keys.error = e.message;
+        }
+        renderKeys();
+        if (keys.open) loadKeyUsage(keys.open);
+      }
+      async function loadKeyUsage(id) {
+        try {
+          const r = await api(
+            `keys/usage?hours=168&key=${encodeURIComponent(id)}`,
+          );
+          if (state.keys.open !== id) return;
+          state.keys.usage = { id, buckets: r.buckets || [] };
+          state.keys.usageError = "";
+        } catch (e) {
+          if (state.keys.open !== id) return;
+          state.keys.usageError = e.message;
+        }
+        renderKeys();
+      }
+      function toggleKey(id) {
+        const keys = state.keys;
+        keys.open = keys.open === id ? null : id;
+        keys.usage = null;
+        keys.usageError = "";
+        renderKeys();
+        if (keys.open) {
+          loadKeyUsage(id);
+          $("#key-detail")?.scrollIntoView({
+            block: "nearest",
+            behavior: motionAllowed() ? "smooth" : "auto",
+          });
+        }
+      }
+      function scopeChips(k) {
+        const chips = [
+          ...k.providers.map(
+            (p) =>
+              `<span class="tag outline" title="Provider: ${esc(pName(p))}">${PROVIDERS[p] ? providerIcon(p) : ""}<span>${esc(pName(p))}</span></span>`,
+          ),
+          ...k.accounts.map(
+            (a) =>
+              `<span class="tag outline" title="Account: ${esc(keyAccountLabel(a))}">${icon("accounts")}<span>${esc(keyAccountLabel(a))}</span></span>`,
+          ),
+          ...k.models.map(
+            (m) =>
+              `<span class="tag outline model" title="Model: ${esc(m)}"><span>${esc(m)}</span></span>`,
+          ),
+        ];
+        if (!chips.length)
+          return `<span class="tag outline any" title="Any provider, account and model">Any</span>`;
+        return (
+          chips.slice(0, 4).join("") +
+          (chips.length > 4
+            ? `<span class="tag outline any">+${chips.length - 4}</span>`
+            : "")
+        );
+      }
+      function keyMeter(k) {
+        const used = k.weekly_tokens,
+          limit = k.weekly_token_limit;
+        if (!limit)
+          return `<div class="key-usage"><span class="key-usage-value"><strong>${morph(esc(fmtTokens(used)))}</strong> this week · no limit</span></div>`;
+        const share = Math.min(1, used / limit);
+        return `<div class="key-usage" title="${esc(`${used.toLocaleString()} of ${limit.toLocaleString()} tokens in the last 7 days`)}"><div class="meter ${share >= 1 ? "full" : share >= 0.8 ? "warning" : ""}"><span style="transform:scaleX(${share})"></span></div><span class="key-usage-value"><strong>${morph(esc(fmtTokens(used)))}</strong> / ${esc(fmtTokens(limit))}</span></div>`;
+      }
+      function keyRow(k) {
+        const open = state.keys.open === k.id;
+        return `<article class="key-row" data-key="${esc(k.id)}" data-enabled="${k.enabled}" aria-current="${open}"><div class="key-identity"><button class="key-name" data-key-open="${esc(k.id)}" aria-expanded="${open}" aria-controls="key-detail" title="${esc(k.name)}">${esc(k.name)}</button><code class="key-hint">cpk_…${esc(k.hint)}</code></div><div class="key-scope">${scopeChips(k)}</div>${keyMeter(k)}<div class="account-actions"><button class="switch" role="switch" aria-checked="${k.enabled}" aria-label="Enable ${esc(k.name)}" title="${k.enabled ? "Enabled" : "Disabled: requests with this key are refused"}" data-key-enabled="${esc(k.id)}"><span class="switch-thumb"></span></button></div></article>`;
+      }
+      // Usage totals by one bucket field (model or account), largest first.
+      function keyTotals(buckets, field) {
+        const map = new Map();
+        for (const b of buckets) {
+          const row = map.get(b[field]) || { id: b[field], tokens: 0, requests: 0, failed: 0 };
+          row.tokens += b.tokens;
+          row.requests += b.requests;
+          row.failed += b.failed;
+          map.set(b[field], row);
+        }
+        return [...map.values()].sort((a, b) => b.tokens - a.tokens || b.requests - a.requests);
+      }
+      function keyShares(title, rows, label) {
+        const total = rows.reduce((s, r) => s + r.tokens, 0);
+        return `<div><div class="breakdown-head"><span class="breakdown-title">${title}</span></div><div class="mini-accounts">${
+          rows.length
+            ? rows
+                .map(
+                  (r) =>
+                    `<div class="key-share"><span class="mini-label" title="${esc(label(r))}">${r.swatch ? `<i class="mini-swatch" style="background:${r.swatch}"></i>` : ""}${esc(label(r))}</span><div class="meter"><span style="transform:scaleX(${total ? r.tokens / total : 0})"></span></div><span class="mini-value">${esc(fmtTokens(r.tokens))}</span><span class="key-requests">${r.requests.toLocaleString()} req${r.failed ? ` · ${r.failed} failed` : ""}</span></div>`,
+                )
+                .join("")
+            : '<p class="key-empty">No requests in the last 7 days.</p>'
+        }</div></div>`;
+      }
+      // Tokens per hour or per day over the last 7 days, stacked by model.
+      function keyChart(buckets, models) {
+        const daily = state.keys.unit === "day",
+          hour = 3600,
+          now = Date.now() / 1000;
+        let start, end, size;
+        if (daily) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          end = today.getTime() / 1000 + 86400;
+          start = end - 7 * 86400;
+          size = 86400;
+        } else {
+          end = Math.floor(now / hour) * hour + hour;
+          start = end - 168 * hour;
+          size = hour;
+        }
+        // Local days can be 23 or 25 hours long; place each bucket by its own start.
+        const slots = [];
+        for (let i = 0, t = start; t < end; i++) {
+          const next = daily
+            ? new Date(new Date(t * 1000).setDate(new Date(t * 1000).getDate() + 1)).getTime() / 1000
+            : t + size;
+          slots.push({ ts: t, end: next, parts: models.map(() => 0), tokens: 0, requests: 0, failed: 0 });
+          t = next;
+        }
+        const index = new Map(models.map((m, i) => [m.id, i]));
+        for (const b of buckets) {
+          const slot = slots.find((s) => b.hour >= s.ts && b.hour < s.end);
+          if (!slot) continue;
+          const i = index.get(b.model) ?? models.length - 1;
+          slot.parts[i] += b.tokens;
+          slot.tokens += b.tokens;
+          slot.requests += b.requests;
+          slot.failed += b.failed;
+        }
+        const W = Math.max(280, ($("#page-body").clientWidth || 1000) - 34),
+          H = innerWidth <= 760 ? 120 : 160,
+          left = 46,
+          right = 10,
+          top = 8,
+          bottom = 24;
+        const x = (t) => left + ((t - start) / (end - start)) * (W - left - right);
+        const peak = Math.max(0, ...slots.map((s) => s.tokens));
+        const magnitude = 10 ** Math.floor(Math.log10(peak || 1));
+        const step = [1, 2, 5, 10].map((m) => m * magnitude).find((v) => peak <= v) || 10 * magnitude;
+        const y = (v) => H - bottom - (v / step) * (H - top - bottom);
+        state.keys.chart = { slots, x, start, end, W, left, right, models, daily };
+        let marks = `<line class="grid-line" x1="${left}" x2="${W - right}" y1="${y(step)}" y2="${y(step)}"/><text x="${left - 10}" y="${y(step) + 4}" text-anchor="end">${esc(fmtTokens(step))}</text><line x1="${left}" x2="${W - right}" y1="${y(0)}" y2="${y(0)}" stroke="var(--border)"/>`;
+        const days = [];
+        for (const s of slots) if (daily || new Date(s.ts * 1000).getHours() === 0) days.push(s);
+        // Day labels, skipping any that would crowd the previous one.
+        let lastLabel = -Infinity;
+        days.forEach((s) => {
+          const cx = daily ? (x(s.ts) + x(s.end)) / 2 : x(s.ts);
+          // Keep the last label inside the chart.
+          const anchor = cx > W - right - 40 ? "end" : daily ? "middle" : "start";
+          const lx = anchor === "end" ? W - right : cx;
+          if (lx - lastLabel < (anchor === "end" ? 110 : 64)) return;
+          lastLabel = lx;
+          marks += `<text x="${lx}" y="${H - 6}" text-anchor="${anchor}">${esc(dateLabel(s.ts, false))}</text>`;
+        });
+        const bars = slots
+          .map((s) => {
+            const x0 = x(s.ts),
+              width = Math.max(1, x(s.end) - x0 - (daily ? 8 : 1));
+            let acc = 0;
+            return models
+              .map((m, k) => {
+                const v = s.parts[k];
+                if (v <= 0) return "";
+                const h = y(acc) - y(acc + v),
+                  rect = `<rect x="${x0 + (daily ? 4 : 0.5)}" y="${y(acc + v)}" width="${width}" height="${Math.max(1.5, acc ? h - 1 : h)}" rx="1.5" fill="${m.color}"/>`;
+                acc += v;
+                return rect;
+              })
+              .join("");
+          })
+          .join("");
+        const quiet = !slots.some((s) => s.tokens > 0);
+        return `<figure class="plot usage" data-key-chart tabindex="0" aria-label="Tokens per ${daily ? "day" : "hour"} over the last 7 days, by model. Use left and right arrows to inspect."><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">${marks}<rect class="usage-hover" x="0" y="${top}" width="0" height="${H - top - bottom}" hidden/><g class="chart-data">${bars}</g></svg><div class="chart-tooltip" hidden></div>${quiet ? '<div class="usage-empty">No tokens used in the last 7 days</div>' : ""}<figcaption class="chart-caption"><span>Tokens per ${daily ? "day" : "hour"}</span>${models.length > 1 ? models.map((m) => `<span class="legend"><i class="tip-swatch" style="background:${m.color}"></i>${esc(m.name)}</span>`).join("") : ""}<span class="chart-inspect" aria-live="polite">Input and output; cache reads excluded</span></figcaption></figure>`;
+      }
+      function keyDetail(k) {
+        const keys = state.keys,
+          usage = keys.usage?.id === k.id ? keys.usage.buckets : null;
+        const head = `<header class="log-viewer-head"><span class="key-detail-title" title="${esc(k.name)}">${esc(k.name)}</span><button class="outline sm" data-key-edit="${esc(k.id)}" aria-label="Edit ${esc(k.name)}">${icon("edit")}<span class="button-label">Edit</span></button><button class="outline sm" data-key-rotate="${esc(k.id)}" aria-label="Rotate ${esc(k.name)}">${icon("refresh")}<span class="button-label">Rotate</span></button><button class="ghost sm danger" data-key-delete="${esc(k.id)}" aria-label="Delete ${esc(k.name)}">${icon("trash")}<span class="button-label">Delete</span></button><button class="ghost icon-btn sm" data-key-close aria-label="Close usage">${icon("close")}</button></header>`;
+        let body;
+        if (keys.usageError && !usage)
+          body = `<div class="notice error">${icon("warning")}<span>${esc(keys.usageError)}</span></div>`;
+        else if (!usage)
+          body = `<div class="logs-loading"><span class="loading-mark"></span>Loading usage…</div>`;
+        else {
+          // Biggest models get their own color; the rest share one.
+          const byModel = keyTotals(usage, "model"),
+            named = byModel.slice(0, byModel.length > ACCOUNT_COLORS.length ? ACCOUNT_COLORS.length - 1 : ACCOUNT_COLORS.length);
+          const models = named.map((r, i) => ({ id: r.id, name: r.id || "Unknown model", color: ACCOUNT_COLORS[i] }));
+          if (byModel.length > named.length)
+            models.push({ id: null, name: "Other models", color: "var(--muted-foreground)" });
+          byModel.forEach((r, i) => (r.swatch = (models[i] || models.at(-1)).color));
+          const total = byModel.reduce(
+            (s, r) => ({ tokens: s.tokens + r.tokens, requests: s.requests + r.requests, failed: s.failed + r.failed }),
+            { tokens: 0, requests: 0, failed: 0 },
+          );
+          const cache = usage.reduce((s, b) => s + b.cache_read_tokens, 0);
+          body = `<dl class="metrics"><div class="metric"><dt>Tokens, last 7 days</dt><dd>${morph(esc(total.tokens.toLocaleString()))}</dd></div><div class="metric"><dt>Weekly limit</dt><dd>${morph(k.weekly_token_limit ? esc(k.weekly_token_limit.toLocaleString()) : "No limit")}</dd></div><div class="metric"><dt>Requests</dt><dd>${morph(`${total.requests.toLocaleString()}${total.failed ? ` · ${total.failed} failed` : ""}`)}</dd></div><div class="metric"><dt>Cache reads</dt><dd>${morph(esc(cache.toLocaleString()))}</dd></div></dl><div class="key-chart-head"><span class="breakdown-title">Usage</span><div class="segmented sm" role="group" aria-label="Chart interval">${[["hour", "Hourly"], ["day", "Daily"]].map(([u, l]) => `<button data-key-unit="${u}" ${choice(keys.unit === u)}>${l}</button>`).join("")}</div></div>${keyChart(usage, models)}<div class="breakdown key-breakdowns">${keyShares("By model", byModel, (r) => r.id || "Unknown model")}${keyShares("By account", keyTotals(usage, "account"), (r) => keyAccountLabel(r.id))}</div>`;
+        }
+        return `<section class="key-detail" id="key-detail" aria-label="Usage for ${esc(k.name)}">${head}<div class="key-detail-body">${body}</div></section>`;
+      }
+      function renderKeys() {
+        const root = $("#keys-live");
+        if (!root) return;
+        const keys = state.keys,
+          open = keys.open && keyById(keys.open);
+        let content;
+        if (keys.error && !keys.list)
+          content = `<div class="notice error">${icon("warning")}<span>${esc(keys.error)}</span></div>`;
+        else if (!keys.list)
+          content = `<div class="logs-loading"><span class="loading-mark"></span>Loading keys…</div>`;
+        else if (!keys.list.length)
+          content = `<div class="state-card"><h2>No client keys yet</h2><p>Give each client its own key to limit which providers, accounts and models it uses, cap its weekly tokens and see its usage.</p><button class="primary" data-key-new>${icon("plus")}New key</button></div>`;
+        else
+          content = `<div class="key-list">${keys.list.map(keyRow).join("")}</div>${open ? keyDetail(open) : ""}`;
+        const next = document.createElement("template");
+        next.innerHTML = `<div class="page-toolbar"><p>Each client uses its own key. The proxy enforces each key's restrictions and weekly limit.</p>${keys.list?.length ? `<button class="primary sm" data-key-new>${icon("plus")}New key</button>` : ""}</div>${keys.error && keys.list ? `<div class="notice error">${icon("warning")}<span>${esc(keys.error)}</span></div>` : ""}${content}`;
+        patchChildren(root, next.content);
+        updateIndicators();
+        if (state.page === "keys") morphText($("#page-meta"), keysMeta());
+      }
+      async function keyAction(b) {
+        const d = b.dataset;
+        if (d.keyNew !== undefined) openKeyDialog();
+        else if (d.keyOpen) toggleKey(d.keyOpen);
+        else if (d.keyClose !== undefined) {
+          const id = state.keys.open;
+          toggleKey(id);
+          $(`[data-key-open="${CSS.escape(id)}"]`)?.focus();
+        } else if (d.keyUnit) {
+          state.keys.unit = d.keyUnit;
+          renderKeys();
+        } else if (d.keyEdit) openKeyDialog(d.keyEdit);
+        else if (d.keyRotate) confirmRotate(d.keyRotate);
+        else if (d.keyDelete) confirmDelete(d.keyDelete);
+        else if (d.keyEnabled) {
+          if (b.hasAttribute("data-motion-pending")) return;
+          const k = keyById(d.keyEnabled);
+          if (!k) return;
+          const enabled = !k.enabled;
+          // Flip immediately; revert if the proxy rejects the change.
+          b.dataset.motionPending = "";
+          b.setAttribute("aria-checked", String(enabled));
+          try {
+            const r = await api("keys/update", { id: k.id, enabled });
+            Object.assign(k, r.key);
+            notify(
+              enabled ? "Key enabled" : "Key disabled",
+              "success",
+              enabled
+                ? `${k.name} can make requests again.`
+                : `Requests with ${k.name} are refused.`,
+            );
+          } catch (err) {
+            b.setAttribute("aria-checked", String(!enabled));
+            notify("Couldn't update the key", "error", err.message);
+          } finally {
+            delete b.dataset.motionPending;
+            renderKeys();
+          }
+        }
+      }
+      const focusKey = (id) => () =>
+        ($(`[data-key-open="${CSS.escape(id)}"]`) || $("[data-key-new]"))?.focus();
+      function confirmRotate(id) {
+        const k = keyById(id);
+        if (!k) return;
+        askConfirm({
+          title: `Rotate ${k.name}?`,
+          description:
+            "A new secret replaces this key's secret right away. Clients using the current one stop working until they get the new one.",
+          label: "Rotate key",
+          busy: "Rotating…",
+          failure: "Couldn't rotate the key",
+          returnFocus: () => $(`[data-key-rotate="${CSS.escape(id)}"]`)?.focus(),
+          run: () => api("keys/rotate", { id }),
+          done(r) {
+            Object.assign(k, r.key);
+            renderKeys();
+            showSecret(r.key, r.secret, "rotated");
+          },
+        });
+      }
+      function confirmDelete(id) {
+        const k = keyById(id);
+        if (!k) return;
+        askConfirm({
+          title: `Delete ${k.name}?`,
+          description:
+            "Clients using this key stop working right away and its usage history is deleted. This can’t be undone.",
+          label: "Delete key",
+          busy: "Deleting…",
+          failure: "Couldn't delete the key",
+          returnFocus: () => $(`[data-key-delete="${CSS.escape(id)}"]`)?.focus(),
+          run: () => api("keys/delete", { id }),
+          async done() {
+            notify("Key deleted", "success", `${k.name} no longer works.`);
+            if (state.keys.open === id) state.keys.open = null;
+            await loadKeys();
+            $("[data-key-new]")?.focus();
+          },
+        });
+      }
+
+      // Key dialog: create or edit.
+      let keyEditing = null,
+        keyModels = [];
+      function keyFieldError(id, text) {
+        const input = $(`#${id}`),
+          error = $(`#${id}-error`);
+        if (error) {
+          error.textContent = text || "";
+          error.hidden = !text;
+        }
+        if (text) input.setAttribute("aria-invalid", "true");
+        else input.removeAttribute("aria-invalid");
+      }
+      function renderModelChips() {
+        const box = $("#key-models");
+        $$(".tag", box).forEach((chip) => chip.remove());
+        $("#key-model-input").insertAdjacentHTML(
+          "beforebegin",
+          keyModels
+            .map(
+              (m, i) =>
+                `<span class="tag outline">${esc(m)}<button type="button" class="chip-remove" data-chip="${i}" aria-label="Remove ${esc(m)}">${icon("close")}</button></span>`,
+            )
+            .join(""),
+        );
+        $("#key-model-input").placeholder = keyModels.length ? "Add a pattern" : "Any model";
+      }
+      function addModelChips(text) {
+        for (const p of text.toLowerCase().split(/[\s,]+/))
+          if (p && !keyModels.includes(p)) keyModels.push(p);
+        $("#key-model-input").value = "";
+        renderModelChips();
+      }
+      function showLimit() {
+        const input = $("#key-limit"),
+          n = parseTokens(input.value);
+        keyFieldError("key-limit", "");
+        if (Number.isNaN(n)) {
+          input.setAttribute("aria-invalid", "true");
+          $("#key-limit-help").textContent = "Use a number like 5M, 500k or 2,000,000.";
+        } else
+          $("#key-limit-help").textContent = n
+            ? `${n.toLocaleString()} tokens over any 7 days. Input and output count; cache reads don't.`
+            : "No limit. Type a number like 5M or 500k to cap tokens over any 7 days.";
+        return n;
+      }
+      function openKeyDialog(id) {
+        const k = id ? keyById(id) : null,
+          options = state.keys.options || { providers: [], accounts: [], models: [] };
+        if (id && !k) return;
+        keyEditing = id || null;
+        $("#key-title").textContent = k ? `Edit ${k.name}` : "New key";
+        $("#key-description").textContent = k
+          ? "Changes apply to the next request made with this key."
+          : "Leave a restriction empty to allow anything. The secret is shown once, after you create the key.";
+        $("#key-save").idleHTML = k ? "Save changes" : "Create key";
+        setBusy($("#key-save"), false);
+        $("#key-error").hidden = true;
+        $("#key-name").value = k?.name || "";
+        keyFieldError("key-name", "");
+        // Keep restrictions the proxy no longer lists, so saving never drops them silently.
+        const providers = [...new Set([...options.providers, ...(k?.providers || [])])];
+        $("#key-providers").innerHTML = providers
+          .map(
+            (p) =>
+              `<label class="chip-option"><input type="checkbox" name="key-provider" value="${esc(p)}" ${k?.providers.includes(p) ? "checked" : ""}/>${PROVIDERS[p] ? providerIcon(p) : ""}${esc(pName(p))}</label>`,
+          )
+          .join("") || '<p class="key-empty">No providers are signed in.</p>';
+        const accounts = [
+          ...options.accounts,
+          ...(k?.accounts || [])
+            .filter((a) => !keyAccount(a))
+            .map((a) => ({ id: a, provider: "", label: a, missing: true })),
+        ];
+        const groups = [...new Set(accounts.map((a) => a.provider))];
+        $("#key-accounts").innerHTML = groups
+          .map(
+            (g) =>
+              `<div><div class="account-group-title">${esc(g ? pName(g) : "No longer signed in")}</div><div class="reset-list">${accounts
+                .filter((a) => a.provider === g)
+                .map(
+                  (a) =>
+                    `<label class="reset-row"><input type="checkbox" name="key-account" value="${esc(a.id)}" ${k?.accounts.includes(a.id) ? "checked" : ""}/><span class="reset-row-text"><span class="reset-row-title">${esc(a.label || a.id)}</span>${a.disabled ? '<span class="reset-row-meta">Paused</span>' : ""}</span></label>`,
+                )
+                .join("")}</div></div>`,
+          )
+          .join("") || '<p class="key-empty">No accounts are signed in.</p>';
+        $("#key-model-options").innerHTML = options.models
+          .map((m) => `<option value="${esc(m.id)}"></option>`)
+          .join("");
+        keyModels = [...(k?.models || [])];
+        $("#key-model-input").value = "";
+        renderModelChips();
+        $("#key-limit").value = k?.weekly_token_limit ? fmtTokens(k.weekly_token_limit) : "";
+        showLimit();
+        $("#key-dialog").showModal();
+        $("#key-name").focus();
+      }
+      function closeKeyDialog() {
+        const id = keyEditing;
+        $("#key-dialog").close();
+        focusKey(id || "")();
+      }
+      $("#key-close").addEventListener("click", closeKeyDialog);
+      $("#key-cancel").addEventListener("click", closeKeyDialog);
+      $("#key-dialog").addEventListener("cancel", (e) => {
+        e.preventDefault();
+        closeKeyDialog();
+      });
+      $("#key-models").addEventListener("click", (e) => {
+        const remove = e.target.closest("[data-chip]");
+        if (remove) {
+          keyModels.splice(Number(remove.dataset.chip), 1);
+          renderModelChips();
+        }
+        $("#key-model-input").focus();
+      });
+      $("#key-model-input").addEventListener("keydown", (e) => {
+        const input = e.target;
+        if ((e.key === "Enter" || e.key === ",") && input.value.trim()) {
+          e.preventDefault();
+          addModelChips(input.value);
+        } else if (e.key === "Backspace" && !input.value && keyModels.length) {
+          keyModels.pop();
+          renderModelChips();
+        }
+      });
+      $("#key-model-input").addEventListener("input", (e) => {
+        if (/[\s,]/.test(e.target.value)) addModelChips(e.target.value);
+      });
+      $("#key-model-input").addEventListener("blur", (e) => {
+        if (e.target.value.trim()) addModelChips(e.target.value);
+      });
+      $("#key-limit").addEventListener("input", showLimit);
+      $("#key-limit").addEventListener("blur", () => {
+        const n = parseTokens($("#key-limit").value);
+        if (!Number.isNaN(n)) $("#key-limit").value = n ? fmtTokens(n) : "";
+        showLimit();
+      });
+      $("#key-name").addEventListener("input", () => keyFieldError("key-name", ""));
+      $("#key-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if ($("#key-model-input").value.trim()) addModelChips($("#key-model-input").value);
+        const name = $("#key-name").value.trim(),
+          limit = showLimit();
+        if (!name) {
+          keyFieldError("key-name", "Name the key, e.g. after the person or app using it.");
+          return $("#key-name").focus();
+        }
+        if (Number.isNaN(limit)) return $("#key-limit").focus();
+        const checked = (n) => $$(`input[name="${n}"]:checked`, $("#key-form")).map((i) => i.value);
+        const body = {
+          name,
+          providers: checked("key-provider"),
+          accounts: checked("key-account"),
+          models: keyModels,
+          weekly_token_limit: limit,
+        };
+        $("#key-error").hidden = true;
+        setBusy($("#key-save"), true, keyEditing ? "Saving…" : "Creating…");
+        try {
+          if (keyEditing) {
+            await api("keys/update", { id: keyEditing, ...body });
+            notify("Key updated", "success", `${name}'s settings apply to its next request.`);
+            closeKeyDialog();
+            await loadKeys();
+          } else {
+            const r = await api("keys/create", body);
+            $("#key-dialog").close();
+            state.keys.open = r.key.id;
+            state.keys.usage = null;
+            await loadKeys();
+            showSecret(r.key, r.secret, "created");
+          }
+        } catch (err) {
+          setBusy($("#key-save"), false);
+          $("#key-error").textContent = err.message;
+          $("#key-error").hidden = false;
+        }
+      });
+
+      // The secret, shown once with a ready-to-paste example.
+      let secretKey = null;
+      function showSecret(k, secret, how) {
+        secretKey = k.id;
+        const base = state.keys.base.replace(/\/$/, ""),
+          allowed = (state.keys.options?.models || []).filter(
+            (m) =>
+              (!k.models.length || k.models.some((p) => modelPattern(p).test(m.id))) &&
+              (!k.providers.length || m.providers.some((p) => k.providers.includes(p))),
+          ),
+          model = allowed[0]?.id || k.models.find((p) => !/[*?]/.test(p)) || "MODEL";
+        $("#secret-title").textContent = `Copy ${k.name}'s key`;
+        $("#secret-description").textContent =
+          how === "rotated"
+            ? "The key was rotated. Give the client this new secret; the old one no longer works."
+            : "The key is ready. Give it to the client it's for.";
+        $("#secret-key").textContent = secret;
+        $("#secret-base").textContent = base;
+        $("#secret-example").textContent = `curl ${base}/v1/chat/completions \\
+  -H "Authorization: Bearer ${secret}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"${model}","messages":[{"role":"user","content":"Hello"}]}'`;
+        $("#secret-dialog").showModal();
+        $("#secret-copy").focus();
+      }
+      $("#secret-copy").addEventListener("click", (e) =>
+        copyWithFeedback(e.currentTarget, $("#secret-key").textContent, "Copy API key"),
+      );
+      $("#secret-base-copy").addEventListener("click", (e) =>
+        copyWithFeedback(e.currentTarget, $("#secret-base").textContent, "Copy base URL"),
+      );
+      $("#secret-example-copy").addEventListener("click", (e) =>
+        copyWithFeedback(e.currentTarget, $("#secret-example").textContent, "Copy example request"),
+      );
+      // Don't leave the secret in the page once the dialog is gone.
+      function clearSecret() {
+        $("#secret-key").textContent = "";
+        $("#secret-example").textContent = "";
+      }
+      $("#secret-done").addEventListener("click", () => {
+        clearSecret();
+        $("#secret-dialog").close();
+      });
+      $("#secret-dialog").addEventListener("close", () => {
+        clearSecret();
+        focusKey(secretKey || "")();
+        secretKey = null;
+      });
+
+      // Key usage chart: the pointer or arrow keys pick an interval.
+      function inspectKeyChart(fig, slot) {
+        const chart = state.keys.chart;
+        if (!chart || !slot) return clearUsage(fig);
+        fig.dataset.slot = slot.ts;
+        const svg = $("svg", fig),
+          hover = $(".usage-hover", fig),
+          tooltip = $(".chart-tooltip", fig),
+          x0 = chart.x(slot.ts),
+          x1 = chart.x(slot.end);
+        hover.setAttribute("x", x0);
+        hover.setAttribute("width", Math.max(1, x1 - x0));
+        hover.removeAttribute("hidden");
+        const time = (t) => new Date(t * 1000).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+        const label = chart.daily
+          ? dateLabel(slot.ts, false)
+          : `${dateLabel(slot.ts, false)} · ${time(slot.ts)} – ${time(slot.end)}`;
+        tooltip.innerHTML = `<div class="tip-label">${esc(label)}</div>${chart.models
+          .map((m, i) =>
+            slot.parts[i] > 0
+              ? `<div class="tip-row"><i class="tip-swatch" style="background:${m.color}"></i><span>${esc(m.name)}</span><strong>${esc(fmtTokens(slot.parts[i]))}</strong></div>`
+              : "",
+          )
+          .join("")}<div class="tip-row tip-total"><span>${slot.requests.toLocaleString()} request${slot.requests === 1 ? "" : "s"}${slot.failed ? ` · ${slot.failed} failed` : ""}</span><strong>${esc(slot.tokens.toLocaleString())} tokens</strong></div>`;
+        tooltip.hidden = false;
+        const ax = ((x0 + x1) / 2 / chart.W) * svg.clientWidth,
+          tw = tooltip.offsetWidth;
+        let left = ax + 14;
+        if (left + tw > svg.clientWidth) left = ax - 14 - tw;
+        tooltip.style.transform = `translate3d(${Math.max(0, left)}px, ${-tooltip.offsetHeight + 8}px, 0)`;
+        $(".chart-inspect", fig).textContent = `${label} · ${slot.tokens.toLocaleString()} tokens, ${slot.requests} requests`;
+      }
+      $("#page-body").addEventListener("pointermove", (e) => {
+        const fig = e.target.closest("[data-key-chart]"),
+          chart = state.keys.chart;
+        if (!fig || !chart) return;
+        const rect = $("svg", fig).getBoundingClientRect(),
+          px = ((e.clientX - rect.left) / rect.width) * chart.W,
+          ts = chart.start + ((px - chart.left) / (chart.W - chart.left - chart.right)) * (chart.end - chart.start),
+          clamped = Math.min(chart.end - 1, Math.max(chart.start, ts));
+        inspectKeyChart(fig, chart.slots.find((s) => clamped >= s.ts && clamped < s.end));
+      });
+      $("#page-body").addEventListener("pointerout", (e) => {
+        const fig = e.target.closest("[data-key-chart]");
+        if (fig && !fig.contains(e.relatedTarget) && document.activeElement !== fig) clearUsage(fig);
+      });
+      $("#page-body").addEventListener("focusout", (e) => {
+        if (e.target.matches?.("[data-key-chart]")) clearUsage(e.target);
+      });
+      $("#page-body").addEventListener("keydown", (e) => {
+        const fig = e.target.closest?.("[data-key-chart]"),
+          chart = state.keys.chart;
+        if (!fig || !chart || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+        e.preventDefault();
+        const slots = chart.slots,
+          current = slots.findIndex((s) => s.ts === Number(fig.dataset.slot)),
+          n = {
+            ArrowLeft: current < 0 ? slots.length - 1 : current - 1,
+            ArrowRight: current < 0 ? slots.length - 1 : current + 1,
+            Home: 0,
+            End: slots.length - 1,
+          }[e.key];
+        inspectKeyChart(fig, slots[Math.min(slots.length - 1, Math.max(0, n))]);
+      });
 
       const oauthDescriptions = {
         choose:

@@ -25,11 +25,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parent
 DATA = Path(os.environ.get("DASHBOARD_DATA", str(ROOT / "data")))
-CREDENTIALS = Path.home() / "cliproxyapi/credentials.json"
+CREDENTIALS = Path(os.environ.get("DASHBOARD_CREDENTIALS", str(Path.home() / "cliproxyapi/credentials.json")))
+# CLIProxyAPI and the dashboard's own port; overridable to run a second copy against a test proxy.
+CPA_URL = os.environ.get("CPA_URL", "http://127.0.0.1:8317").rstrip("/")
+PORT = int(os.environ.get("DASHBOARD_PORT", "8318"))
 # Public host[:port] names the dashboard answers on, comma-separated (e.g. a Tailscale
 # name and a Cloudflare Tunnel hostname). The first one is advertised as the API endpoint.
 PUBLIC_HOSTS = [h.strip() for h in os.environ.get("DASHBOARD_HOSTS", "").split(",") if h.strip()]
-LOCAL_HOSTS = {"127.0.0.1:8318", "localhost:8318"}
+LOCAL_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
 # Tailscale logins that may use the dashboard without the management key, comma-separated
 # (e.g. you@github). The tailnet proxy in front (Caddy's tailscale_auth or `tailscale serve`)
 # sets Tailscale-User-Login on every request, replacing any value the client sent.
@@ -50,12 +53,20 @@ CLAUDE_UA = "claude-cli/2.1.280 (external, cli)"
 # cookie lifetime browsers accept; renewal happens at most once a day.
 SESSION_TTL = 400 * 86400
 SESSION_RENEW_AFTER = 86400
-PAGES = {"/", "/accounts", "/logs"}  # seconds between live quota checks
+PAGES = {"/", "/accounts", "/keys", "/logs"}
 HISTORY_POINTS = 720  # most points per series sent to the browser
 # Every OAuth flow CLIProxyAPI v8 exposes through /oauth/auth-url.
 OAUTH_PROVIDERS = {"claude", "codex", "antigravity", "xai", "kimi", "kimi-ai", "devin", "meta"}
 ERROR_LOG_NAME = re.compile(r"^error-[A-Za-z0-9._-]+\.log$")
 ERROR_LOG_LIMIT = 256 * 1024  # bytes of a failed-request log sent to the browser
+# Client keys (CLIProxyAPI's access/client-keys). IDs and secrets have fixed shapes; anything else is refused.
+CLIENT_KEY_ID = re.compile(r"ck_[a-z0-9]{1,40}")
+CLIENT_KEY_SECRET = re.compile(r"cpk_[A-Za-z0-9_-]{8,200}")
+CLIENT_KEY_PROVIDER = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}")
+CLIENT_KEY_FIELDS = ["id", "name", "hint", "enabled", "providers", "accounts", "models", "weekly_token_limit",
+                     "weekly_tokens", "created_at", "updated_at"]
+CLIENT_KEY_USAGE_FIELDS = ["requests", "failed", "input_tokens", "output_tokens", "cache_read_tokens", "tokens"]
+MAX_TOKEN_LIMIT = 10**15
 
 
 class ProxyError(ValueError):
@@ -322,6 +333,78 @@ def safe_account(raw, quota=None):
             "cooldown_until": max(retry) if retry else None}
 
 
+class InputError(ValueError):
+    """A request the dashboard refuses before calling the proxy. The message is shown as is."""
+
+
+def text_value(value, limit, what):
+    if not isinstance(value, str):
+        raise InputError(f"{what} must be text.")
+    value = value.strip()
+    if not value or len(value) > limit or re.search(r"[\x00-\x1f\x7f]", value):
+        raise InputError(f"{what} is empty, too long, or has control characters.")
+    return value
+
+
+def text_list(value, limit, what, pattern=None, lower=False):
+    if not isinstance(value, list) or len(value) > 200:
+        raise InputError(f"{what} must be a list.")
+    out = []
+    for item in value:
+        item = text_value(item, limit, what)
+        item = item.lower() if lower else item
+        if pattern and not pattern.fullmatch(item):
+            raise InputError(f"{what} has an unexpected value.")
+        if item not in out:
+            out.append(item)
+    return out
+
+
+def client_key_input(body, create=False):
+    """Checks the editable fields of a client key; only fields present are sent to the proxy."""
+    out = {}
+    if create or "name" in body:
+        out["name"] = text_value(body.get("name"), 80, "Name")
+    if "enabled" in body:
+        if not isinstance(body["enabled"], bool):
+            raise InputError("Enabled must be true or false.")
+        out["enabled"] = body["enabled"]
+    if "providers" in body:
+        out["providers"] = text_list(body["providers"], 64, "Providers", CLIENT_KEY_PROVIDER, lower=True)
+    if "accounts" in body:
+        out["accounts"] = text_list(body["accounts"], 256, "Accounts")
+    if "models" in body:
+        # Patterns: * matches any run of characters, ? one character; no spaces.
+        out["models"] = text_list(body["models"], 128, "Model patterns", re.compile(r"\S+"), lower=True)
+    if "weekly_token_limit" in body:
+        limit = body["weekly_token_limit"]
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 0 <= limit <= MAX_TOKEN_LIMIT:
+            raise InputError("The weekly token limit must be a whole number, 0 for no limit.")
+        out["weekly_token_limit"] = limit
+    if not create and not out:
+        raise InputError("Nothing to change.")
+    return out
+
+
+def safe_client_key(raw):
+    # Enumerate fields: a secret or hash never reaches the page outside create and rotate.
+    key = {k: raw.get(k) for k in CLIENT_KEY_FIELDS}
+    for k in ["providers", "accounts", "models"]:
+        key[k] = [str(v) for v in key[k] or []]
+    key["hint"] = str(key["hint"] or "")[-4:]
+    key["enabled"] = bool(key["enabled"])
+    key["weekly_token_limit"] = int(number(key["weekly_token_limit"]) or 0)
+    key["weekly_tokens"] = int(number(key["weekly_tokens"]) or 0)
+    return key
+
+
+def client_key_secret(result):
+    secret = str(result.get("secret") or "")
+    if not CLIENT_KEY_SECRET.fullmatch(secret):
+        raise ValueError("The proxy returned an unexpected key.")
+    return secret
+
+
 class Store:
     def __init__(self, path):
         self.path = path
@@ -438,7 +521,7 @@ class Hub:
         return json.loads(CREDENTIALS.read_text())["management_key"]
 
     def request(self, path, data=None, method=None, raw=False):
-        req = urllib.request.Request("http://127.0.0.1:8317/v8/management/" + path,
+        req = urllib.request.Request(CPA_URL + "/v8/management/" + path,
             headers={"Authorization": "Bearer " + self.management_key(), "Content-Type": "application/json"},
             data=json.dumps(data).encode() if data is not None else None, method=method)
         try:
@@ -971,6 +1054,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.hub.quotas.pop(idx, None)
                 self.hub.store.forget(idx)
                 self.send(200, {"status": "ok"})
+        elif path.startswith("/api/keys"):
+            self.client_keys(path, url, body)
         elif path == "/api/logs/errors" and self.command == "GET":
             result = self.hub.request("observability/logs/errors")
             files = [{k: f.get(k) for k in ["name", "size", "modified"]} for f in result.get("files", [])
@@ -1012,6 +1097,64 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send(404, {"error": "Page not found."})
 
+    def api_base(self):
+        # Clients reach the proxy on the host this page was opened on, or the first public one.
+        host = self.headers.get("Host", "")
+        host = host if host in PUBLIC_HOSTS else (PUBLIC_HOSTS or [None])[0]
+        return f"https://{host}" if host else CPA_URL
+
+    def client_keys(self, path, url, body):
+        query = urllib.parse.parse_qs(url.query)
+        key_id = str(body.get("id", "")) if self.command == "POST" else query.get("key", [""])[0]
+        if (key_id or path in {"/api/keys/update", "/api/keys/rotate", "/api/keys/delete"}) and not CLIENT_KEY_ID.fullmatch(key_id):
+            raise InputError("Unknown client key.")
+        try:
+            if path == "/api/keys" and self.command == "GET":
+                result = self.hub.request("access/client-keys")
+                self.send(200, {"keys": [safe_client_key(k) for k in result.get("keys") or []], "base_url": self.api_base()})
+            elif path == "/api/keys/options" and self.command == "GET":
+                result = self.hub.request("access/client-keys/options")
+                self.send(200, {
+                    "providers": [str(p) for p in result.get("providers") or []],
+                    "accounts": [{"id": str(a.get("id", "")), "provider": str(a.get("provider", "")),
+                                  "label": str(a.get("label") or ""), "disabled": bool(a.get("disabled"))}
+                                 for a in result.get("accounts") or []],
+                    "models": [{"id": str(m.get("id", "")), "providers": [str(p) for p in m.get("providers") or []]}
+                               for m in result.get("models") or []]})
+            elif path == "/api/keys/usage" and self.command == "GET":
+                hours = min(max(int(query.get("hours", ["168"])[0]), 1), 2160)
+                params = {"hours": hours, **({"key": key_id} if key_id else {})}
+                result = self.hub.request("access/client-keys/usage?" + urllib.parse.urlencode(params))
+                buckets = [{"key_id": str(b.get("key_id", "")), "hour": timestamp(b.get("hour")),
+                            "provider": str(b.get("provider") or ""), "account": str(b.get("account") or ""),
+                            "model": str(b.get("model") or ""),
+                            **{k: int(number(b.get(k)) or 0) for k in CLIENT_KEY_USAGE_FIELDS}}
+                           for b in result.get("buckets") or []]
+                self.send(200, {"since": timestamp(result.get("since")), "buckets": buckets})
+            elif path == "/api/keys/create" and self.command == "POST":
+                result = self.hub.request("access/client-keys", client_key_input(body, create=True), "POST")
+                self.send(201, {"key": safe_client_key(result["key"]), "secret": client_key_secret(result)})
+            elif path == "/api/keys/update" and self.command == "POST":
+                result = self.hub.request(f"access/client-keys/{key_id}", client_key_input(body), "PATCH")
+                self.send(200, {"key": safe_client_key(result["key"])})
+            elif path == "/api/keys/rotate" and self.command == "POST":
+                result = self.hub.request(f"access/client-keys/{key_id}/rotate", {}, "POST")
+                self.send(200, {"key": safe_client_key(result["key"]), "secret": client_key_secret(result)})
+            elif path == "/api/keys/delete" and self.command == "POST":
+                self.hub.request(f"access/client-keys/{key_id}", method="DELETE")
+                self.send(200, {"status": "ok"})
+            else:
+                self.send(404, {"error": "Page not found."})
+        except ProxyError as exc:
+            if exc.status == 404 and b"client key not found" in exc.body:
+                self.send(404, {"error": "This key no longer exists. Refresh the page."})
+            elif exc.status in (404, 503):
+                self.send(502, {"error": "This proxy version has no client keys. Update CLIProxyAPI."})
+            elif exc.status == 400:
+                self.send(400, {"error": "The proxy refused these settings. Check the model patterns and limit."})
+            else:
+                raise
+
     def do_GET(self):
         self.handle_route()
 
@@ -1022,6 +1165,8 @@ class Handler(BaseHTTPRequestHandler):
         self.renewed_cookie = None
         try:
             self.route()
+        except InputError as exc:
+            self.send(400, {"error": str(exc)})
         except (ValueError, KeyError, json.JSONDecodeError):
             self.send(400, {"error": "The request could not be completed. Refresh and try again, or check the original panel."})
         except (BrokenPipeError, ConnectionResetError):
@@ -1034,11 +1179,11 @@ def main():
     os.umask(0o077)
     DATA.mkdir(parents=True, exist_ok=True, mode=0o700)
     hub = Hub(Store(DATA / "quota.sqlite"))
-    server = ThreadingHTTPServer(("127.0.0.1", 8318), Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     server.daemon_threads = True
     server.hub = hub
     threading.Thread(target=hub.collect, daemon=True).start()
-    print("Dashboard listening on 127.0.0.1:8318", flush=True)
+    print(f"Dashboard listening on 127.0.0.1:{PORT}", flush=True)
     server.serve_forever()
 
 
