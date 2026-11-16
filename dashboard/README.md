@@ -1,13 +1,13 @@
 # prox dashboard
 
-A quota dashboard for a pooled CLIProxyAPI install: provider tabs, pooled quota charts
+A quota dashboard for a pooled CLIProxyAPI install: provider tabs, per-account quota charts
 with forecasts, per-account status, and the everyday account actions, styled after
 shadcn/ui. Layout inspired by Theo Browne's ([@t3dotgg](https://github.com/t3dotgg))
 CLIProxyAPI setup; this is an independent implementation.
 
 ## Features
 
-- Pooled quota charts for Codex and Antigravity with recorded history, burn rate,
+- Per-account quota charts for Claude, Codex and Antigravity with recorded history, burn rate,
   reset markers and a projection; scrub or arrow-key through samples.
 - Accounts: rotation switch, sign in again, reset cooldown, remove (with confirmation).
 - **Add login** for every sign-in CLIProxyAPI offers: Claude, Codex, Antigravity, xAI,
