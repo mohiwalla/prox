@@ -86,10 +86,10 @@ const assert = require("assert/strict");
       ).size,
   );
   assert.equal(await page.locator("[data-pool]").count(), expectedPools);
-  // The per-account breakdown is always visible: no accordion to open.
+  // Each account gets its own block: no accordion to open.
   assert.equal(await page.locator("[data-pool] details").count(), 0);
   assert.equal(
-    await page.locator('[data-pool="codex"] .mini-account').first().isVisible(),
+    await page.locator('[data-pool="codex"] .account-pool').first().isVisible(),
     true,
   );
   const counts = await page.evaluate(() => ({
@@ -129,7 +129,7 @@ const assert = require("assert/strict");
     path: path.join(artifacts, "dashboard-desktop.png"),
     fullPage: true,
   });
-  const chart = page.locator('[data-chart="codex"]');
+  const chart = page.locator('[data-pool="codex"] [data-chart]').first();
   // The first render after login can land between the keypress and the check,
   // so wait for loading to settle and give the keypress a few tries.
   await page.waitForFunction(() => !dashboard.state.loadBusy);
@@ -879,14 +879,14 @@ const assert = require("assert/strict");
   await chart.focus();
   await page.keyboard.press("ArrowLeft");
   const quietRefresh = await page.evaluate(async () => {
-    const plot = document.querySelector('[data-chart="codex"]');
+    const plot = document.querySelector('[data-pool="codex"] [data-chart]');
     const windowTab = document.querySelector(
       '[data-pool="antigravity"] [aria-label^="Quota window"] > .active',
     );
     const button = document.querySelector('[data-filter="all"]');
     const tooltip = plot.querySelector(".chart-tooltip");
     const breakdown = document.querySelector(
-      '[data-pool="codex"] .mini-account',
+      '[data-pool="codex"] .account-pool',
     );
     const inspected = tooltip.textContent;
     await load();
@@ -940,8 +940,8 @@ const assert = require("assert/strict");
   await page.locator('[data-filter="all"]').click();
   await settle();
   const timestampInspection = await page.evaluate(() => {
-    const plot = document.querySelector('[data-chart="codex"]');
-    const chart = dashboard.state.charts.codex;
+    const plot = document.querySelector('[data-pool="codex"] [data-chart]');
+    const chart = dashboard.state.charts[document.querySelector('[data-pool="codex"] [data-chart]').dataset.chart];
     const original = { points: chart.points, forecast: chart.forecast };
     const now = dashboard.state.data.now;
     chart.points = [1800, 1200, 600].map((ago) => ({
@@ -987,7 +987,7 @@ const assert = require("assert/strict");
   await page.locator('[data-hours="336"]').click();
   assert.equal(
     await page.evaluate(() => {
-      const c = dashboard.state.charts.codex;
+      const c = dashboard.state.charts[document.querySelector('[data-pool="codex"] [data-chart]').dataset.chart];
       return Math.round((c.end - c.start) / 3600);
     }),
     24,
@@ -1000,7 +1000,7 @@ const assert = require("assert/strict");
   assert.deepEqual(requests, [168, 336]);
   assert.equal(
     await page.evaluate(() => {
-      const c = dashboard.state.charts.codex;
+      const c = dashboard.state.charts[document.querySelector('[data-pool="codex"] [data-chart]').dataset.chart];
       return Math.round((c.end - c.start) / 3600);
     }),
     336,
@@ -1011,8 +1011,8 @@ const assert = require("assert/strict");
     () =>
       !dashboard.state.loadBusy &&
       Math.round(
-        (dashboard.state.charts.codex.end -
-          dashboard.state.charts.codex.start) /
+        (dashboard.state.charts[document.querySelector('[data-pool="codex"] [data-chart]').dataset.chart].end -
+          dashboard.state.charts[document.querySelector('[data-pool="codex"] [data-chart]').dataset.chart].start) /
           3600,
       ) === 24,
   );
