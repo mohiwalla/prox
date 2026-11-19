@@ -3808,21 +3808,24 @@
         if (a.requires_sign_in) return ["Sign-in needed", "bad"];
         if (a.cooldowns.some((c) => c.reason === "model_not_supported"))
           return ["Model restriction", "warning"];
-        if (a.unavailable) return ["Cooling down", "warning"];
+        if (a.unavailable)
+          return [a.cooldowns.length ? "Cooling down" : "Unavailable", "warning"];
         if (a.quota_error) return ["Quota unavailable", "warning"];
         return ["Ready", "good"];
       }
       function statusReason(a) {
+        if (a.disabled) return "Excluded from account selection.";
+        if (a.requires_sign_in) return "Sign in again to reconnect this account.";
         const unsupported = a.cooldowns.filter(
           (c) => c.reason === "model_not_supported",
         );
         if (unsupported.length)
           return `This plan cannot use ${unsupported.map((c) => c.model_key).join(", ")}.`;
-        if (a.disabled) return "Excluded from account selection.";
-        if (a.requires_sign_in) return "The login expired.";
         if (a.quota_error) return a.quota_error;
         if (a.unavailable)
-          return "The proxy will retry eligible requests after cooldown.";
+          return a.cooldowns.length
+            ? "The proxy will retry eligible requests after cooldown."
+            : "The proxy reports this account is unavailable.";
         return "The proxy selects this account automatically.";
       }
       function filteredAccounts(provider = state.provider) {

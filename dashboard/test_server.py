@@ -258,6 +258,13 @@ class QuotaTests(unittest.TestCase):
                 hub.use_reset(raw, "g1")
             self.assertEqual(hub.quotas["r"]["resets"]["available"], 1)
 
+    def test_refresh_grant_rejection_requires_sign_in(self):
+        raw = {"auth_index": "a", "provider": "claude", "requires_sign_in": False,
+               "unavailable": True, "renewal_state": "retry_scheduled"}
+        for code, expected in [("invalid_grant", True), ("rate_limit_error", False)]:
+            with self.subTest(code=code):
+                self.assertEqual(safe_account({**raw, "refresh_error": {"code": code}})["requires_sign_in"], expected)
+
     def test_raw_credentials_are_not_relayed(self):
         raw = {"auth_index": "a", "provider": "codex", "access_token": "secret-token",
                "id_token": {"chatgpt_account_id": "private-id", "plan_type": "go"},

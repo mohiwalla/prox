@@ -325,7 +325,8 @@ def safe_account(raw, quota=None):
     return {"id": raw["auth_index"], "provider": raw.get("provider", raw.get("type")),
             "email": raw.get("email") or raw.get("label") or "", "name": raw.get("name", ""),
             "plan": plan, "disabled": bool(raw.get("disabled")), "status": raw.get("status", "unknown"),
-            "unavailable": bool(raw.get("unavailable")), "requires_sign_in": bool(raw.get("requires_sign_in")),
+            "unavailable": bool(raw.get("unavailable")), "requires_sign_in": (bool(raw.get("requires_sign_in"))
+                or (raw.get("refresh_error") or {}).get("code") == "invalid_grant"),
             "cooldowns": cooldowns, "success": raw.get("success", 0), "failed": raw.get("failed", 0),
             "windows": (quota or {}).get("windows", []), "quota_at": (quota or {}).get("observed_at"),
             "quota_error": (quota or {}).get("error"), "last_refresh": raw.get("last_refresh"),
