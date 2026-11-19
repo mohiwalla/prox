@@ -122,10 +122,24 @@ func nativeInteractionsExecutionError() *interfaces.ErrorMessage {
 	}
 }
 
-// providersForExecution resolves the providers and normalized model for a request. When a model
+// providersForExecution resolves the providers and normalized model for a request, then keeps
+// only what the request's client key (if any) may use.
+func (h *BaseAPIHandler) providersForExecution(ctx context.Context, modelName, originalRequestedModel string, allowImageModel bool, routeDecision modelRouteDecision, execOptions modelExecutionOptions) ([]string, string, *interfaces.ErrorMessage) {
+	providers, normalizedModel, errMsg := h.resolveProvidersForExecution(modelName, originalRequestedModel, allowImageModel, routeDecision, execOptions)
+	if errMsg != nil {
+		return nil, "", errMsg
+	}
+	providers, errMsg = h.applyClientKeyPolicy(ctx, originalRequestedModel, normalizedModel, providers)
+	if errMsg != nil {
+		return nil, "", errMsg
+	}
+	return providers, normalizedModel, nil
+}
+
+// resolveProvidersForExecution resolves the providers and normalized model for a request. When a model
 // router selected a built-in provider, it skips model->provider resolution and uses the router's
 // provider (with an optional target model); otherwise it falls back to the registry-based path.
-func (h *BaseAPIHandler) providersForExecution(modelName, originalRequestedModel string, allowImageModel bool, routeDecision modelRouteDecision, execOptions modelExecutionOptions) ([]string, string, *interfaces.ErrorMessage) {
+func (h *BaseAPIHandler) resolveProvidersForExecution(modelName, originalRequestedModel string, allowImageModel bool, routeDecision modelRouteDecision, execOptions modelExecutionOptions) ([]string, string, *interfaces.ErrorMessage) {
 	forcedProvider := strings.ToLower(strings.TrimSpace(execOptions.ForcedProvider))
 	if forcedProvider != "" {
 		if routeDecision.ExecutorPluginID != "" {

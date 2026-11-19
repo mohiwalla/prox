@@ -1898,6 +1898,19 @@ func pinnedAuthIDFromMetadata(meta map[string]any) string {
 	}
 }
 
+// allowedAuthIDsFromMetadata returns the auth IDs selection is limited to, or nil for no limit.
+func allowedAuthIDsFromMetadata(meta map[string]any) map[string]struct{} {
+	ids, ok := meta[cliproxyexecutor.AllowedAuthIDsMetadataKey].([]string)
+	if !ok || len(ids) == 0 {
+		return nil
+	}
+	allowed := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		allowed[id] = struct{}{}
+	}
+	return allowed
+}
+
 func disallowFreeAuthFromMetadata(meta map[string]any) bool {
 	if len(meta) == 0 {
 		return false

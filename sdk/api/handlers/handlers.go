@@ -332,6 +332,7 @@ func requestExecutionMetadata(ctx context.Context) map[string]any {
 	if disallowFreeAuthFromContext(ctx) {
 		meta[coreexecutor.DisallowFreeAuthMetadataKey] = true
 	}
+	addClientKeyAccountsMetadata(ctx, meta)
 	return meta
 }
 

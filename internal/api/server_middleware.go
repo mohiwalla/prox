@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/api/middleware"
 	codexlive "github.com/router-for-me/CLIProxyAPI/v8/internal/client/codex/live"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/clientkeys"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/home"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/httpwire"
@@ -521,6 +522,7 @@ func accessAuthMiddleware(manager *sdkaccess.Manager, realtimeError bool) gin.Ha
 				reqCtx := coreusage.WithAPIKey(c.Request.Context(), result.Principal)
 				reqCtx = coreusage.WithAccessProvider(reqCtx, result.Provider)
 				reqCtx = coreusage.WithIsNativeKey(reqCtx, coreusage.IsNativeAccessProvider(result.Provider))
+				reqCtx = clientkeys.Attach(c, reqCtx, result.Provider, result.Principal)
 				c.Request = c.Request.WithContext(reqCtx)
 			}
 			middleware.CaptureAuthenticatedRequestBody(c)
@@ -589,6 +591,7 @@ func realtimeAuthMiddleware(manager *sdkaccess.Manager, handler *codexlive.Handl
 		reqCtx := coreusage.WithAPIKey(c.Request.Context(), principal)
 		reqCtx = coreusage.WithAccessProvider(reqCtx, provider)
 		reqCtx = coreusage.WithIsNativeKey(reqCtx, coreusage.IsNativeAccessProvider(provider))
+		reqCtx = clientkeys.Attach(c, reqCtx, provider, principal)
 		c.Request = c.Request.WithContext(reqCtx)
 		c.Set(codexlive.ClientSecretSessionContextKey, authorization.Session)
 		c.Set(codexlive.ClientSecretPrincipalContextKey, authorization.Principal)
