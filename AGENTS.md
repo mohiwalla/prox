@@ -5,6 +5,12 @@ Go 1.26+ proxy server providing OpenAI/Gemini/Claude/Codex compatible APIs with 
 ## Repository
 - GitHub: https://github.com/router-for-me/CLIProxyAPI
 
+## Change workflow
+
+For every repository change, find or open an issue on the project's GitHub remote before editing. This includes code, documentation, configuration, tests, assets, and workflow instructions, regardless of size.
+
+Work on a dedicated branch, verify the change, and open a pull request that links the issue. Include both links when reporting completion. Follow a different workflow only when the user explicitly requests it.
+
 ## Commands
 ```bash
 gofmt -w . # Format (required after Go changes)
