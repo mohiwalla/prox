@@ -3822,6 +3822,12 @@
         if (unsupported.length)
           return `This plan cannot use ${unsupported.map((c) => c.model_key).join(", ")}.`;
         if (a.quota_error) return a.quota_error;
+        if (a.unavailable && a.cooldowns.some((c) => ["quota", "credential_quota"].includes(c.reason))) {
+          const now = state.data.now;
+          const exhausted = a.windows.filter((w) => w.remaining === 0 &&
+            now - a.quota_at <= 900 && (!w.reset_at || w.reset_at > now));
+          if (exhausted.length) return exhausted.map((w) => w.label).join(", ") + " exhausted.";
+        }
         if (a.unavailable)
           return a.cooldowns.length
             ? "The proxy will retry eligible requests after cooldown."
@@ -4185,8 +4191,15 @@
           w = items[0]?.w,
           now = state.data.now,
           label = accountLabel(a, i),
-          [s, c] = status(a);
-        const head = `<div class="account-pool-head"><span class="mini-name"><span class="mini-label" title="${esc(label)}">${esc(label)}</span><span class="mini-plan">${esc(planLabel(a.plan))}</span></span><span class="tag ${c}">${morph(s)}</span></div>`;
+          stale = a.quota_error || !a.quota_at || now - a.quota_at > 900 ||
+            (w?.reset_at && w.reset_at <= now && a.quota_at < w.reset_at),
+          routing = status(a),
+          quotaCooldown = routing[0] === "Cooling down" &&
+            a.cooldowns.every((c) => ["credential_quota", "quota"].includes(c.reason)),
+          [s, c] = w && !stale && (routing[0] === "Ready" || quotaCooldown)
+            ? (w.remaining > 0 ? ["Quota available", "good"] : ["Limit reached", "warning"])
+            : routing;
+        const head = `<div class="account-pool-head"><span class="mini-name"><span class="mini-label" title="${esc(label)}">${esc(label)}</span><span class="mini-plan">${esc(planLabel(a.plan))}</span></span><span class="tag ${c}" title="${esc(statusReason(a))}">${morph(s)}</span></div>`;
         if (!w)
           return `<div class="account-pool" data-account="${esc(a.id)}">${head}<p class="mini-none">${a.windows.length ? `No ${esc(windowName(list.find((w) => w.id === metric) || { label: "such" }).toLowerCase())} limit on this plan` : "Quota not measured yet"}</p></div>`;
         const rate = drainFor(a, metric, now),
@@ -4196,11 +4209,7 @@
             now,
             now + state.hours * 0.7 * 3600,
           ),
-          empty = forecasts.find((r) => r.value <= 0.01),
-          stale =
-            a.quota_error ||
-            now - a.quota_at > 900 ||
-            (w.reset_at && w.reset_at <= now && a.quota_at < w.reset_at);
+          empty = forecasts.find((r) => r.value <= 0.01);
         return `<div class="account-pool" data-account="${esc(a.id)}">${head}<div class="pool-total"><div><div class="big-number">${morph(fmtPct(w.remaining))}<small>remaining</small></div>${stale ? '<div class="capacity-note">Last known quota</div>' : ""}</div><dl class="metrics"><div class="metric"><dt>Runs out</dt><dd>${morph(empty ? esc(dateLabel(empty.ts)) : forecasts.length ? "Beyond this view" : "Collecting history")}</dd></div><div class="metric"><dt>Next reset</dt><dd title="${esc(dateLabel(w.reset_at))}">${morph(w.reset_at > now ? esc(relative(w.reset_at)) : "Not reported")}</dd></div><div class="metric"><dt>Burn, last ${state.burn}h</dt><dd>${morph(rate !== null ? fmtPct(rate) + "/h" : "—")}</dd></div></dl></div>${state.view === "remaining" ? plot(`${p}-${i}`, label, items, metric) : ratePlot(items, metric)}</div>`;
       }
       function planLabel(plan) {
@@ -5000,16 +5009,39 @@
         $("#reset-error").textContent = text || "";
         $("#reset-error").hidden = !text;
       }
-      function confirmReset(id) {
+      let resetRead = 0;
+      async function confirmReset(id) {
         const a = accountById(id);
         if (!a?.resets) return;
         const label = labelFor(a),
-          items = a.resets.items || [],
           claude = a.provider === "claude";
         resetTarget = id;
         $("#reset-title").textContent = `Use a reset on ${label}?`;
         $("#reset-description").textContent =
           "Choose a reset. It clears this account's usage limits right away and can't be given back.";
+        const read = ++resetRead;
+        $("#reset-list").replaceChildren();
+        resetError("");
+        setBusy($("#reset-confirm"), true, "Checking resets…");
+        $("#reset-dialog").showModal();
+        $("#reset-cancel").focus();
+        let resets = a.resets;
+        if (!claude) {
+          try {
+            resets = await api("account/reset-options", { id });
+          } catch (e) {
+            if (read === resetRead) {
+              setBusy($("#reset-confirm"), false);
+              $("#reset-confirm").disabled = true;
+              resetError(e.message);
+            }
+            return;
+          }
+          if (read !== resetRead) return;
+          load();
+        }
+        const items = resets.available ? resets.items : [];
+        if (!items.length) $("#reset-description").textContent = "This account has no resets available.";
         const firstUsable = items.find((g) => !g.reason && g.left > 0);
         const until = (ts) => {
           const days = Math.round((ts - Date.now() / 1000) / 86400);
@@ -5048,13 +5080,12 @@
         $("#reset-confirm").textContent = "Use reset";
         $("#reset-confirm").idleHTML = $("#reset-confirm").innerHTML;
         $("#reset-confirm").disabled = !firstUsable;
-        $("#reset-dialog").showModal();
-        $("#reset-cancel").focus();
       }
       $("#reset-cancel").addEventListener("click", () =>
         $("#reset-dialog").close(),
       );
       $("#reset-dialog").addEventListener("close", () => {
+        resetRead++;
         const trigger =
           resetTarget && $(`[data-menu="${CSS.escape(resetTarget)}"]`);
         resetTarget = null;
