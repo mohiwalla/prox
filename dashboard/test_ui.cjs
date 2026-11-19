@@ -55,9 +55,12 @@ async function keysChecks(page, mock, until, url) {
   await page.locator(".keys [data-key-new]").click();
   await page.locator("#key-dialog[open]").waitFor();
   await page.locator("#key-name").fill("new");
-  await page.locator(".chip-option", { hasText: "Codex" }).click();
-  await page.locator(".reset-row", { hasText: "a@example.com" }).click();
+  const claudeAccount = page.locator(".reset-row", { hasText: "b@example.com" });
   assert.match(await page.locator("#key-accounts").innerText(), /Paused/);
+  await claudeAccount.click();
+  await page.locator(".chip-option", { hasText: "Codex" }).click();
+  assert.equal(await claudeAccount.isVisible(), false);
+  await page.locator(".reset-row", { hasText: "a@example.com" }).click();
   await page.locator("#key-model-input").fill("GPT-5*");
   await page.keyboard.press("Enter");
   await page.locator("#key-limit").fill("abc");
