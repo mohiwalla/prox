@@ -5716,6 +5716,24 @@
             : "No limit. Type a number like 5M or 500k to cap tokens over any 7 days.";
         return n;
       }
+      function filterKeyAccounts() {
+        const selected = new Set($$('input[name="key-provider"]:checked').map((input) => input.value));
+        let visible = false;
+        for (const group of $$("#key-accounts [data-account-provider]")) {
+          const provider = group.dataset.accountProvider;
+          group.hidden = selected.size > 0 && !selected.has(provider);
+          if (!group.hidden) visible = true;
+          // Preserve stored restrictions for accounts whose provider is unknown.
+          if (group.hidden && provider)
+            for (const input of $$("input", group)) input.checked = false;
+        }
+        const empty = $("#key-accounts .key-empty");
+        empty.hidden = visible;
+        empty.textContent = selected.size
+          ? "No accounts for the selected providers."
+          : "No accounts are signed in.";
+      }
+      $("#key-providers").addEventListener("change", filterKeyAccounts);
       function openKeyDialog(id) {
         const k = id ? keyById(id) : null,
           options = state.keys.options || { providers: [], accounts: [], models: [] };
@@ -5748,7 +5766,7 @@
         $("#key-accounts").innerHTML = groups
           .map(
             (g) =>
-              `<div><div class="account-group-title">${esc(g ? pName(g) : "No longer signed in")}</div><div class="reset-list">${accounts
+              `<div data-account-provider="${esc(g)}"><div class="account-group-title">${esc(g ? pName(g) : "No longer signed in")}</div><div class="reset-list">${accounts
                 .filter((a) => a.provider === g)
                 .map(
                   (a) =>
@@ -5756,7 +5774,8 @@
                 )
                 .join("")}</div></div>`,
           )
-          .join("") || '<p class="key-empty">No accounts are signed in.</p>';
+          .join("") + '<p class="key-empty"></p>';
+        filterKeyAccounts();
         $("#key-model-options").innerHTML = options.models
           .map((m) => `<option value="${esc(m.id)}"></option>`)
           .join("");
