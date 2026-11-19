@@ -12,6 +12,10 @@ CLIProxyAPI setup; this is an independent implementation.
 - Accounts: rotation switch, sign in again, reset cooldown, remove (with confirmation).
 - **Add login** for every sign-in CLIProxyAPI offers: Claude, Codex, Antigravity, xAI,
   Kimi (kimi.com and kimi.ai), Devin and Meta. Quota charts cover Codex and Antigravity.
+- Keys: give each client its own API key, limited to chosen providers, accounts and model
+  patterns, with a weekly token cap; enable, edit, rotate or delete it, and see its 7-day
+  usage by hour or day, by model and by account. Needs a CLIProxyAPI with client keys
+  (`/v8/management/access/client-keys`). A key's secret is shown once, after create or rotate.
 - Logs: failed-request logs with a viewer, and a live activity tail (opt-in: it turns on
   the proxy's file logging only when you click Enable).
 - Sonner toasts, Torph text morphing, keyboard navigation, reduced-motion support.
@@ -75,7 +79,8 @@ History is recorded every 30 seconds into `data/quota.sqlite` (private permissio
 sent to the browser downsampled to about 720 points per series (gzip-compressed),
 and retained for 30 days. No history is invented. Forecasts need ten minutes of recent,
 contiguous samples for every measured account; consumption excludes reset increases.
-The dashboard never changes routing.
+Apart from client keys (which decide what each client may use) and the account actions
+above, the dashboard never changes routing.
 
 ## Operate
 
@@ -92,6 +97,11 @@ systemctl --user status cliproxy-dashboard
 ```
 
 Browser tests (Playwright + Chrome): `DASHBOARD_SOURCE=1 node dashboard/test_ui.cjs`
-(set `DASHBOARD_URL` to test through a public host).
+(set `DASHBOARD_URL` to test through a public host). `DASHBOARD_ONLY=keys` runs only the
+Keys checks, and `DASHBOARD_KEY_FILE` points at another `credentials.json`.
+
+To try changes against a test proxy instead of the real one, run a second copy:
+`CPA_URL=http://127.0.0.1:18317 DASHBOARD_PORT=18318 DASHBOARD_CREDENTIALS=/tmp/test/credentials.json
+DASHBOARD_DATA=/tmp/test/data python3 dashboard/server.py`.
 
 The design audit, direction and attributions are in `DESIGN.md`.

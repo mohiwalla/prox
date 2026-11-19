@@ -405,7 +405,7 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request("snapshot", cookie=cookie)[0], 401)
 
     def test_each_page_path_serves_the_app(self):
-        for path, expected in [("/dashboard/", 200), ("/dashboard/accounts", 200), ("/dashboard/logs/", 200),
+        for path, expected in [("/dashboard/", 200), ("/dashboard/accounts", 200), ("/dashboard/keys", 200), ("/dashboard/logs/", 200),
                                ("/dashboard/settings", 401)]:
             conn = http.client.HTTPConnection("127.0.0.1", self.server.server_port)
             conn.request("GET", path, headers={"Host": "localhost:8318"})
@@ -561,6 +561,122 @@ class HTTPTests(unittest.TestCase):
             self.assertEqual(conn.getresponse().status, 403)
         conn.close()
         request.assert_not_called()
+
+    # --- Client keys ---------------------------------------------------------------
+
+    KEY = {"id": "ck_0123456789ab", "name": "alice", "hint": "abcd", "enabled": True, "providers": ["codex"],
+           "accounts": [], "models": ["gpt-5*"], "weekly_token_limit": 5000000, "weekly_tokens": 1200,
+           "created_at": "2026-11-15T00:00:00Z", "updated_at": "2026-11-15T00:00:00Z"}
+    SECRET = "cpk_" + "a1" * 24
+
+    def test_client_keys_need_a_session_and_csrf_checks(self):
+        with patch.object(self.hub, "request") as request:
+            self.assertEqual(self.request("keys")[0], 401)
+            self.assertEqual(self.request("keys/usage")[0], 401)
+            self.assertEqual(self.request("keys/create", {"name": "alice"})[0], 401)
+            cookie = self.login()
+            self.assertEqual(self.request("keys/create", {"name": "alice"}, cookie=cookie, origin="https://evil.example")[0], 403)
+            conn = http.client.HTTPConnection("127.0.0.1", self.server.server_port)
+            conn.request("POST", "/dashboard/api/keys/delete", body=json.dumps({"id": self.KEY["id"]}),
+                         headers={"Host": "localhost:8318", "Cookie": cookie, "Content-Type": "application/json"})
+            self.assertEqual(conn.getresponse().status, 403)
+            conn.close()
+        request.assert_not_called()
+
+    def test_client_key_input_is_validated_before_the_proxy(self):
+        cookie = self.login()
+        bad = [("keys/create", {}), ("keys/create", {"name": "  "}), ("keys/create", {"name": "a\nb"}),
+               ("keys/create", {"name": "x" * 81}),
+               ("keys/create", {"name": "a", "weekly_token_limit": -1}),
+               ("keys/create", {"name": "a", "weekly_token_limit": True}),
+               ("keys/create", {"name": "a", "weekly_token_limit": "5M"}),
+               ("keys/create", {"name": "a", "weekly_token_limit": 10**16}),
+               ("keys/create", {"name": "a", "models": ["gpt 5"]}),
+               ("keys/create", {"name": "a", "models": "gpt-5"}),
+               ("keys/create", {"name": "a", "providers": ["Codex/../x"]}),
+               ("keys/create", {"name": "a", "enabled": "yes"}),
+               ("keys/update", {"id": self.KEY["id"]}),
+               ("keys/update", {"id": "../config", "name": "a"}),
+               ("keys/rotate", {"id": "ck_ABC"}), ("keys/delete", {}),
+               ("keys/usage?key=ck_x/../y", None)]
+        with patch.object(self.hub, "request") as request:
+            for path, body in bad:
+                status, data, _ = self.request(path, body, cookie=cookie)
+                self.assertEqual(status, 400, (path, body))
+                self.assertIn("error", data)
+        request.assert_not_called()
+
+    def test_client_key_create_sends_clean_fields_and_returns_the_secret_once(self):
+        cookie = self.login()
+        result = {"key": {**self.KEY, "hash": "deadbeef"}, "secret": self.SECRET}
+        with patch.object(self.hub, "request", return_value=result) as request:
+            status, data, _ = self.request("keys/create", {
+                "name": " alice ", "providers": ["Codex", "codex"], "accounts": ["codex-a@b.json"],
+                "models": ["GPT-5*"], "weekly_token_limit": 5000000, "extra": "ignored"}, cookie=cookie)
+        self.assertEqual(status, 201)
+        request.assert_called_once_with("access/client-keys", {
+            "name": "alice", "providers": ["codex"], "accounts": ["codex-a@b.json"], "models": ["gpt-5*"],
+            "weekly_token_limit": 5000000}, "POST")
+        self.assertEqual(data["secret"], self.SECRET)
+        self.assertNotIn("hash", data["key"])
+        self.assertEqual(data["key"]["hint"], "abcd")
+        # A malformed secret from the proxy is not passed on.
+        with patch.object(self.hub, "request", return_value={"key": self.KEY, "secret": "oops"}):
+            self.assertEqual(self.request("keys/create", {"name": "a"}, cookie=cookie)[0], 400)
+
+    def test_client_key_secret_is_only_returned_by_create_and_rotate(self):
+        cookie = self.login()
+        leaky = {**self.KEY, "secret": self.SECRET, "hash": "deadbeef"}
+        with patch.object(self.hub, "request", return_value={"keys": [leaky]}) as request:
+            status, data, _ = self.request("keys", cookie=cookie)
+        request.assert_called_once_with("access/client-keys")
+        self.assertEqual(status, 200)
+        self.assertEqual(data["keys"], [self.KEY])
+        self.assertNotIn(self.SECRET, json.dumps(data))
+        with patch.object(self.hub, "request", return_value={"key": leaky, "secret": self.SECRET}) as request:
+            status, data, _ = self.request("keys/update", {"id": self.KEY["id"], "enabled": False,
+                                                          "weekly_token_limit": 0}, cookie=cookie)
+        request.assert_called_once_with(f"access/client-keys/{self.KEY['id']}", {"enabled": False, "weekly_token_limit": 0}, "PATCH")
+        self.assertEqual(status, 200)
+        self.assertNotIn(self.SECRET, json.dumps(data))
+        with patch.object(self.hub, "request", return_value={"key": self.KEY, "secret": self.SECRET}) as request:
+            status, data, _ = self.request("keys/rotate", {"id": self.KEY["id"]}, cookie=cookie)
+        request.assert_called_once_with(f"access/client-keys/{self.KEY['id']}/rotate", {}, "POST")
+        self.assertEqual((status, data["secret"]), (200, self.SECRET))
+        with patch.object(self.hub, "request", return_value={"status": "ok"}) as request:
+            status, data, _ = self.request("keys/delete", {"id": self.KEY["id"]}, cookie=cookie)
+        request.assert_called_once_with(f"access/client-keys/{self.KEY['id']}", method="DELETE")
+        self.assertEqual((status, data), (200, {"status": "ok"}))
+
+    def test_client_key_usage_and_options_pass_only_known_fields(self):
+        cookie = self.login()
+        bucket = {"key_id": self.KEY["id"], "hour": "2026-11-15T05:00:00Z", "provider": "codex", "account": "a",
+                  "model": "gpt-5", "requests": 3, "failed": 1, "input_tokens": 300, "output_tokens": 150,
+                  "cache_read_tokens": 20, "tokens": 450, "client_ip": "203.0.113.9"}
+        with patch.object(self.hub, "request", return_value={"since": "2026-11-08T06:00:00Z", "buckets": [bucket]}) as request:
+            status, data, _ = self.request(f"keys/usage?hours=99999&key={self.KEY['id']}", cookie=cookie)
+        request.assert_called_once_with(f"access/client-keys/usage?hours=2160&key={self.KEY['id']}")
+        self.assertEqual(status, 200)
+        self.assertEqual(data["buckets"][0]["hour"], 1794718800.0)
+        self.assertEqual(data["buckets"][0]["tokens"], 450)
+        self.assertNotIn("client_ip", data["buckets"][0])
+        options = {"providers": ["codex"], "accounts": [{"id": "a", "provider": "codex", "label": "a@b", "disabled": False,
+                                                         "token": "secret"}], "models": [{"id": "gpt-5", "providers": ["codex"]}]}
+        with patch.object(self.hub, "request", return_value=options):
+            status, data, _ = self.request("keys/options", cookie=cookie)
+        self.assertEqual(status, 200)
+        self.assertNotIn("token", data["accounts"][0])
+
+    def test_client_key_proxy_errors_are_explained(self):
+        cookie = self.login()
+        with patch.object(self.hub, "request", side_effect=ProxyError(404, b'{"error":"client key not found"}')):
+            status, data, _ = self.request("keys/delete", {"id": self.KEY["id"]}, cookie=cookie)
+        self.assertEqual(status, 404)
+        self.assertIn("no longer exists", data["error"])
+        with patch.object(self.hub, "request", side_effect=ProxyError(404, b"404 page not found")):
+            status, data, _ = self.request("keys", cookie=cookie)
+        self.assertEqual(status, 502)
+        self.assertIn("Update CLIProxyAPI", data["error"])
 
 
 class CooldownTests(unittest.TestCase):

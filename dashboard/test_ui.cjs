@@ -5,6 +5,124 @@ const os = require("os");
 const artifacts = path.join(__dirname, "artifacts");
 fs.mkdirSync(artifacts, { recursive: true });
 const assert = require("assert/strict");
+// Keys page, against mocked /api/keys* routes: no real key is created or changed.
+async function keysChecks(page, mock, until, url) {
+  const now = Date.now() / 1000;
+  const hour = Math.floor(now / 3600) * 3600;
+  const keys = [
+    { id: "ck_aaaaaaaaaaaa", name: "alice", hint: "abcd", enabled: true, providers: ["codex"], accounts: [],
+      models: ["gpt-5*"], weekly_token_limit: 1000, weekly_tokens: 1200, created_at: null, updated_at: null },
+    { id: "ck_bbbbbbbbbbbb", name: "ci-bot", hint: "wxyz", enabled: true, providers: [], accounts: [],
+      models: [], weekly_token_limit: 0, weekly_tokens: 450, created_at: null, updated_at: null },
+  ];
+  const secret = "cpk_" + "f0".repeat(24);
+  await page.route("**/dashboard/api/keys", (route) =>
+    route.fulfill({ json: { keys, base_url: "https://box.tail.ts.net:8317" } }),
+  );
+  await page.route("**/dashboard/api/keys/options", (route) =>
+    route.fulfill({ json: {
+      providers: ["claude", "codex"],
+      accounts: [{ id: "codex-a.json", provider: "codex", label: "a@example.com", disabled: false },
+                 { id: "claude-b.json", provider: "claude", label: "b@example.com", disabled: true }],
+      models: [{ id: "gpt-5", providers: ["codex"] }, { id: "claude-opus-5", providers: ["claude"] }],
+    } }),
+  );
+  await page.route("**/dashboard/api/keys/usage*", (route) =>
+    route.fulfill({ json: { since: now - 7 * 86400, buckets: [
+      { key_id: "ck_bbbbbbbbbbbb", hour, provider: "codex", account: "codex-a.json", model: "gpt-5",
+        requests: 2, failed: 0, input_tokens: 200, output_tokens: 100, cache_read_tokens: 0, tokens: 300 },
+      { key_id: "ck_bbbbbbbbbbbb", hour: hour - 7200, provider: "claude", account: "claude-b.json", model: "claude-opus-5",
+        requests: 1, failed: 1, input_tokens: 100, output_tokens: 50, cache_read_tokens: 10, tokens: 150 },
+    ] } }),
+  );
+  const created = await mock("**/dashboard/api/keys/create", { key: { ...keys[1], id: "ck_cccccccccccc", name: "new" }, secret });
+  const updated = await mock("**/dashboard/api/keys/update", { key: { ...keys[1], enabled: false } });
+  const rotated = await mock("**/dashboard/api/keys/rotate", { key: keys[1], secret });
+  const deleted = await mock("**/dashboard/api/keys/delete", { status: "ok" });
+  await page.locator('[data-page="keys"]').click();
+  await page.waitForFunction(() => document.querySelector("#page-title").textContent.trim() === "Keys");
+  assert.equal(new URL(page.url()).pathname, "/dashboard/keys");
+  await page.locator(".key-row").nth(1).waitFor();
+  assert.equal(await page.locator(".key-row").count(), 2);
+  assert.match(await page.locator(".key-row").first().innerText(), /cpk_…abcd/);
+  assert.equal(await page.locator(".key-row").nth(1).locator(".tag").innerText(), "Any");
+  assert.equal(await page.locator(".key-row").first().locator(".meter.full").count(), 1, "Over the limit shows a full bar");
+  // A reload keeps the page.
+  await page.reload();
+  await page.locator(".key-row").first().waitFor();
+
+  // Create: chips, readable limit, then the secret is shown once.
+  await page.locator(".keys [data-key-new]").click();
+  await page.locator("#key-dialog[open]").waitFor();
+  await page.locator("#key-name").fill("new");
+  await page.locator(".chip-option", { hasText: "Codex" }).click();
+  await page.locator(".reset-row", { hasText: "a@example.com" }).click();
+  assert.match(await page.locator("#key-accounts").innerText(), /Paused/);
+  await page.locator("#key-model-input").fill("GPT-5*");
+  await page.keyboard.press("Enter");
+  await page.locator("#key-limit").fill("abc");
+  assert.equal(await page.locator("#key-limit").getAttribute("aria-invalid"), "true");
+  await page.locator("#key-limit").fill("5m");
+  await page.locator("#key-limit").blur();
+  assert.equal(await page.locator("#key-limit").inputValue(), "5M");
+  assert.match(await page.locator("#key-limit-help").innerText(), /5,000,000/);
+  await page.locator("#key-save").click();
+  await page.locator("#secret-dialog[open]").waitFor();
+  assert.deepEqual(created, [{ name: "new", providers: ["codex"], accounts: ["codex-a.json"], models: ["gpt-5*"], weekly_token_limit: 5000000 }]);
+  assert.equal(await page.locator("#secret-key").innerText(), secret);
+  assert.match(await page.locator("#secret-example").innerText(), /https:\/\/box\.tail\.ts\.net:8317\/v1\/chat\/completions/);
+  assert.match(await page.locator("#secret-dialog").innerText(), /won’t see this key again/);
+  await page.locator("#secret-done").click();
+  await page.locator("#secret-dialog").waitFor({ state: "hidden" });
+  assert.equal(await page.locator("#secret-key").textContent(), "", "The secret leaves the page with its dialog");
+
+  // The switch disables a key.
+  await page.locator('[data-key-enabled="ck_bbbbbbbbbbbb"]').click();
+  await until(() => updated.length);
+  assert.deepEqual(updated, [{ id: "ck_bbbbbbbbbbbb", enabled: false }]);
+
+  // Usage: chart with keyboard inspection, and breakdowns by model and account.
+  await page.locator('[data-key-open="ck_bbbbbbbbbbbb"]').click();
+  await page.locator("[data-key-chart]").waitFor();
+  await page.locator("[data-key-chart]").focus();
+  await page.keyboard.press("End");
+  assert.match(await page.locator("[data-key-chart] .chart-inspect").innerText(), /300 tokens, 2 requests/);
+  const breakdowns = await page.locator(".key-breakdowns").innerText();
+  assert.match(breakdowns, /gpt-5[\s\S]*300[\s\S]*2 req/);
+  assert.match(breakdowns, /b@example\.com[\s\S]*150[\s\S]*1 req · 1 failed/);
+  await page.locator('[data-key-unit="day"]').click();
+  assert.equal(await page.locator('[data-key-unit="day"]').getAttribute("aria-pressed"), "true");
+
+  // Rotate and delete confirm first; Cancel sends nothing and returns focus.
+  await page.locator("[data-key-rotate]").click();
+  await page.locator("#confirm-dialog[open]").waitFor();
+  await page.keyboard.press("Escape");
+  await page.locator("#confirm-dialog").waitFor({ state: "hidden" });
+  assert.equal(await page.evaluate(() => document.activeElement.hasAttribute("data-key-rotate")), true);
+  assert.deepEqual(rotated, []);
+  await page.locator("[data-key-rotate]").click();
+  await page.locator("#confirm-remove").click();
+  await page.locator("#secret-dialog[open]").waitFor();
+  assert.deepEqual(rotated, [{ id: "ck_bbbbbbbbbbbb" }]);
+  await page.locator("#secret-done").click();
+  await page.locator("[data-key-delete]").click();
+  await page.locator("#confirm-dialog[open]").waitFor();
+  assert.equal(await page.locator("#confirm-remove").innerText(), "Delete key");
+  await page.locator("#confirm-remove").click();
+  await until(() => deleted.length);
+  assert.deepEqual(deleted, [{ id: "ck_bbbbbbbbbbbb" }]);
+
+  // Phone width: no sideways scroll.
+  const size = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(300);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await page.setViewportSize(size);
+  await page.unroute("**/dashboard/api/keys");
+  await page.unroute("**/dashboard/api/keys/options");
+  await page.unroute("**/dashboard/api/keys/usage*");
+  for (const route of ["create", "update", "rotate", "delete"]) await page.unroute(`**/dashboard/api/keys/${route}`);
+}
 (async () => {
   const browser = await chromium.launch({
     headless: true,
@@ -28,6 +146,7 @@ const assert = require("assert/strict");
   };
   await page.route("**/dashboard/api/account/**", guard);
   await page.route("**/dashboard/api/logs/activity/enable", guard);
+  await page.route("**/dashboard/api/keys/**", guard);
   const until = async (check) => {
     for (let i = 0; i < 60 && !check(); i++) await page.waitForTimeout(50);
   };
@@ -44,7 +163,7 @@ const assert = require("assert/strict");
   if (process.env.DASHBOARD_SOURCE)
     // Every page path serves the local file: /dashboard/, /accounts, /logs.
     await page.route(
-      new RegExp(`^${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(accounts|logs)?(#.*)?$`),
+      new RegExp(`^${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(accounts|keys|logs)?(#.*)?$`),
       (route) =>
       route.fulfill({
         contentType: "text/html",
@@ -67,13 +186,24 @@ const assert = require("assert/strict");
     .fill(
       JSON.parse(
         fs.readFileSync(
-          path.join(os.homedir(), "cliproxyapi", "credentials.json"),
+          process.env.DASHBOARD_KEY_FILE ||
+            path.join(os.homedir(), "cliproxyapi", "credentials.json"),
         ),
       ).management_key,
     );
   await page
     .getByRole("button", { name: "Open dashboard", exact: true })
     .click();
+  // DASHBOARD_ONLY=keys runs just the Keys checks (e.g. against a test proxy with no quota accounts).
+  if (process.env.DASHBOARD_ONLY === "keys") {
+    await page.locator("#app:not([hidden])").waitFor();
+    await keysChecks(page, mock, until, url);
+    assert.deepEqual(escaped, [], "No real key mutation escaped");
+    assert.deepEqual(errors, [], "No page errors");
+    console.log(JSON.stringify({ passed: true, checks: ["keys (mocked)"] }));
+    await browser.close();
+    return;
+  }
   await page.locator('[data-pool="codex"]').waitFor();
   await page.evaluate(() => document.fonts.ready);
   // Quota cards: one per provider with a quota reader that has accounts.
@@ -744,6 +874,7 @@ const assert = require("assert/strict");
   await page.unroute("**/dashboard/api/logs/activity*");
   await page.unroute("**/dashboard/api/logs/errors");
   await page.unroute("**/dashboard/api/logs/errors/file*");
+  await keysChecks(page, mock, until, url);
 
   // One-time setup info lives in the README, not the sidebar.
   assert.equal(await page.locator('[data-page="connection"]').count(), 0);
@@ -1126,6 +1257,7 @@ const assert = require("assert/strict");
         "clean URLs with reload, back/forward and old #hash links",
         "page heading and sidebar highlight correct from first paint",
         "logs: errors viewer and activity states (mocked)",
+        "keys: list, create, edit, rotate, delete and usage (mocked)",
         "no mutation reached the real proxy",
         "no connection page",
         "tailnet sign-in hides Sign out",
