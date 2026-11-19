@@ -225,6 +225,19 @@ async function keysChecks(page, mock, until, url) {
     await page.locator('[data-pool="codex"] .account-pool').first().isVisible(),
     true,
   );
+  const quotaBadges = await page.evaluate(() => {
+    const a = { ...state.data.accounts.find((a) => a.provider === "codex"),
+      disabled: false, requires_sign_in: false, unavailable: true, quota_error: null,
+      cooldowns: [{ reason: "credential_quota" }], quota_at: state.data.now,
+      windows: [{ id: "short", label: "5-hour limit", remaining: 100 },
+                { id: "long", label: "Weekly limit", remaining: 0 }] };
+    return a.windows.map((w) => {
+      const row = document.createElement("div");
+      row.innerHTML = accountQuota("codex", a, 0, w.id, a.windows);
+      return row.querySelector(".tag").textContent;
+    }).concat(status(a)[0], statusReason(a));
+  });
+  assert.deepEqual(quotaBadges, ["Quota available", "Limit reached", "Cooling down", "Weekly limit exhausted."]);
   const counts = await page.evaluate(() => ({
     accounts: dashboard.state.data.accounts.length,
     measured: dashboard.state.data.accounts.filter((a) => a.windows.length)
@@ -624,6 +637,10 @@ async function keysChecks(page, mock, until, url) {
     ],
   });
   if (codexId) {
+    // The earlier credit was spent outside the dashboard after the snapshot.
+    await mock("**/dashboard/api/account/reset-options", {
+      available: 1, items: [resetFixtures.codex.items[1]],
+    });
     assert.match(
       await page.locator(`.account-row[data-account="${codexId}"] .reset-count`).textContent(),
       /2 resets/,
@@ -631,9 +648,9 @@ async function keysChecks(page, mock, until, url) {
     await resetMenu(codexId);
     await menuItem("Use a reset").click();
     await page.locator("#reset-dialog[open]").waitFor();
-    assert.equal(await page.locator('#reset-list input[name="reset-grant"]').count(), 2);
-    // The soonest-expiring reset is preselected; any other can be chosen.
-    assert.equal(await page.locator('#reset-list input[value="c1"]').isChecked(), true);
+    await page.locator('#reset-list input[value="c2"]').waitFor();
+    assert.equal(await page.locator('#reset-list input[name="reset-grant"]').count(), 1);
+    assert.equal(await page.locator('#reset-list input[value="c2"]').isChecked(), true);
     await page.locator("#reset-cancel").click();
     assert.equal(resetBodies.length, 0, "Cancel spends nothing");
     await resetMenu(codexId);

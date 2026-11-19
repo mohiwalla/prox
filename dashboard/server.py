@@ -260,14 +260,16 @@ def parse_claude_plan(profile):
     return None
 
 
-def parse_codex_resets(data):
+def parse_codex_resets(data, now=None):
+    now = time.time() if now is None else now
     credits = sorted((c for c in data.get("credits") or [] if isinstance(c, dict)
                       and c.get("reset_type") == "codex_rate_limits" and c.get("status") == "available"
-                      and timestamp(c.get("expires_at"))), key=lambda c: timestamp(c["expires_at"]))
+                      and c.get("id") and not c.get("redeemed_at") and not c.get("redeem_started_at")
+                      and (timestamp(c.get("expires_at")) or 0) > now), key=lambda c: timestamp(c["expires_at"]))
     items = [{"id": str(c.get("id") or ""), "label": str(c.get("title") or "Full reset")[:80], "left": 1, "total": 1,
               "expires_at": timestamp(c["expires_at"]), "reason": None} for c in credits]
     count = number(data.get("available_count"))
-    return {"available": int(count) if count is not None else len(items), "items": items}
+    return {"available": min(max(0, int(count)), len(items)) if count is not None else len(items), "items": items}
 
 
 CLAUDE_GRANT_ID = re.compile(r"[a-z0-9_-]{1,40}")
@@ -318,10 +320,11 @@ def parse_claude_resets(status, now=None):
 
 def safe_account(raw, quota=None):
     # Deliberately enumerate fields. Never relay raw credentials, id_token, paths or headers.
+    now = time.time()
     cooldowns = [{k: c.get(k) for k in ["scope", "model_key", "reason", "retry_at", "http_status"]}
-                 for c in raw.get("cooldowns", [])]
+                 for c in raw.get("cooldowns", []) if (timestamp(c.get("retry_at")) or 0) > now]
     plan = (quota or {}).get("plan") or raw.get("id_token", {}).get("plan_type") or "Unknown"
-    retry = [t for t in (timestamp(c.get("retry_at")) for c in raw.get("cooldowns", [])) if t]
+    retry = [t for t in (timestamp(c.get("retry_at")) for c in cooldowns) if t]
     return {"id": raw["auth_index"], "provider": raw.get("provider", raw.get("type")),
             "email": raw.get("email") or raw.get("label") or "", "name": raw.get("name", ""),
             "plan": plan, "disabled": bool(raw.get("disabled")), "status": raw.get("status", "unknown"),
@@ -714,7 +717,7 @@ class Hub:
             with self.lock:
                 if idx in self.quotas:
                     self.quotas[idx]["resets"] = fresh
-            ids = [i["id"] for i in fresh["items"]]
+            ids = [i["id"] for i in fresh["items"]] if fresh["available"] else []
             credit_id = credit_id or next(iter(ids), None)
             if not credit_id:
                 raise ValueError("This account has no resets left.")
@@ -969,6 +972,8 @@ class Handler(BaseHTTPRequestHandler):
             hours = int(urllib.parse.parse_qs(url.query).get("hours", ["24"])[0])
             self.send(200, self.hub.snapshot(min(max(hours, 1), 24 * 30)))
         elif path == "/api/refresh" and self.command == "POST":
+            with self.hub.lock:
+                self.hub.reset_reads.clear()
             self.hub.wake.set()
             self.send(202, {"ok": True})
         elif path == "/api/account/status" and self.command == "POST":
@@ -1014,6 +1019,15 @@ class Handler(BaseHTTPRequestHandler):
                     self.hub.wake.set()
             # OAuth status can include credential records. Return only status and a generic error.
             self.send(200, {"status": result.get("status", "ok"), "error": "Sign-in failed or expired. Start again." if result.get("error") else None})
+        elif path == "/api/account/reset-options" and self.command == "POST":
+            raw = self.hub.account(str(body.get("id", "")))
+            if not raw or raw.get("provider") != "codex":
+                raise ValueError("Select a Codex account to check its reset credits.")
+            resets = self.hub.fetch_codex_resets(raw)
+            with self.hub.lock:
+                if raw["auth_index"] in self.hub.quotas:
+                    self.hub.quotas[raw["auth_index"]]["resets"] = resets
+            self.send(200, resets)
         elif path == "/api/account/reset" and self.command == "POST":
             raw = self.hub.account(str(body.get("id", "")))
             if raw is None:

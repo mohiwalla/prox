@@ -164,7 +164,9 @@ class QuotaTests(unittest.TestCase):
             {"id": "b", "reset_type": "codex_rate_limits", "status": "available", "title": "Full reset", "expires_at": "2026-12-02T00:00:00Z"},
             {"id": "a", "reset_type": "codex_rate_limits", "status": "available", "expires_at": "2026-12-01T00:00:00Z"},
             {"id": "used", "reset_type": "codex_rate_limits", "status": "redeemed", "expires_at": "2026-12-01T00:00:00Z"},
-            {"id": "other", "reset_type": "something_else", "status": "available", "expires_at": "2026-12-01T00:00:00Z"}]})
+            {"id": "other", "reset_type": "something_else", "status": "available", "expires_at": "2026-12-01T00:00:00Z"},
+            {"id": "expired", "reset_type": "codex_rate_limits", "status": "available", "expires_at": 1},
+            {"id": "spent", "reset_type": "codex_rate_limits", "status": "available", "redeemed_at": 1, "expires_at": 10}]}, now=5)
         self.assertEqual(result["available"], 2)
         self.assertEqual([(i["id"], i["label"]) for i in result["items"]], [("a", "Full reset"), ("b", "Full reset")])
 
@@ -486,6 +488,18 @@ class HTTPTests(unittest.TestCase):
                 self.assertEqual(self.request(f"account/{action}", {"id": "missing"}, cookie=cookie)[0], 404)
         request.assert_not_called()
 
+    def test_reset_options_replaces_externally_spent_credit_without_consuming(self):
+        self.hub.quotas["a"] = {"resets": {"available": 2}}
+        cookie = self.login()
+        response = {"credits": [{"id": "remaining", "reset_type": "codex_rate_limits",
+                                 "status": "available", "expires_at": time.time() + 600}]}
+        with patch.object(self.hub, "call", return_value=(200, response)) as call:
+            status, options, _ = self.request("account/reset-options", {"id": "a"}, cookie=cookie)
+        self.assertEqual((status, options["available"], options["items"][0]["id"]), (200, 1, "remaining"))
+        self.assertEqual(self.hub.quotas["a"]["resets"], options)
+        call.assert_called_once()
+        self.assertEqual(call.call_args.args[1], "GET")
+
     def test_cooldown_reset_uses_auth_index_and_refreshes(self):
         cookie = self.login()
         self.hub.wake.clear()
@@ -691,7 +705,12 @@ class CooldownTests(unittest.TestCase):
         raw = {"auth_index": "a", "provider": "codex", "cooldowns": [
             {"reason": "quota", "retry_at": "2026-11-13T03:00:00Z"},
             {"reason": "quota", "retry_at": "2026-11-13T04:00:00Z"}]}
-        self.assertEqual(safe_account(raw)["cooldown_until"], 1794542400.0)
+        with patch("server.time.time", return_value=1794542399):
+            account = safe_account(raw)
+            self.assertEqual(account["cooldown_until"], 1794542400.0)
+            self.assertEqual(len(account["cooldowns"]), 1)
+        with patch("server.time.time", return_value=1794542400):
+            self.assertEqual(safe_account(raw)["cooldowns"], [])
         self.assertIsNone(safe_account({"auth_index": "b", "provider": "codex"})["cooldown_until"])
 
 
