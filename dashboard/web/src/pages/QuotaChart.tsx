@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { dateLabel, fmtPct } from "../lib/format";
 import {
   forecastPoints,
@@ -32,22 +32,26 @@ export function QuotaChart({
   const figRef = useRef<HTMLElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dataGroupRef = useRef<SVGGElement | null>(null);
+  const crosshairRef = useRef<SVGGElement | null>(null);
+  const lineRef = useRef<SVGLineElement | null>(null);
+  const haloRef = useRef<SVGCircleElement | null>(null);
+  const dotRef = useRef<SVGCircleElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const tipLabelRef = useRef<HTMLDivElement | null>(null);
+  const tipSwatchRef = useRef<HTMLElement | null>(null);
+  const tipKindRef = useRef<HTMLSpanElement | null>(null);
+  const tipValueRef = useRef<HTMLElement | null>(null);
+  const inspectRef = useRef<HTMLSpanElement | null>(null);
+
   const drawnRef = useRef(false);
-  const rafRef = useRef<number>(0);
-  const lastClientXRef = useRef<number>(0);
+  const rafRef = useRef(0);
+  const lastClientXRef = useRef(0);
+  const inspectedAtRef = useRef<number | null>(null);
 
   const [size, setSize] = useState<{ w: number; h: number }>(() => {
     const mobile = typeof window !== "undefined" && window.innerWidth <= 760;
     return { w: mobile ? 340 : 950, h: mobile ? 200 : 240 };
   });
-  const [inspected, setInspected] = useState<ChartPoint | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     const el = figRef.current;
@@ -68,10 +72,11 @@ export function QuotaChart({
     };
   }, []);
 
-  // Clear inspection when metric/range/forecast changes.
   useEffect(() => {
-    setInspected(null);
-  }, [metric, hours, showForecast, burn]);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   // Draw-in animation on first mount, respecting reduced motion.
   useEffect(() => {
@@ -135,15 +140,15 @@ export function QuotaChart({
     const bottom = 32;
     const x = (t: number) =>
       left + ((t - start) / (end - start)) * (W - left - right);
-    const y = (v: number) =>
-      H - bottom - (v / cap) * (H - top - bottom);
+    const y = (v: number) => H - bottom - (v / cap) * (H - top - bottom);
 
     const yTicks = [0, 1, 2].map((i) => {
       const v = (cap * i) / 2;
       return { v, py: y(v) };
     });
 
-    const tickCount = typeof window !== "undefined" && window.innerWidth <= 760 ? 3 : 6;
+    const tickCount =
+      typeof window !== "undefined" && window.innerWidth <= 760 ? 3 : 6;
     const xTicks = Array.from({ length: tickCount + 1 }, (_, i) => {
       const ts = start + ((end - start) * i) / tickCount;
       const tickLabel = new Date(ts * 1000).toLocaleString(
@@ -169,6 +174,11 @@ export function QuotaChart({
         : "";
     const forecastPath = forecast.length ? monotonePath(forecast, x, y) : "";
     const latest = points[points.length - 1] || null;
+    const idleCaption = forecast.length
+      ? "Estimate from recent usage"
+      : !showForecast
+        ? "Forecast hidden"
+        : "Forecast needs 10+ minutes of recent samples";
 
     return {
       now,
@@ -191,28 +201,97 @@ export function QuotaChart({
       areaPath,
       forecastPath,
       latest,
+      idleCaption,
     };
   }, [data, items, metric, hours, burn, showForecast, size]);
 
-  // Position tooltip directly on DOM node (no second React render per pointer frame).
-  useLayoutEffect(() => {
-    if (!inspected || !svgRef.current || !tooltipRef.current) return;
-    const px = computed.x(inspected.ts);
-    const py = computed.y(inspected.value);
+  const computedRef = useRef(computed);
+  computedRef.current = computed;
+
+  const clearInspection = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+    inspectedAtRef.current = null;
+    if (figRef.current) delete figRef.current.dataset.inspectedAt;
+    if (crosshairRef.current) crosshairRef.current.setAttribute("hidden", "");
+    if (tooltipRef.current) tooltipRef.current.hidden = true;
+    if (inspectRef.current) {
+      inspectRef.current.textContent = computedRef.current.idleCaption;
+    }
+  }, []);
+
+  // Clear inspection when metric/range/forecast changes.
+  useEffect(() => {
+    clearInspection();
+  }, [metric, hours, showForecast, burn, clearInspection]);
+
+  // Direct DOM lockstep update matching vanilla index.html:
+  // appear in place (fade only), then glide smoothly together at 140ms ease-out.
+  const inspectPoint = useCallback((point: ChartPoint) => {
+    const c = computedRef.current;
+    const fig = figRef.current;
     const svg = svgRef.current;
-    const tip = tooltipRef.current;
-    const width = svg.clientWidth || computed.W;
-    const height = svg.clientHeight || computed.H;
-    const ax = (px / computed.W) * width;
-    const ay = (py / computed.H) * height;
-    const tw = tip.offsetWidth;
-    const th = tip.offsetHeight;
+    const group = crosshairRef.current;
+    const line = lineRef.current;
+    const halo = haloRef.current;
+    const dot = dotRef.current;
+    const tooltip = tooltipRef.current;
+    if (!fig || !svg || !group || !line || !halo || !dot || !tooltip) return;
+
+    inspectedAtRef.current = point.ts;
+    fig.dataset.inspectedAt = String(point.ts);
+
+    const isFuture = point.projected ?? point.ts > c.now;
+    const px = c.x(point.ts);
+    const py = c.y(point.value);
+    const entering = group.hasAttribute("hidden");
+
+    const dateText = dateLabel(point.ts);
+    const valueText = fmtPct(point.value);
+    if (tipLabelRef.current) tipLabelRef.current.textContent = dateText;
+    if (tipSwatchRef.current)
+      tipSwatchRef.current.className = isFuture
+        ? "tip-swatch dashed"
+        : "tip-swatch";
+    if (tipKindRef.current)
+      tipKindRef.current.textContent = isFuture ? "Projected" : "Recorded";
+    if (tipValueRef.current) tipValueRef.current.textContent = valueText;
+
+    const width = svg.clientWidth || c.W;
+    const height = svg.clientHeight || c.H;
+    const ax = (px / c.W) * width;
+    const ay = (py / c.H) * height;
+    const tw = tooltip.offsetWidth;
+    const th = tooltip.offsetHeight;
     let tipLeft = ax + 16;
     let tipTop = ay - th - 12;
     if (tipLeft + tw > width) tipLeft = ax - 16 - tw;
     if (tipTop < 0) tipTop = ay + 12;
-    tip.style.transform = `translate3d(${Math.max(0, tipLeft)}px, ${tipTop}px, 0)`;
-  }, [inspected, computed]);
+
+    const moving: (HTMLElement | SVGElement)[] = [line, halo, dot, tooltip];
+    if (entering) {
+      moving.forEach((el) => {
+        el.style.transitionProperty = "opacity";
+      });
+    }
+    line.style.transform = `translateX(${px}px)`;
+    halo.style.transform = `translate(${px}px, ${py}px)`;
+    dot.style.transform = `translate(${px}px, ${py}px)`;
+    tooltip.style.transform = `translate3d(${Math.max(0, tipLeft)}px, ${tipTop}px, 0)`;
+    group.removeAttribute("hidden");
+    tooltip.hidden = false;
+    if (entering) {
+      group.getBoundingClientRect();
+      moving.forEach((el) => {
+        el.style.transitionProperty = "";
+      });
+    }
+    if (inspectRef.current) {
+      inspectRef.current.textContent = `${dateText} · ${valueText} ${isFuture ? "projected" : "recorded"}`;
+    }
+  }, []);
 
   const staticLayers = useMemo(
     () => (
@@ -264,7 +343,12 @@ export function QuotaChart({
               y1={computed.top}
               y2={computed.H - computed.bottom}
             />
-            <text className="reset-label" x={computed.x(t)} y={16} textAnchor="middle">
+            <text
+              className="reset-label"
+              x={computed.x(t)}
+              y={16}
+              textAnchor="middle"
+            >
               Reset
             </text>
           </g>
@@ -324,7 +408,10 @@ export function QuotaChart({
               <text
                 className="current-value"
                 x={computed.x(computed.latest.ts) + 11}
-                y={Math.max(computed.top + 12, computed.y(computed.latest.value) - 9)}
+                y={Math.max(
+                  computed.top + 12,
+                  computed.y(computed.latest.value) - 9,
+                )}
               >
                 {fmtPct(computed.latest.value)}
               </text>
@@ -337,56 +424,52 @@ export function QuotaChart({
   );
 
   function handlePointer(e: React.PointerEvent<HTMLElement>) {
-    if (!computed.points.length && !computed.forecast.length) return;
+    const c = computedRef.current;
+    if (!c.points.length && !c.forecast.length) return;
     lastClientXRef.current = e.clientX;
     if (rafRef.current) return;
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = 0;
+      const cur = computedRef.current;
       const svg = svgRef.current;
-      if (!svg) return;
+      if (!svg || !(cur.points.length || cur.forecast.length)) return;
       const rect = svg.getBoundingClientRect();
-      const rel = ((lastClientXRef.current - rect.left) / rect.width) * computed.W;
+      const rel = ((lastClientXRef.current - rect.left) / rect.width) * cur.W;
       const ts =
-        computed.start +
-        ((rel - computed.left) / (computed.W - computed.left - computed.right)) *
-          (computed.end - computed.start);
-      const next = seriesAt(computed.points, computed.forecast, ts);
-      setInspected((prev) =>
-        prev && prev.ts === next.ts && prev.value === next.value && prev.projected === next.projected
-          ? prev
-          : next,
-      );
+        cur.start +
+        ((rel - cur.left) / (cur.W - cur.left - cur.right)) *
+          (cur.end - cur.start);
+      inspectPoint(seriesAt(cur.points, cur.forecast, ts));
     });
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLElement>) {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    const all = [...computed.points, ...computed.forecast];
+    const c = computedRef.current;
+    const all = [...c.points, ...c.forecast];
     if (!all.length) return;
     e.preventDefault();
+    const prevTs = inspectedAtRef.current;
     let idx =
-      inspected === null
+      prevTs === null
         ? all.length - 1
         : all.reduce(
             (nearest, pt, i) =>
-              Math.abs(pt.ts - inspected.ts) < Math.abs(all[nearest].ts - inspected.ts)
+              Math.abs(pt.ts - prevTs) < Math.abs(all[nearest].ts - prevTs)
                 ? i
                 : nearest,
             0,
           );
-    idx = Math.min(all.length - 1, Math.max(0, idx + (e.key === "ArrowLeft" ? -1 : 1)));
+    idx = Math.min(
+      all.length - 1,
+      Math.max(0, idx + (e.key === "ArrowLeft" ? -1 : 1)),
+    );
     const target = all[idx];
-    setInspected({
+    inspectPoint({
       ...target,
-      projected: target.projected ?? target.ts > computed.now,
+      projected: target.projected ?? target.ts > c.now,
     });
   }
-
-  const isFuture = inspected
-    ? (inspected.projected ?? inspected.ts > computed.now)
-    : false;
-  const inspectedPx = inspected ? computed.x(inspected.ts) : 0;
-  const inspectedPy = inspected ? computed.y(inspected.value) : 0;
 
   return (
     <figure
@@ -394,18 +477,11 @@ export function QuotaChart({
       className="plot"
       tabIndex={0}
       data-chart={chartKey}
-      data-inspected-at={inspected ? String(inspected.ts) : undefined}
       aria-label={`${label} quota history and forecast. Use left and right arrows to inspect recorded samples.`}
       onPointerMove={handlePointer}
       onPointerDown={handlePointer}
-      onPointerLeave={() => {
-        if (rafRef.current) {
-          cancelAnimationFrame(rafRef.current);
-          rafRef.current = 0;
-        }
-        setInspected(null);
-      }}
-      onBlur={() => setInspected(null)}
+      onPointerLeave={clearInspection}
+      onBlur={clearInspection}
       onKeyDown={handleKeyDown}
     >
       <svg
@@ -417,44 +493,29 @@ export function QuotaChart({
       >
         {staticLayers}
         <g
+          ref={crosshairRef}
           className="chart-crosshair"
-          {...(!inspected ? ({ hidden: true } as Record<string, unknown>) : {})}
+          {...({ hidden: true } as Record<string, unknown>)}
         >
           <line
+            ref={lineRef}
             x1="0"
             x2="0"
             y1={computed.top}
             y2={computed.H - computed.bottom}
-            style={{ transform: `translateX(${inspectedPx}px)` }}
           />
-          <circle
-            className="halo"
-            r="12"
-            style={{ transform: `translate(${inspectedPx}px, ${inspectedPy}px)` }}
-          />
-          <circle
-            className="dot"
-            r="6"
-            style={{ transform: `translate(${inspectedPx}px, ${inspectedPy}px)` }}
-          />
+          <circle ref={haloRef} className="halo" r="12" />
+          <circle ref={dotRef} className="dot" r="6" />
         </g>
       </svg>
 
-      <div
-        ref={tooltipRef}
-        className="chart-tooltip"
-        hidden={!inspected}
-      >
-        {inspected && (
-          <>
-            <div className="tip-label">{dateLabel(inspected.ts)}</div>
-            <div className="tip-row">
-              <i className={`tip-swatch${isFuture ? " dashed" : ""}`} />
-              <span>{isFuture ? "Projected" : "Recorded"}</span>
-              <strong>{fmtPct(inspected.value)}</strong>
-            </div>
-          </>
-        )}
+      <div ref={tooltipRef} className="chart-tooltip" hidden>
+        <div ref={tipLabelRef} className="tip-label" />
+        <div className="tip-row">
+          <i ref={tipSwatchRef} className="tip-swatch" />
+          <span ref={tipKindRef} />
+          <strong ref={tipValueRef} />
+        </div>
       </div>
 
       {computed.points.length < 2 && (
@@ -476,14 +537,8 @@ export function QuotaChart({
           <i className="legend-line dashed" />
           Projected
         </span>
-        <span className="chart-inspect" aria-live="polite">
-          {inspected
-            ? `${dateLabel(inspected.ts)} · ${fmtPct(inspected.value)} ${isFuture ? "projected" : "recorded"}`
-            : computed.forecast.length
-              ? "Estimate from recent usage"
-              : !showForecast
-                ? "Forecast hidden"
-                : "Forecast needs 10+ minutes of recent samples"}
+        <span ref={inspectRef} className="chart-inspect" aria-live="polite">
+          {computed.idleCaption}
         </span>
       </figcaption>
     </figure>

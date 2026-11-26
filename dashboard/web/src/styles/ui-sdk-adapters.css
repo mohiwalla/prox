@@ -334,27 +334,6 @@
   transform: translateX(14px);
 }
 
-/* Instant pointer-locked chart crosshair & tooltip (no sluggish transform lag). */
-.chart-crosshair {
-  transition: opacity 90ms ease;
-}
-
-.chart-crosshair line,
-.chart-crosshair circle {
-  transition: none;
-}
-
-.chart-tooltip {
-  transition: opacity 90ms ease;
-}
-
-.chart-crosshair[hidden],
-.chart-tooltip[hidden] {
-  transition:
-    opacity 90ms ease,
-    visibility 0s 90ms;
-}
-
 @media (max-width: 760px) {
   [data-slot="segmented-control"].segmented {
     height: 40px;

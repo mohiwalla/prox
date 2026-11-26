@@ -168,11 +168,17 @@ export function KeyUsageChart({
   }, [buckets, models, hours, unit, size]);
 
   const activeSlot = activeSlotIdx !== null ? chart.slots[activeSlotIdx] || null : null;
+  const wasVisibleRef = useRef(false);
 
   useLayoutEffect(() => {
-    if (!activeSlot || !svgRef.current || !tooltipRef.current) return;
-    const svg = svgRef.current;
     const tip = tooltipRef.current;
+    const svg = svgRef.current;
+    if (!activeSlot || !svg || !tip) {
+      wasVisibleRef.current = false;
+      return;
+    }
+    const entering = !wasVisibleRef.current;
+    wasVisibleRef.current = true;
     const x0 = chart.x(activeSlot.ts);
     const x1 = chart.x(activeSlot.end);
     const width = svg.clientWidth || chart.W;
@@ -180,7 +186,12 @@ export function KeyUsageChart({
     const tw = tip.offsetWidth;
     let tipLeft = ax + 14;
     if (tipLeft + tw > width) tipLeft = ax - 14 - tw;
+    if (entering) tip.style.transitionProperty = "opacity";
     tip.style.transform = `translate3d(${Math.max(0, tipLeft)}px, 8px, 0)`;
+    if (entering) {
+      tip.getBoundingClientRect();
+      tip.style.transitionProperty = "";
+    }
   }, [activeSlot, chart]);
 
   const staticBarsAndAxes = useMemo(
