@@ -34,12 +34,20 @@ export function QuotaChart({
   const dataGroupRef = useRef<SVGGElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const drawnRef = useRef(false);
+  const rafRef = useRef<number>(0);
+  const lastClientXRef = useRef<number>(0);
 
   const [size, setSize] = useState<{ w: number; h: number }>(() => {
     const mobile = typeof window !== "undefined" && window.innerWidth <= 760;
     return { w: mobile ? 340 : 950, h: mobile ? 200 : 240 };
   });
   const [inspected, setInspected] = useState<ChartPoint | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const el = figRef.current;
@@ -186,8 +194,7 @@ export function QuotaChart({
     };
   }, [data, items, metric, hours, burn, showForecast, size]);
 
-  // Position tooltip beside hovered/inspected point.
-  const [tipTransform, setTipTransform] = useState<string>("");
+  // Position tooltip directly on DOM node (no second React render per pointer frame).
   useLayoutEffect(() => {
     if (!inspected || !svgRef.current || !tooltipRef.current) return;
     const px = computed.x(inspected.ts);
@@ -204,72 +211,12 @@ export function QuotaChart({
     let tipTop = ay - th - 12;
     if (tipLeft + tw > width) tipLeft = ax - 16 - tw;
     if (tipTop < 0) tipTop = ay + 12;
-    setTipTransform(`translate3d(${Math.max(0, tipLeft)}px, ${tipTop}px, 0)`);
+    tip.style.transform = `translate3d(${Math.max(0, tipLeft)}px, ${tipTop}px, 0)`;
   }, [inspected, computed]);
 
-  function handlePointer(e: React.PointerEvent<HTMLElement>) {
-    if (!computed.points.length && !computed.forecast.length) return;
-    const svg = svgRef.current;
-    if (!svg) return;
-    const rect = svg.getBoundingClientRect();
-    const rel = ((e.clientX - rect.left) / rect.width) * computed.W;
-    const ts =
-      computed.start +
-      ((rel - computed.left) / (computed.W - computed.left - computed.right)) *
-        (computed.end - computed.start);
-    setInspected(seriesAt(computed.points, computed.forecast, ts));
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLElement>) {
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    const all = [...computed.points, ...computed.forecast];
-    if (!all.length) return;
-    e.preventDefault();
-    let idx =
-      inspected === null
-        ? all.length - 1
-        : all.reduce(
-            (nearest, pt, i) =>
-              Math.abs(pt.ts - inspected.ts) < Math.abs(all[nearest].ts - inspected.ts)
-                ? i
-                : nearest,
-            0,
-          );
-    idx = Math.min(all.length - 1, Math.max(0, idx + (e.key === "ArrowLeft" ? -1 : 1)));
-    const target = all[idx];
-    setInspected({
-      ...target,
-      projected: target.projected ?? target.ts > computed.now,
-    });
-  }
-
-  const isFuture = inspected
-    ? (inspected.projected ?? inspected.ts > computed.now)
-    : false;
-  const inspectedPx = inspected ? computed.x(inspected.ts) : 0;
-  const inspectedPy = inspected ? computed.y(inspected.value) : 0;
-
-  return (
-    <figure
-      ref={figRef}
-      className="plot"
-      tabIndex={0}
-      data-chart={chartKey}
-      data-inspected-at={inspected ? String(inspected.ts) : undefined}
-      aria-label={`${label} quota history and forecast. Use left and right arrows to inspect recorded samples.`}
-      onPointerMove={handlePointer}
-      onPointerDown={handlePointer}
-      onPointerLeave={() => setInspected(null)}
-      onBlur={() => setInspected(null)}
-      onKeyDown={handleKeyDown}
-    >
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${computed.W} ${computed.H}`}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={`${computed.points.length} recorded samples${computed.forecast.length ? ", estimated future usage" : ""}`}
-      >
+  const staticLayers = useMemo(
+    () => (
+      <>
         <defs>
           <linearGradient id={`fill-${chartKey}`} x1="0" x2="0" y1="0" y2="1">
             <stop stopColor="var(--pool-color)" stopOpacity=".16" />
@@ -384,6 +331,91 @@ export function QuotaChart({
             </>
           )}
         </g>
+      </>
+    ),
+    [chartKey, computed],
+  );
+
+  function handlePointer(e: React.PointerEvent<HTMLElement>) {
+    if (!computed.points.length && !computed.forecast.length) return;
+    lastClientXRef.current = e.clientX;
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const rel = ((lastClientXRef.current - rect.left) / rect.width) * computed.W;
+      const ts =
+        computed.start +
+        ((rel - computed.left) / (computed.W - computed.left - computed.right)) *
+          (computed.end - computed.start);
+      const next = seriesAt(computed.points, computed.forecast, ts);
+      setInspected((prev) =>
+        prev && prev.ts === next.ts && prev.value === next.value && prev.projected === next.projected
+          ? prev
+          : next,
+      );
+    });
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLElement>) {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    const all = [...computed.points, ...computed.forecast];
+    if (!all.length) return;
+    e.preventDefault();
+    let idx =
+      inspected === null
+        ? all.length - 1
+        : all.reduce(
+            (nearest, pt, i) =>
+              Math.abs(pt.ts - inspected.ts) < Math.abs(all[nearest].ts - inspected.ts)
+                ? i
+                : nearest,
+            0,
+          );
+    idx = Math.min(all.length - 1, Math.max(0, idx + (e.key === "ArrowLeft" ? -1 : 1)));
+    const target = all[idx];
+    setInspected({
+      ...target,
+      projected: target.projected ?? target.ts > computed.now,
+    });
+  }
+
+  const isFuture = inspected
+    ? (inspected.projected ?? inspected.ts > computed.now)
+    : false;
+  const inspectedPx = inspected ? computed.x(inspected.ts) : 0;
+  const inspectedPy = inspected ? computed.y(inspected.value) : 0;
+
+  return (
+    <figure
+      ref={figRef}
+      className="plot"
+      tabIndex={0}
+      data-chart={chartKey}
+      data-inspected-at={inspected ? String(inspected.ts) : undefined}
+      aria-label={`${label} quota history and forecast. Use left and right arrows to inspect recorded samples.`}
+      onPointerMove={handlePointer}
+      onPointerDown={handlePointer}
+      onPointerLeave={() => {
+        if (rafRef.current) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = 0;
+        }
+        setInspected(null);
+      }}
+      onBlur={() => setInspected(null)}
+      onKeyDown={handleKeyDown}
+    >
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${computed.W} ${computed.H}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`${computed.points.length} recorded samples${computed.forecast.length ? ", estimated future usage" : ""}`}
+      >
+        {staticLayers}
         <g
           className="chart-crosshair"
           {...(!inspected ? ({ hidden: true } as Record<string, unknown>) : {})}
@@ -412,7 +444,6 @@ export function QuotaChart({
         ref={tooltipRef}
         className="chart-tooltip"
         hidden={!inspected}
-        style={tipTransform ? { transform: tipTransform } : undefined}
       >
         {inspected && (
           <>
