@@ -2175,12 +2175,136 @@
       .dialog-body > a.button {
         width: fit-content;
       }
-      dialog.usage-dialog {
+      /* @ui-sdk/web primitives styled with the exact existing dashboard tokens. */
+      ui-dialog {
+        display: contents;
+      }
+      ui-dialog-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        background: rgb(0 0 0 / 64%);
+        opacity: 1;
+        transition: opacity var(--duration-ui) var(--ease-out);
+      }
+      ui-dialog-backdrop[hidden] {
+        display: none;
+      }
+      ui-dialog-backdrop[data-starting-style],
+      ui-dialog-backdrop[data-ending-style] {
+        opacity: 0;
+      }
+      ui-dialog-content.ui-modal {
+        position: fixed;
+        inset: 0;
+        margin: auto;
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        width: min(512px, calc(100% - 32px));
+        height: fit-content;
+        max-height: 90dvh;
+        padding: 24px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--background);
+        color: var(--foreground);
+        box-shadow: var(--shadow-lg);
+        opacity: 1;
+        transform: scale(1);
+        transition:
+          opacity var(--duration-ui) var(--ease-out),
+          transform var(--duration-ui) var(--ease-out);
+      }
+      ui-dialog-content.ui-modal[hidden] {
+        display: none;
+      }
+      ui-dialog-content.ui-modal[data-starting-style],
+      ui-dialog-content.ui-modal[data-ending-style] {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      ui-dialog-content.ui-modal.usage-dialog {
         width: min(760px, calc(100% - 32px));
         max-height: 88dvh;
       }
-      dialog.usage-dialog:focus {
+      ui-dialog-content.ui-modal:focus {
         outline: none;
+      }
+      ui-dialog-title {
+        display: block;
+        font-size: 18px;
+        line-height: 24px;
+        font-weight: 600;
+      }
+      ui-dialog-description {
+        display: block;
+        font-size: 14px;
+        color: var(--muted-foreground);
+      }
+      ui-dialog-close {
+        display: contents;
+      }
+      ui-segmented-control {
+        position: relative;
+        isolation: isolate;
+        display: inline-flex;
+        align-items: center;
+        flex-shrink: 0;
+        height: 32px;
+        padding: 3px;
+        gap: 2px;
+        border-radius: var(--radius-md);
+        background: var(--muted);
+      }
+      ui-segmented-control-indicator {
+        position: absolute;
+        z-index: -1;
+        top: var(--segmented-control-indicator-top);
+        left: var(--segmented-control-indicator-left);
+        width: var(--segmented-control-indicator-width);
+        height: var(--segmented-control-indicator-height);
+        border-radius: var(--radius-sm);
+        background: var(--background);
+        pointer-events: none;
+        transition-property: top, left, width, height;
+        transition-duration: var(--duration-ui);
+        transition-timing-function: var(--ease-in-out);
+      }
+      ui-segmented-control-indicator:not([data-visible]) {
+        opacity: 0;
+      }
+      ui-segmented-control-indicator[data-activation-direction="none"] {
+        transition: none;
+      }
+      ui-segmented-control-item {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 26px;
+        padding: 0 10px;
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1;
+        color: var(--muted-foreground);
+        cursor: pointer;
+        user-select: none;
+        transition: color var(--duration-fast) ease;
+      }
+      ui-segmented-control-item:hover:not([data-disabled]),
+      ui-segmented-control-item[data-checked] {
+        color: var(--foreground);
+      }
+      ui-segmented-control-item:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: -2px;
+      }
+      ui-segmented-control-item[data-disabled] {
+        opacity: 0.45;
+        cursor: not-allowed;
       }
       .usage-dialog .dialog-header.usage-dialog-head {
         display: flex;
@@ -3471,171 +3595,148 @@
         </footer>
       </form>
     </dialog>
-    <dialog
-      id="secret-dialog"
-      aria-labelledby="secret-title"
-      aria-describedby="secret-description"
-    >
-      <header class="dialog-header">
-        <h2 id="secret-title">Copy the new key</h2>
-        <p class="dialog-description" id="secret-description"></p>
-      </header>
-      <div class="dialog-body">
-        <p class="secret-warning">
-          <svg class="icon" aria-hidden="true"><use href="#i-warning" /></svg
-          ><span>You won’t see this key again. If it’s lost, rotate it.</span>
-        </p>
-        <div class="field">
-          <label id="secret-key-label">API key</label>
-          <div class="codebox" aria-labelledby="secret-key-label">
-            <code id="secret-key"></code
-            ><button
-              type="button"
-              class="ghost icon-btn sm copy-button"
-              id="secret-copy"
-              aria-label="Copy API key"
-            >
-              <span class="copy-icons"
-                ><svg class="icon copy-idle" aria-hidden="true">
-                  <use href="#i-copy" /></svg
-                ><svg class="icon copy-done" aria-hidden="true">
-                  <use href="#i-check" /></svg
-              ></span>
-            </button>
-          </div>
-        </div>
-        <div class="field">
-          <label id="secret-base-label">Base URL</label>
-          <div class="codebox" aria-labelledby="secret-base-label">
-            <code id="secret-base"></code
-            ><button
-              type="button"
-              class="ghost icon-btn sm copy-button"
-              id="secret-base-copy"
-              aria-label="Copy base URL"
-            >
-              <span class="copy-icons"
-                ><svg class="icon copy-idle" aria-hidden="true">
-                  <use href="#i-copy" /></svg
-                ><svg class="icon copy-done" aria-hidden="true">
-                  <use href="#i-check" /></svg
-              ></span>
-            </button>
-          </div>
-        </div>
-        <div class="field">
-          <div class="secret-field-head">
-            <label id="secret-example-label">Client setup</label>
-            <div
-              class="segmented sm"
-              id="secret-client-tabs"
-              role="tablist"
-              aria-label="Client setup format"
-            >
-              <button
+    <ui-dialog id="secret-dialog">
+      <ui-dialog-backdrop hidden></ui-dialog-backdrop>
+      <ui-dialog-content class="ui-modal" initial-focus="#secret-copy" hidden>
+        <header class="dialog-header">
+          <ui-dialog-title id="secret-title">Copy the new key</ui-dialog-title>
+          <ui-dialog-description id="secret-description"></ui-dialog-description>
+        </header>
+        <div class="dialog-body">
+          <p class="secret-warning">
+            <svg class="icon" aria-hidden="true"><use href="#i-warning" /></svg
+            ><span>You won’t see this key again. If it’s lost, rotate it.</span>
+          </p>
+          <div class="field">
+            <label id="secret-key-label">API key</label>
+            <div class="codebox" aria-labelledby="secret-key-label">
+              <code id="secret-key"></code
+              ><button
                 type="button"
-                role="tab"
-                data-secret-client="curl"
-                aria-selected="true"
-                class="active"
+                class="ghost icon-btn sm copy-button"
+                id="secret-copy"
+                aria-label="Copy API key"
               >
-                curl
-              </button>
-              <button
-                type="button"
-                role="tab"
-                data-secret-client="claude"
-                aria-selected="false"
-              >
-                Claude Code
-              </button>
-              <button
-                type="button"
-                role="tab"
-                data-secret-client="codex"
-                aria-selected="false"
-              >
-                Codex
-              </button>
-              <button
-                type="button"
-                role="tab"
-                data-secret-client="openai"
-                aria-selected="false"
-              >
-                OpenAI
+                <span class="copy-icons"
+                  ><svg class="icon copy-idle" aria-hidden="true">
+                    <use href="#i-copy" /></svg
+                  ><svg class="icon copy-done" aria-hidden="true">
+                    <use href="#i-check" /></svg
+                ></span>
               </button>
             </div>
           </div>
-          <div class="code-sample" aria-labelledby="secret-example-label">
-            <pre id="secret-example" tabindex="0"></pre>
+          <div class="field">
+            <label id="secret-base-label">Base URL</label>
+            <div class="codebox" aria-labelledby="secret-base-label">
+              <code id="secret-base"></code
+              ><button
+                type="button"
+                class="ghost icon-btn sm copy-button"
+                id="secret-base-copy"
+                aria-label="Copy base URL"
+              >
+                <span class="copy-icons"
+                  ><svg class="icon copy-idle" aria-hidden="true">
+                    <use href="#i-copy" /></svg
+                  ><svg class="icon copy-done" aria-hidden="true">
+                    <use href="#i-check" /></svg
+                ></span>
+              </button>
+            </div>
+          </div>
+          <div class="field">
+            <div class="secret-field-head">
+              <label id="secret-example-label">Client setup</label>
+              <ui-segmented-control
+                id="secret-client-tabs"
+                aria-label="Client setup format"
+                default-value="curl"
+              >
+                <ui-segmented-control-indicator></ui-segmented-control-indicator>
+                <ui-segmented-control-item value="curl">curl</ui-segmented-control-item>
+                <ui-segmented-control-item value="claude">Claude Code</ui-segmented-control-item>
+                <ui-segmented-control-item value="codex">Codex</ui-segmented-control-item>
+                <ui-segmented-control-item value="openai">OpenAI</ui-segmented-control-item>
+              </ui-segmented-control>
+            </div>
+            <div class="code-sample" aria-labelledby="secret-example-label">
+              <pre id="secret-example" tabindex="0"></pre>
+              <button
+                type="button"
+                class="ghost icon-btn sm copy-button"
+                id="secret-example-copy"
+                aria-label="Copy example request"
+              >
+                <span class="copy-icons"
+                  ><svg class="icon copy-idle" aria-hidden="true">
+                    <use href="#i-copy" /></svg
+                  ><svg class="icon copy-done" aria-hidden="true">
+                    <use href="#i-check" /></svg
+                ></span>
+              </button>
+            </div>
+            <p class="field-description" id="secret-example-help">
+              Send the key as <code>Authorization: Bearer …</code>. OpenAI-style
+              clients take the base URL with <code>/v1</code>.
+            </p>
+          </div>
+          <footer class="dialog-footer">
+            <ui-dialog-close>
+              <button type="button" class="primary" id="secret-done">
+                Done
+              </button>
+            </ui-dialog-close>
+          </footer>
+        </div>
+      </ui-dialog-content>
+    </ui-dialog>
+    <ui-dialog id="key-usage-dialog">
+      <ui-dialog-backdrop hidden></ui-dialog-backdrop>
+      <ui-dialog-content class="ui-modal usage-dialog" initial-focus="#key-usage-range" hidden>
+        <header class="dialog-header usage-dialog-head">
+          <div class="usage-dialog-title-wrap">
+            <ui-dialog-title id="key-usage-title">Key usage</ui-dialog-title>
+            <code class="key-hint" id="key-usage-hint"></code>
+          </div>
+          <ui-dialog-close>
             <button
               type="button"
-              class="ghost icon-btn sm copy-button"
-              id="secret-example-copy"
-              aria-label="Copy example request"
+              class="ghost icon-btn sm"
+              id="key-usage-close"
+              aria-label="Close usage"
             >
-              <span class="copy-icons"
-                ><svg class="icon copy-idle" aria-hidden="true">
-                  <use href="#i-copy" /></svg
-                ><svg class="icon copy-done" aria-hidden="true">
-                  <use href="#i-check" /></svg
-              ></span>
+              <svg class="icon" aria-hidden="true"><use href="#i-close" /></svg>
             </button>
+          </ui-dialog-close>
+        </header>
+        <div class="dialog-body">
+          <div class="usage-dialog-controls">
+            <label class="forecast-control">
+              Range
+              <select id="key-usage-range" class="sm" aria-label="Usage time range">
+                <option value="24">Last 24 hours</option>
+                <option value="168" selected>Last 7 days</option>
+                <option value="336">Last 14 days</option>
+                <option value="720">Last 30 days</option>
+                <option value="2160">Last 90 days</option>
+              </select>
+            </label>
+            <ui-segmented-control
+              id="key-usage-unit"
+              aria-label="Chart interval"
+              default-value="hour"
+            >
+              <ui-segmented-control-indicator></ui-segmented-control-indicator>
+              <ui-segmented-control-item value="hour">Hourly</ui-segmented-control-item>
+              <ui-segmented-control-item value="day">Daily</ui-segmented-control-item>
+            </ui-segmented-control>
           </div>
-          <p class="field-description" id="secret-example-help">
-            Send the key as <code>Authorization: Bearer …</code>. OpenAI-style
-            clients take the base URL with <code>/v1</code>.
-          </p>
+          <div id="key-usage-body"></div>
         </div>
-        <footer class="dialog-footer">
-          <button type="button" class="primary" id="secret-done">
-            Done
-          </button>
-        </footer>
-      </div>
-    </dialog>
-    <dialog
-      id="key-usage-dialog"
-      class="usage-dialog"
-      tabindex="-1"
-      aria-labelledby="key-usage-title"
-    >
-      <header class="dialog-header usage-dialog-head">
-        <div class="usage-dialog-title-wrap">
-          <h2 id="key-usage-title">Key usage</h2>
-          <code class="key-hint" id="key-usage-hint"></code>
-        </div>
-        <button
-          type="button"
-          class="ghost icon-btn sm"
-          id="key-usage-close"
-          aria-label="Close usage"
-        >
-          <svg class="icon" aria-hidden="true"><use href="#i-close" /></svg>
-        </button>
-      </header>
-      <div class="dialog-body">
-        <div class="usage-dialog-controls">
-          <label class="forecast-control">
-            Range
-            <select id="key-usage-range" class="sm" aria-label="Usage time range">
-              <option value="24">Last 24 hours</option>
-              <option value="168" selected>Last 7 days</option>
-              <option value="336">Last 14 days</option>
-              <option value="720">Last 30 days</option>
-              <option value="2160">Last 90 days</option>
-            </select>
-          </label>
-          <div class="segmented sm" id="key-usage-unit" role="group" aria-label="Chart interval">
-            <button type="button" data-key-unit="hour" aria-pressed="true" class="active">Hourly</button>
-            <button type="button" data-key-unit="day" aria-pressed="false">Daily</button>
-          </div>
-        </div>
-        <div id="key-usage-body"></div>
-      </div>
-    </dialog>
-    <script src="/dashboard/assets/vendor.js"></script>
+      </ui-dialog-content>
+    </ui-dialog>
+    <script src="/dashboard/assets/vendor.js?v=2"></script>
     <script>
       "use strict";
       const $ = (s, r = document) => r.querySelector(s),
@@ -5625,16 +5726,12 @@
         $("#key-usage-hint").textContent = `cpk_…${k.hint}`;
         $("#key-usage-range").value = String(keys.hours);
         const dialog = $("#key-usage-dialog");
-        if (!dialog.open) {
-          dialog.showModal();
-          dialog.focus();
-        }
+        dialog.open = true;
         renderKeyUsage();
         loadKeyUsage(id, keys.hours);
       }
       function closeKeyUsage() {
-        const dialog = $("#key-usage-dialog");
-        if (dialog.open) dialog.close();
+        $("#key-usage-dialog").open = false;
       }
       function scopeChips(k) {
         const chips = [
@@ -5790,14 +5887,13 @@
           rangeLabel = KEY_USAGE_RANGES[hours] || `last ${Math.round(hours / 24)} days`,
           hourlyAllowed = hours <= 336;
         if (!hourlyAllowed && keys.unit === "hour") keys.unit = "day";
-        for (const btn of $$("#key-usage-unit [data-key-unit]")) {
-          const u = btn.dataset.keyUnit;
-          const active = keys.unit === u;
-          btn.disabled = u === "hour" && !hourlyAllowed;
-          btn.classList.toggle("active", active);
-          btn.setAttribute("aria-pressed", String(active));
+        const unitControl = $("#key-usage-unit");
+        const hourItem = $('ui-segmented-control-item[value="hour"]', unitControl);
+        if (hourItem) hourItem.toggleAttribute("disabled", !hourlyAllowed);
+        if (unitControl.value !== keys.unit) {
+          if (unitControl.api) unitControl.api.setValue(keys.unit);
+          else unitControl.value = keys.unit;
         }
-        updateIndicators();
         const usage =
           keys.usage?.id === k.id && keys.usage?.hours === hours
             ? keys.usage.buckets
@@ -5962,13 +6058,10 @@
         e.preventDefault();
         openKeyMenu(trigger, true);
       });
-      $("#key-usage-close").addEventListener("click", closeKeyUsage);
-      $("#key-usage-dialog").addEventListener("close", () => {
-        const id = state.keys.open;
+      $("#key-usage-dialog").addEventListener("openchange", (e) => {
+        if (e.detail?.value) return;
         state.keys.open = null;
         state.keys.chart = null;
-        delete $("#key-usage-unit").dataset.motionIndicator;
-        if (id) $(`[data-key-open="${CSS.escape(id)}"]`)?.focus();
       });
       $("#key-usage-range").addEventListener("change", (e) => {
         const hours = Number(e.target.value) || 168;
@@ -5979,10 +6072,10 @@
         renderKeyUsage();
         if (state.keys.open) loadKeyUsage(state.keys.open, hours);
       });
-      $("#key-usage-unit").addEventListener("click", (e) => {
-        const btn = e.target.closest("[data-key-unit]");
-        if (!btn || btn.disabled) return;
-        state.keys.unit = btn.dataset.keyUnit;
+      $("#key-usage-unit").addEventListener("valuechange", (e) => {
+        const next = e.detail?.value;
+        if (!next || next === state.keys.unit) return;
+        state.keys.unit = next;
         renderKeyUsage();
       });
       async function keyAction(b, e) {
@@ -6296,15 +6389,14 @@
       }
       function renderSecretExample(client) {
         secretClient = client;
-        for (const btn of $$("#secret-client-tabs [data-secret-client]")) {
-          const on = btn.dataset.secretClient === client;
-          btn.classList.toggle("active", on);
-          btn.setAttribute("aria-selected", on ? "true" : "false");
+        const tabs = $("#secret-client-tabs");
+        if (tabs.value !== client) {
+          if (tabs.api) tabs.api.setValue(client);
+          else tabs.value = client;
         }
         const { code, help } = secretSnippet(client, secretPayload);
         $("#secret-example").textContent = code;
         $("#secret-example-help").textContent = help;
-        updateIndicators();
       }
       function showSecret(k, secret, how) {
         secretKey = k.id;
@@ -6323,13 +6415,11 @@
             : "The key is ready. Give it to the client it's for.";
         $("#secret-key").textContent = secret;
         $("#secret-base").textContent = base;
-        $("#secret-dialog").showModal();
+        $("#secret-dialog").open = true;
         renderSecretExample("curl");
-        $("#secret-copy").focus();
       }
-      $("#secret-client-tabs").addEventListener("click", (e) => {
-        const btn = e.target.closest("[data-secret-client]");
-        if (btn) renderSecretExample(btn.dataset.secretClient);
+      $("#secret-client-tabs").addEventListener("valuechange", (e) => {
+        if (e.detail?.value) renderSecretExample(e.detail.value);
       });
       $("#secret-copy").addEventListener("click", (e) =>
         copyWithFeedback(e.currentTarget, $("#secret-key").textContent, "Copy API key"),
@@ -6346,13 +6436,9 @@
         $("#secret-key").textContent = "";
         $("#secret-example").textContent = "";
       }
-      $("#secret-done").addEventListener("click", () => {
+      $("#secret-dialog").addEventListener("openchange", (e) => {
+        if (e.detail?.value) return;
         clearSecret();
-        $("#secret-dialog").close();
-      });
-      $("#secret-dialog").addEventListener("close", () => {
-        clearSecret();
-        delete $("#secret-client-tabs").dataset.motionIndicator;
         focusKey(secretKey || "")();
         secretKey = null;
       });

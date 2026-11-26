@@ -70,20 +70,20 @@ async function keysChecks(page, mock, until, url) {
   assert.equal(await page.locator("#key-limit").inputValue(), "5M");
   assert.match(await page.locator("#key-limit-help").innerText(), /5,000,000/);
   await page.locator("#key-save").click();
-  await page.locator("#secret-dialog[open]").waitFor();
+  await page.locator("#secret-dialog ui-dialog-content[data-open]").waitFor();
   assert.deepEqual(created, [{ name: "new", providers: ["codex"], accounts: ["codex-a.json"], models: ["gpt-5*"], weekly_token_limit: 5000000 }]);
   assert.equal(await page.locator("#secret-key").innerText(), secret);
   assert.match(await page.locator("#secret-example").innerText(), /https:\/\/box\.tail\.ts\.net:8317\/v1\/chat\/completions/);
-  await page.locator('[data-secret-client="claude"]').click();
+  await page.locator('#secret-client-tabs ui-segmented-control-item[value="claude"]').click();
   assert.match(await page.locator("#secret-example").innerText(), /ANTHROPIC_BASE_URL="https:\/\/box\.tail\.ts\.net:8317"/);
-  await page.locator('[data-secret-client="codex"]').click();
+  await page.locator('#secret-client-tabs ui-segmented-control-item[value="codex"]').click();
   assert.match(await page.locator("#secret-example").innerText(), /wire_api = "responses"/);
-  await page.locator('[data-secret-client="openai"]').click();
+  await page.locator('#secret-client-tabs ui-segmented-control-item[value="openai"]').click();
   assert.match(await page.locator("#secret-example").innerText(), /OPENAI_BASE_URL="https:\/\/box\.tail\.ts\.net:8317\/v1"/);
-  await page.locator('[data-secret-client="curl"]').click();
+  await page.locator('#secret-client-tabs ui-segmented-control-item[value="curl"]').click();
   assert.match(await page.locator("#secret-dialog").innerText(), /won’t see this key again/);
   await page.locator("#secret-done").click();
-  await page.locator("#secret-dialog").waitFor({ state: "hidden" });
+  await page.locator("#secret-dialog ui-dialog-content").waitFor({ state: "hidden" });
   assert.equal(await page.locator("#secret-key").textContent(), "", "The secret leaves the page with its dialog");
   assert.equal(await page.locator("#secret-example").textContent(), "", "The example snippet leaves the page with its dialog");
 
@@ -94,7 +94,7 @@ async function keysChecks(page, mock, until, url) {
 
   // Usage modal: chart with keyboard inspection, range dropdown, and breakdowns by model and account.
   await page.locator('[data-key-open="ck_bbbbbbbbbbbb"]').click();
-  await page.locator("#key-usage-dialog[open]").waitFor();
+  await page.locator("#key-usage-dialog ui-dialog-content[data-open]").waitFor();
   await page.locator("[data-key-chart]").waitFor();
   await page.locator("[data-key-chart]").focus();
   await page.keyboard.press("End");
@@ -102,12 +102,12 @@ async function keysChecks(page, mock, until, url) {
   const breakdowns = await page.locator(".key-breakdowns").innerText();
   assert.match(breakdowns, /gpt-5[\s\S]*300[\s\S]*2 req/);
   assert.match(breakdowns, /b@example\.com[\s\S]*150[\s\S]*1 req · 1 failed/);
-  await page.locator('[data-key-unit="day"]').click();
-  assert.equal(await page.locator('[data-key-unit="day"]').getAttribute("aria-pressed"), "true");
+  await page.locator('#key-usage-unit ui-segmented-control-item[value="day"]').click();
+  assert.equal(await page.locator('#key-usage-unit ui-segmented-control-item[value="day"]').hasAttribute("data-checked"), true);
   await page.locator("#key-usage-range").selectOption("2160");
   assert.match(await page.locator("#key-usage-body").innerText(), /last 90 days/i);
   await page.locator("#key-usage-close").click();
-  await page.locator("#key-usage-dialog").waitFor({ state: "hidden" });
+  await page.locator("#key-usage-dialog ui-dialog-content").waitFor({ state: "hidden" });
 
   // Row ellipsis menu: Rotate and delete confirm first; Cancel sends nothing.
   await page.locator('[data-key-menu="ck_bbbbbbbbbbbb"]').click();
@@ -119,7 +119,7 @@ async function keysChecks(page, mock, until, url) {
   await page.locator('[data-key-menu="ck_bbbbbbbbbbbb"]').click();
   await page.locator('#key-menu [data-key-action="rotate"]').click();
   await page.locator("#confirm-remove").click();
-  await page.locator("#secret-dialog[open]").waitFor();
+  await page.locator("#secret-dialog ui-dialog-content[data-open]").waitFor();
   assert.deepEqual(rotated, [{ id: "ck_bbbbbbbbbbbb" }]);
   await page.locator("#secret-done").click();
   await page.locator('[data-key-menu="ck_bbbbbbbbbbbb"]').click();
