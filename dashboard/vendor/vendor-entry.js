@@ -1,9 +1,11 @@
 // Third-party UI pieces for the dashboard, bundled into assets/vendor.js:
-// the real Sonner toaster (React) and Torph's dependency-free TextMorph.
+// Sonner toaster (React), Torph's TextMorph, and @ui-sdk/web behavior primitives.
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { Toaster, toast } from "sonner";
 import { TextMorph } from "torph";
+import "@ui-sdk/web/dialog";
+import "@ui-sdk/web/segmented-control";
 
 const host = document.createElement("div");
 document.body.append(host);

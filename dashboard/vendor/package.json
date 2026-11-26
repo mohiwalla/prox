@@ -5,6 +5,8 @@
     "build": "esbuild vendor-entry.js --bundle --minify --format=iife --define:process.env.NODE_ENV='\"production\"' --outfile=../assets/vendor.js"
   },
   "dependencies": {
+    "@ui-sdk/core": "^0.1.0-beta.17",
+    "@ui-sdk/web": "^0.1.0-beta.17",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "sonner": "2.0.7",
