@@ -6350,6 +6350,15 @@
       });
 
       // Key usage chart: the pointer or arrow keys pick an interval.
+      function clearUsage(fig) {
+        if (!fig) return;
+        delete fig.dataset.slot;
+        $(".usage-hover", fig)?.setAttribute("hidden", "");
+        const tooltip = $(".chart-tooltip", fig);
+        if (tooltip) tooltip.hidden = true;
+        const inspect = $(".chart-inspect", fig);
+        if (inspect) inspect.textContent = "Input and output; cache reads excluded";
+      }
       function inspectKeyChart(fig, slot) {
         const chart = state.keys.chart;
         if (!chart || !slot) return clearUsage(fig);
