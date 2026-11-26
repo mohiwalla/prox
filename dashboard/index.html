@@ -2227,6 +2227,7 @@
         transform: scale(0.95);
       }
       ui-dialog-content.ui-modal.usage-dialog {
+        --pool-color: var(--provider-other);
         width: min(760px, calc(100% - 32px));
         max-height: 88dvh;
       }
@@ -2253,15 +2254,19 @@
         display: inline-flex;
         align-items: center;
         flex-shrink: 0;
-        height: 32px;
+        height: 36px;
         padding: 3px;
         gap: 2px;
         border-radius: var(--radius-md);
         background: var(--muted);
       }
+      ui-segmented-control.sm {
+        height: 32px;
+      }
       ui-segmented-control-indicator {
+        display: block;
         position: absolute;
-        z-index: -1;
+        z-index: 0;
         top: var(--segmented-control-indicator-top);
         left: var(--segmented-control-indicator-left);
         width: var(--segmented-control-indicator-width);
@@ -2273,26 +2278,29 @@
         transition-duration: var(--duration-ui);
         transition-timing-function: var(--ease-in-out);
       }
-      ui-segmented-control-indicator:not([data-visible]) {
-        opacity: 0;
-      }
       ui-segmented-control-indicator[data-activation-direction="none"] {
         transition: none;
       }
       ui-segmented-control-item {
+        position: relative;
+        z-index: 1;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        height: 26px;
+        height: 30px;
         padding: 0 10px;
         border-radius: var(--radius-sm);
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 500;
         line-height: 1;
         color: var(--muted-foreground);
         cursor: pointer;
         user-select: none;
         transition: color var(--duration-fast) ease;
+      }
+      ui-segmented-control.sm ui-segmented-control-item {
+        height: 26px;
+        font-size: 13px;
       }
       ui-segmented-control-item:hover:not([data-disabled]),
       ui-segmented-control-item[data-checked] {
@@ -3649,6 +3657,7 @@
             <div class="secret-field-head">
               <label id="secret-example-label">Client setup</label>
               <ui-segmented-control
+                class="sm"
                 id="secret-client-tabs"
                 aria-label="Client setup format"
                 default-value="curl"
@@ -3714,7 +3723,7 @@
           <div class="usage-dialog-controls">
             <label class="forecast-control">
               Range
-              <select id="key-usage-range" class="sm" aria-label="Usage time range">
+              <select id="key-usage-range" aria-label="Usage time range">
                 <option value="24">Last 24 hours</option>
                 <option value="168" selected>Last 7 days</option>
                 <option value="336">Last 14 days</option>
