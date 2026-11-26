@@ -8,6 +8,7 @@ import time
 import unittest
 from unittest.mock import patch
 
+import deploy as dashboard_deploy
 import server as dashboard_server
 from server import (ERROR_LOG_LIMIT, Handler, Hub, ProxyError, Store, ThreadingHTTPServer, parse_antigravity, parse_claude,
                     parse_claude_plan, parse_claude_resets, parse_codex, parse_codex_resets, safe_account)
@@ -426,6 +427,89 @@ class HTTPTests(unittest.TestCase):
                 self.assertIn("text/html", res.getheader("Content-Type"))
                 self.assertIn(b"<html", body[:200])
 
+    def get_raw(self, path, host="localhost:8318"):
+        conn = http.client.HTTPConnection("127.0.0.1", self.server.server_port)
+        conn.request("GET", path, headers={"Host": host})
+        res = conn.getresponse()
+        body = res.read()
+        headers = dict(res.getheaders())
+        conn.close()
+        return res.status, body, headers
+
+    def test_dist_index_and_assets_serving_with_legacy_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "index.html").write_text("<!doctype html><html><body>legacy-dashboard</body></html>")
+            (root / "assets").mkdir()
+            (root / "assets" / "geist-sans.woff2").write_bytes(b"woff2-font-bytes")
+            (root / "assets" / "vendor.js").write_text("console.log('legacy');")
+            (root / "secret.txt").write_text("do-not-leak")
+
+            with patch.object(dashboard_server, "ROOT", root):
+                # Without dist/, pages fall back to legacy index.html and legacy assets work.
+                for path in ("/dashboard/", "/dashboard/accounts", "/dashboard/keys", "/dashboard/logs"):
+                    status, body, headers = self.get_raw(path)
+                    self.assertEqual(status, 200, path)
+                    self.assertIn(b"legacy-dashboard", body)
+                    self.assertEqual(headers.get("Cache-Control"), "no-store")
+                    csp = headers.get("Content-Security-Policy", "")
+                    self.assertIn("script-src 'self'", csp)
+                    self.assertIn("style-src 'self'", csp)
+                    self.assertIn("font-src 'self'", csp)
+
+                status, body, headers = self.get_raw("/dashboard/assets/geist-sans.woff2")
+                self.assertEqual(status, 200)
+                self.assertEqual(body, b"woff2-font-bytes")
+                self.assertEqual(headers.get("Content-Type"), "font/woff2")
+                self.assertEqual(headers.get("Cache-Control"), "public, max-age=86400")
+
+                # When dist/index.html and dist/assets/* exist, they take precedence.
+                (root / "dist" / "assets").mkdir(parents=True)
+                (root / "dist" / "index.html").write_text(
+                    '<!doctype html><html><head><script type="module" src="/dashboard/assets/app-123.js"></script></head><body>vite-dashboard</body></html>'
+                )
+                (root / "dist" / "assets" / "app-123.js").write_text("export const ok = true;")
+                (root / "dist" / "assets" / "app-123.css").write_text("body { background: #0a0a0a; }")
+                (root / "dist" / "assets" / "vendor.js").write_text("console.log('dist');")
+
+                for path in ("/dashboard/", "/dashboard/accounts", "/dashboard/keys", "/dashboard/logs"):
+                    status, body, headers = self.get_raw(path)
+                    self.assertEqual(status, 200, path)
+                    self.assertIn(b"vite-dashboard", body)
+                    self.assertEqual(headers.get("Content-Type"), "text/html; charset=utf-8")
+                    self.assertEqual(headers.get("Cache-Control"), "no-store")
+
+                status, body, headers = self.get_raw("/dashboard/assets/app-123.js")
+                self.assertEqual(status, 200)
+                self.assertEqual(body, b"export const ok = true;")
+                self.assertEqual(headers.get("Content-Type"), "text/javascript; charset=utf-8")
+                self.assertEqual(headers.get("Cache-Control"), "public, max-age=31536000, immutable")
+
+                status, body, headers = self.get_raw("/dashboard/assets/app-123.css")
+                self.assertEqual(status, 200)
+                self.assertEqual(body, b"body { background: #0a0a0a; }")
+                self.assertEqual(headers.get("Content-Type"), "text/css; charset=utf-8")
+                self.assertEqual(headers.get("Cache-Control"), "public, max-age=31536000, immutable")
+
+                # dist/assets overrides assets/ when both exist.
+                status, body, _ = self.get_raw("/dashboard/assets/vendor.js")
+                self.assertEqual(status, 200)
+                self.assertEqual(body, b"console.log('dist');")
+
+                # Self-hosted fonts still fall back to dashboard/assets/.
+                status, body, headers = self.get_raw("/dashboard/assets/geist-sans.woff2")
+                self.assertEqual(status, 200)
+                self.assertEqual(body, b"woff2-font-bytes")
+                self.assertEqual(headers.get("Content-Type"), "font/woff2")
+                self.assertEqual(headers.get("Cache-Control"), "public, max-age=86400")
+
+                # Missing assets and path traversal return 404.
+                for bad in ("/dashboard/assets/missing.js", "/dashboard/assets/../secret.txt",
+                            "/dashboard/assets/%2e%2e/secret.txt", "/dashboard/assets/../../etc/passwd"):
+                    status, body, _ = self.get_raw(bad)
+                    self.assertEqual(status, 404, bad)
+                    self.assertNotIn(b"do-not-leak", body)
+
     def test_public_cookie_is_secure_and_not_script_readable(self):
         with patch.object(dashboard_server, "PUBLIC_HOSTS", ["proxy.example.test"]):
             code, _, cookie = self.request("login", {"key": "test-only-key"}, host="proxy.example.test")
@@ -724,6 +808,67 @@ class CooldownTests(unittest.TestCase):
         with patch("server.time.time", return_value=1794542400):
             self.assertEqual(safe_account(raw)["cooldowns"], [])
         self.assertIsNone(safe_account({"auth_index": "b", "provider": "codex"})["cooldown_until"])
+
+
+class DeployTests(unittest.TestCase):
+    def test_deploy_copies_dist_when_present_and_preserves_frontend_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            src = base / "src"
+            hub = base / "hub"
+            target = hub / "dashboard"
+            (src / "assets").mkdir(parents=True)
+            (hub / "static").mkdir(parents=True)
+            target.mkdir(parents=True)
+            for name in ("server.py", "index.html", "README.md", "DESIGN.md"):
+                (src / name).write_text(f"new-{name}")
+            (src / "assets" / "geist-sans.woff2").write_bytes(b"font")
+            core = [hub / "cli-proxy-api", hub / "config.yaml", hub / "static" / "management.html"]
+            for p in core:
+                p.write_text(f"protected-{p.name}")
+
+            # 1. Without dist/, --frontend-only deploys index.html + assets without restarting or touching server.py.
+            (target / "server.py").write_text("old-server")
+            with patch.object(dashboard_deploy, "ROOT", src), \
+                    patch.object(dashboard_deploy, "TARGET", target), \
+                    patch.object(dashboard_deploy, "CORE", core), \
+                    patch("sys.argv", ["deploy.py", "--frontend-only"]), \
+                    patch("deploy.subprocess.run") as run_cmd:
+                dashboard_deploy.main()
+            run_cmd.assert_not_called()
+            self.assertEqual((target / "server.py").read_text(), "old-server")
+            self.assertEqual((target / "index.html").read_text(), "new-index.html")
+            self.assertFalse((target / "dist").exists())
+
+            # 2. With dist/, --frontend-only deploys dist/ (replacing stale files) + index.html + assets without restart.
+            (target / "dist" / "assets").mkdir(parents=True)
+            (target / "dist" / "assets" / "stale.js").write_text("stale")
+            (src / "dist" / "assets").mkdir(parents=True)
+            (src / "dist" / "index.html").write_text("vite-index")
+            (src / "dist" / "assets" / "app.js").write_text("vite-app")
+            with patch.object(dashboard_deploy, "ROOT", src), \
+                    patch.object(dashboard_deploy, "TARGET", target), \
+                    patch.object(dashboard_deploy, "CORE", core), \
+                    patch("sys.argv", ["deploy.py", "--frontend-only"]), \
+                    patch("deploy.time.time", return_value=2000000001), \
+                    patch("deploy.subprocess.run") as run_cmd:
+                dashboard_deploy.main()
+            run_cmd.assert_not_called()
+            self.assertEqual((target / "server.py").read_text(), "old-server")
+            self.assertEqual((target / "dist" / "index.html").read_text(), "vite-index")
+            self.assertEqual((target / "dist" / "assets" / "app.js").read_text(), "vite-app")
+            self.assertFalse((target / "dist" / "assets" / "stale.js").exists())
+
+            # 3. Full deploy copies server.py + dist/ and restarts the service.
+            with patch.object(dashboard_deploy, "ROOT", src), \
+                    patch.object(dashboard_deploy, "TARGET", target), \
+                    patch.object(dashboard_deploy, "CORE", core), \
+                    patch("sys.argv", ["deploy.py"]), \
+                    patch("deploy.time.time", return_value=2000000002), \
+                    patch("deploy.subprocess.run") as run_cmd:
+                dashboard_deploy.main()
+            run_cmd.assert_called_once()
+            self.assertEqual((target / "server.py").read_text(), "new-server.py")
 
 
 if __name__ == "__main__":

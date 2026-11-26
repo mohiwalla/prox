@@ -26,6 +26,8 @@ def main():
     backup = TARGET / "data" / "releases" / str(int(time.time()))
     backup.mkdir(parents=True, mode=0o700)
     names = ["index.html", "README.md", "DESIGN.md", "assets"]
+    if (ROOT / "dist").is_dir():
+        names.append("dist")
     if not args.frontend_only:
         names.insert(0, "server.py")
     for name in names:
@@ -36,7 +38,15 @@ def main():
                 shutil.copytree(current, backup / name)
             else:
                 shutil.copy2(current, backup / name)
-        if source.is_dir():
+        if name == "dist" and source.is_dir():
+            staged = current.with_name(current.name + ".next")
+            if staged.exists():
+                shutil.rmtree(staged)
+            shutil.copytree(source, staged)
+            if current.exists():
+                shutil.rmtree(current)
+            staged.replace(current)
+        elif source.is_dir():
             shutil.copytree(source, current, dirs_exist_ok=True)
         else:
             staged = current.with_name(current.name + ".next")
