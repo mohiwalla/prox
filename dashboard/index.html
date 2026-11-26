@@ -5797,16 +5797,20 @@
           btn.classList.toggle("active", active);
           btn.setAttribute("aria-pressed", String(active));
         }
+        updateIndicators();
         const usage =
           keys.usage?.id === k.id && keys.usage?.hours === hours
             ? keys.usage.buckets
             : null;
+        const tpl = document.createElement("template");
         if (keys.usageError && !usage) {
-          bodyEl.innerHTML = `<div class="notice error">${icon("warning")}<span>${esc(keys.usageError)}</span></div>`;
+          tpl.innerHTML = `<div class="notice error">${icon("warning")}<span>${esc(keys.usageError)}</span></div>`;
+          patchChildren(bodyEl, tpl.content);
           return;
         }
         if (!usage) {
-          bodyEl.innerHTML = `<div class="logs-loading"><span class="loading-mark"></span>Loading usage…</div>`;
+          tpl.innerHTML = `<div class="logs-loading"><span class="loading-mark"></span>Loading usage…</div>`;
+          patchChildren(bodyEl, tpl.content);
           return;
         }
         // Biggest models get their own color; the rest share one.
@@ -5838,7 +5842,8 @@
           { tokens: 0, requests: 0, failed: 0 },
         );
         const cache = usage.reduce((s, b) => s + b.cache_read_tokens, 0);
-        bodyEl.innerHTML = `<dl class="metrics"><div class="metric"><dt>Tokens, ${esc(rangeLabel)}</dt><dd>${esc(total.tokens.toLocaleString())}</dd></div><div class="metric"><dt>Weekly limit</dt><dd>${k.weekly_token_limit ? esc(k.weekly_token_limit.toLocaleString()) : "No limit"}</dd></div><div class="metric"><dt>Requests</dt><dd>${total.requests.toLocaleString()}${total.failed ? ` · ${total.failed} failed` : ""}</dd></div><div class="metric"><dt>Cache reads</dt><dd>${esc(cache.toLocaleString())}</dd></div></dl>${keyChart(usage, models, hours)}<div class="breakdown key-breakdowns">${keyShares("By model", byModel, (r) => r.id || "Unknown model", rangeLabel)}${keyShares("By account", keyTotals(usage, "account"), (r) => keyAccountLabel(r.id), rangeLabel)}</div>`;
+        tpl.innerHTML = `<dl class="metrics"><div class="metric"><dt>Tokens, ${esc(rangeLabel)}</dt><dd>${morph(esc(total.tokens.toLocaleString()))}</dd></div><div class="metric"><dt>Weekly limit</dt><dd>${morph(k.weekly_token_limit ? esc(k.weekly_token_limit.toLocaleString()) : "No limit")}</dd></div><div class="metric"><dt>Requests</dt><dd>${morph(`${total.requests.toLocaleString()}${total.failed ? ` · ${total.failed} failed` : ""}`)}</dd></div><div class="metric"><dt>Cache reads</dt><dd>${morph(esc(cache.toLocaleString()))}</dd></div></dl>${keyChart(usage, models, hours)}<div class="breakdown key-breakdowns">${keyShares("By model", byModel, (r) => r.id || "Unknown model", rangeLabel)}${keyShares("By account", keyTotals(usage, "account"), (r) => keyAccountLabel(r.id), rangeLabel)}</div>`;
+        patchChildren(bodyEl, tpl.content);
       }
       function renderKeys() {
         const root = $("#keys-live");
@@ -5962,6 +5967,7 @@
         const id = state.keys.open;
         state.keys.open = null;
         state.keys.chart = null;
+        delete $("#key-usage-unit").dataset.motionIndicator;
         if (id) $(`[data-key-open="${CSS.escape(id)}"]`)?.focus();
       });
       $("#key-usage-range").addEventListener("change", (e) => {
@@ -6298,6 +6304,7 @@
         const { code, help } = secretSnippet(client, secretPayload);
         $("#secret-example").textContent = code;
         $("#secret-example-help").textContent = help;
+        updateIndicators();
       }
       function showSecret(k, secret, how) {
         secretKey = k.id;
@@ -6316,8 +6323,8 @@
             : "The key is ready. Give it to the client it's for.";
         $("#secret-key").textContent = secret;
         $("#secret-base").textContent = base;
-        renderSecretExample("curl");
         $("#secret-dialog").showModal();
+        renderSecretExample("curl");
         $("#secret-copy").focus();
       }
       $("#secret-client-tabs").addEventListener("click", (e) => {
@@ -6345,11 +6352,21 @@
       });
       $("#secret-dialog").addEventListener("close", () => {
         clearSecret();
+        delete $("#secret-client-tabs").dataset.motionIndicator;
         focusKey(secretKey || "")();
         secretKey = null;
       });
 
       // Key usage chart: the pointer or arrow keys pick an interval.
+      function clearUsage(fig) {
+        if (!fig) return;
+        delete fig.dataset.slot;
+        $(".usage-hover", fig)?.setAttribute("hidden", "");
+        const tooltip = $(".chart-tooltip", fig);
+        if (tooltip) tooltip.hidden = true;
+        const inspect = $(".chart-inspect", fig);
+        if (inspect) inspect.textContent = "Input and output; cache reads excluded";
+      }
       function inspectKeyChart(fig, slot) {
         const chart = state.keys.chart;
         if (!chart || !slot) return clearUsage(fig);
