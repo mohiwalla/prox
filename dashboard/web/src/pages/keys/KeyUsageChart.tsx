@@ -31,12 +31,20 @@ export function KeyUsageChart({
   const figRef = useRef<HTMLElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const rafRef = useRef<number>(0);
+  const lastClientXRef = useRef<number>(0);
 
   const [size, setSize] = useState<{ w: number; h: number }>(() => {
     const mobile = typeof window !== "undefined" && window.innerWidth <= 760;
     return { w: mobile ? 300 : 680, h: mobile ? 120 : 160 };
   });
   const [activeSlotIdx, setActiveSlotIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const el = figRef.current;
@@ -161,7 +169,6 @@ export function KeyUsageChart({
 
   const activeSlot = activeSlotIdx !== null ? chart.slots[activeSlotIdx] || null : null;
 
-  const [tipTransform, setTipTransform] = useState("");
   useLayoutEffect(() => {
     if (!activeSlot || !svgRef.current || !tooltipRef.current) return;
     const svg = svgRef.current;
@@ -173,21 +180,88 @@ export function KeyUsageChart({
     const tw = tip.offsetWidth;
     let tipLeft = ax + 14;
     if (tipLeft + tw > width) tipLeft = ax - 14 - tw;
-    setTipTransform(`translate3d(${Math.max(0, tipLeft)}px, 8px, 0)`);
+    tip.style.transform = `translate3d(${Math.max(0, tipLeft)}px, 8px, 0)`;
   }, [activeSlot, chart]);
 
+  const staticBarsAndAxes = useMemo(
+    () => (
+      <>
+        <line
+          className="grid-line"
+          x1={chart.left}
+          x2={chart.W - chart.right}
+          y1={chart.y(chart.step)}
+          y2={chart.y(chart.step)}
+        />
+        <text
+          x={chart.left - 10}
+          y={chart.y(chart.step) + 4}
+          textAnchor="end"
+        >
+          {fmtTokens(chart.step)}
+        </text>
+        <line
+          x1={chart.left}
+          x2={chart.W - chart.right}
+          y1={chart.y(0)}
+          y2={chart.y(0)}
+          stroke="var(--border)"
+        />
+        {chart.dayMarks.map((m, i) => (
+          <text key={i} x={m.lx} y={chart.H - 6} textAnchor={m.anchor}>
+            {m.text}
+          </text>
+        ))}
+        <g className="chart-data">
+          {chart.slots.map((s, si) => {
+            const x0 = chart.x(s.ts);
+            const width = Math.max(1, chart.x(s.end) - x0 - chart.gap * 2);
+            let acc = 0;
+            return models.map((m, k) => {
+              const v = s.parts[k];
+              if (v <= 0) return null;
+              const h = chart.y(acc) - chart.y(acc + v);
+              const rectY = chart.y(acc + v);
+              const rectH = Math.max(1.5, acc ? h - 1 : h);
+              acc += v;
+              return (
+                <rect
+                  key={`${si}-${k}`}
+                  x={x0 + chart.gap}
+                  y={rectY}
+                  width={width}
+                  height={rectH}
+                  rx="1.5"
+                  fill={m.color}
+                />
+              );
+            });
+          })}
+        </g>
+      </>
+    ),
+    [chart, models],
+  );
+
   function handlePointerMove(e: React.PointerEvent<HTMLElement>) {
-    const svg = svgRef.current;
-    if (!svg || !chart.slots.length) return;
-    const rect = svg.getBoundingClientRect();
-    const px = ((e.clientX - rect.left) / rect.width) * chart.W;
-    const ts =
-      chart.start +
-      ((px - chart.left) / (chart.W - chart.left - chart.right)) *
-        (chart.end - chart.start);
-    const clamped = Math.min(chart.end - 1, Math.max(chart.start, ts));
-    const idx = chart.slots.findIndex((s) => clamped >= s.ts && clamped < s.end);
-    setActiveSlotIdx(idx >= 0 ? idx : null);
+    if (!chart.slots.length) return;
+    lastClientXRef.current = e.clientX;
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const px = ((lastClientXRef.current - rect.left) / rect.width) * chart.W;
+      const ts =
+        chart.start +
+        ((px - chart.left) / (chart.W - chart.left - chart.right)) *
+          (chart.end - chart.start);
+      const clamped = Math.min(chart.end - 1, Math.max(chart.start, ts));
+      const idx = chart.slots.findIndex((s) => clamped >= s.ts && clamped < s.end);
+      const next = idx >= 0 ? idx : null;
+      setActiveSlotIdx((prev) => (prev === next ? prev : next));
+    });
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLElement>) {
@@ -219,6 +293,10 @@ export function KeyUsageChart({
       aria-label={`Tokens per ${chart.daily ? "day" : "hour"} over the ${chart.rangeLabel}, by model. Use left and right arrows to inspect.`}
       onPointerMove={handlePointerMove}
       onPointerLeave={() => {
+        if (rafRef.current) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = 0;
+        }
         if (document.activeElement !== figRef.current) setActiveSlotIdx(null);
       }}
       onBlur={() => setActiveSlotIdx(null)}
@@ -230,37 +308,6 @@ export function KeyUsageChart({
         preserveAspectRatio="none"
         role="img"
       >
-        <line
-          className="grid-line"
-          x1={chart.left}
-          x2={chart.W - chart.right}
-          y1={chart.y(chart.step)}
-          y2={chart.y(chart.step)}
-        />
-        <text
-          x={chart.left - 10}
-          y={chart.y(chart.step) + 4}
-          textAnchor="end"
-        >
-          {fmtTokens(chart.step)}
-        </text>
-        <line
-          x1={chart.left}
-          x2={chart.W - chart.right}
-          y1={chart.y(0)}
-          y2={chart.y(0)}
-          stroke="var(--border)"
-        />
-        {chart.dayMarks.map((m, i) => (
-          <text
-            key={i}
-            x={m.lx}
-            y={chart.H - 6}
-            textAnchor={m.anchor}
-          >
-            {m.text}
-          </text>
-        ))}
         <rect
           className="usage-hover"
           x={activeSlot ? chart.x(activeSlot.ts) : 0}
@@ -273,39 +320,13 @@ export function KeyUsageChart({
           height={chart.H - chart.top - chart.bottom}
           {...(!activeSlot ? ({ hidden: true } as Record<string, unknown>) : {})}
         />
-        <g className="chart-data">
-          {chart.slots.map((s, si) => {
-            const x0 = chart.x(s.ts);
-            const width = Math.max(1, chart.x(s.end) - x0 - chart.gap * 2);
-            let acc = 0;
-            return models.map((m, k) => {
-              const v = s.parts[k];
-              if (v <= 0) return null;
-              const h = chart.y(acc) - chart.y(acc + v);
-              const rectY = chart.y(acc + v);
-              const rectH = Math.max(1.5, acc ? h - 1 : h);
-              acc += v;
-              return (
-                <rect
-                  key={`${si}-${k}`}
-                  x={x0 + chart.gap}
-                  y={rectY}
-                  width={width}
-                  height={rectH}
-                  rx="1.5"
-                  fill={m.color}
-                />
-              );
-            });
-          })}
-        </g>
+        {staticBarsAndAxes}
       </svg>
 
       <div
         ref={tooltipRef}
         className="chart-tooltip"
         hidden={!activeSlot}
-        style={tipTransform ? { transform: tipTransform } : undefined}
       >
         {activeSlot && (
           <>
