@@ -9,6 +9,7 @@ import hmac
 import http.cookies
 import json
 import math
+import mimetypes
 import os
 import re
 from pathlib import Path
@@ -59,6 +60,27 @@ CLAUDE_UA = "claude-cli/2.1.280 (external, cli)"
 SESSION_TTL = 400 * 86400
 SESSION_RENEW_AFTER = 86400
 PAGES = {"/", "/accounts", "/keys", "/logs"}
+ASSET_TYPES = {
+    ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".woff2": "font/woff2",
+    ".woff": "font/woff",
+    ".ttf": "font/ttf",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".ico": "image/x-icon",
+    ".json": "application/json; charset=utf-8",
+    ".map": "application/json; charset=utf-8",
+}
+CSP_POLICY = (
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+    "font-src 'self' data:; img-src 'self' data:; connect-src 'self'; "
+    "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+)
 HISTORY_POINTS = 720  # most points per series sent to the browser
 # Every OAuth flow CLIProxyAPI v8 exposes through /oauth/auth-url.
 OAUTH_PROVIDERS = {"claude", "codex", "antigravity", "xai", "kimi", "kimi-ai", "devin", "meta"}
@@ -864,7 +886,7 @@ class Handler(BaseHTTPRequestHandler):
     def hub(self):
         return self.server.hub
 
-    def send(self, status, body, content_type="application/json", cookie=None):
+    def send(self, status, body, content_type="application/json", cookie=None, cache_control="no-store"):
         payload = json.dumps(body).encode() if content_type == "application/json" else body
         self.send_response(status)
         self.send_header("Content-Type", content_type)
@@ -873,15 +895,45 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Encoding", "gzip")
             self.send_header("Vary", "Accept-Encoding")
         self.send_header("Content-Length", str(len(payload)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache_control)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
-        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+        self.send_header("Content-Security-Policy", CSP_POLICY)
         cookie = cookie or getattr(self, "renewed_cookie", None)
         if cookie:
             self.send_header("Set-Cookie", cookie)
         self.end_headers()
         self.wfile.write(payload)
+
+    @staticmethod
+    def resolve_index():
+        dist_index = ROOT / "dist" / "index.html"
+        return dist_index if dist_index.is_file() else ROOT / "index.html"
+
+    @staticmethod
+    def resolve_asset(rel_path):
+        rel = urllib.parse.unquote(rel_path)
+        if not rel or "\x00" in rel or "\\" in rel or rel.startswith("/"):
+            return None, None
+        for directory, cache_control in (
+            (ROOT / "dist" / "assets", "public, max-age=31536000, immutable"),
+            (ROOT / "assets", "public, max-age=86400"),
+        ):
+            base = directory.resolve()
+            if not base.is_dir():
+                continue
+            candidate = (base / rel).resolve()
+            if candidate.is_relative_to(base) and candidate.is_file():
+                return candidate, cache_control
+        return None, None
+
+    @staticmethod
+    def asset_content_type(path):
+        ext = path.suffix.lower()
+        if ext in ASSET_TYPES:
+            return ASSET_TYPES[ext]
+        guessed, _ = mimetypes.guess_type(path.name)
+        return guessed or "application/octet-stream"
 
     def client_ip(self):
         # Tailscale Serve and Cloudflare Tunnel both connect from loopback; rate-limit
@@ -936,13 +988,14 @@ class Handler(BaseHTTPRequestHandler):
             self.send(200, PANEL_SIGN_IN.encode(), "text/html; charset=utf-8")
             return
         if self.command == "GET" and path in PAGES:
-            self.send(200, (ROOT / "index.html").read_bytes(), "text/html; charset=utf-8")
+            self.send(200, self.resolve_index().read_bytes(), "text/html; charset=utf-8")
             return
-        if self.command == "GET" and path in {"/assets/geist-sans.woff2", "/assets/geist-mono.woff2"}:
-            self.send(200, (ROOT / path.lstrip("/")).read_bytes(), "font/woff2")
-            return
-        if self.command == "GET" and path == "/assets/vendor.js":
-            self.send(200, (ROOT / "assets/vendor.js").read_bytes(), "text/javascript; charset=utf-8")
+        if self.command == "GET" and path.startswith("/assets/"):
+            asset, cache_control = self.resolve_asset(path.removeprefix("/assets/"))
+            if asset is None:
+                self.send(404, {"error": "Asset not found."})
+                return
+            self.send(200, asset.read_bytes(), self.asset_content_type(asset), cache_control=cache_control)
             return
         if self.command == "POST":
             origin = self.headers.get("Origin")
