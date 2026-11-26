@@ -699,6 +699,18 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(status, 502)
         self.assertIn("Update CLIProxyAPI", data["error"])
 
+    def test_client_base_url_override_and_90d_snapshot(self):
+        cookie = self.login()
+        with patch("server.CLIENT_BASE_URL", "https://batman.tailnet.ts.net:8317"):
+            with patch.object(self.hub, "request", return_value={"keys": []}):
+                status, data, _ = self.request("keys", cookie=cookie)
+        self.assertEqual(status, 200)
+        self.assertEqual(data["base_url"], "https://batman.tailnet.ts.net:8317")
+        with patch.object(self.hub, "snapshot", return_value={"accounts": []}) as snap:
+            status, _, _ = self.request("snapshot?hours=2160", cookie=cookie)
+        self.assertEqual(status, 200)
+        snap.assert_called_once_with(2160)
+
 
 class CooldownTests(unittest.TestCase):
     def test_cooldown_until_is_latest_retry(self):

@@ -32,6 +32,7 @@ PORT = int(os.environ.get("DASHBOARD_PORT", "8318"))
 # Public host[:port] names the dashboard answers on, comma-separated (e.g. a Tailscale
 # name and a Cloudflare Tunnel hostname). The first one is advertised as the API endpoint.
 PUBLIC_HOSTS = [h.strip() for h in os.environ.get("DASHBOARD_HOSTS", "").split(",") if h.strip()]
+CLIENT_BASE_URL = os.environ.get("DASHBOARD_CLIENT_BASE_URL", "").strip().rstrip("/")
 LOCAL_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
 # Tailscale logins that may use the dashboard without the management key, comma-separated
 # (e.g. you@github). The tailnet proxy in front (Caddy's tailscale_auth or `tailscale serve`)
@@ -460,7 +461,7 @@ class Store:
             for w in quota.get("windows", []):
                 db.execute("INSERT OR REPLACE INTO samples VALUES (?,?,?,?,?,?,?)", (
                     quota["observed_at"], account, provider, w["id"], w["remaining"], w["reset_at"], w["period"]))
-            db.execute("DELETE FROM samples WHERE ts < ?", (time.time() - 30 * 86400,))
+            db.execute("DELETE FROM samples WHERE ts < ?", (time.time() - 90 * 86400,))
 
     def add_session(self, token_hash, expires, key_hash):
         with self.connect() as db:
@@ -970,7 +971,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send(200, {"ok": True}, cookie=self.session_cookie("", max_age=0))
         elif path == "/api/snapshot" and self.command == "GET":
             hours = int(urllib.parse.parse_qs(url.query).get("hours", ["24"])[0])
-            self.send(200, self.hub.snapshot(min(max(hours, 1), 24 * 30)))
+            self.send(200, self.hub.snapshot(min(max(hours, 1), 24 * 90)))
         elif path == "/api/refresh" and self.command == "POST":
             with self.hub.lock:
                 self.hub.reset_reads.clear()
@@ -1113,6 +1114,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send(404, {"error": "Page not found."})
 
     def api_base(self):
+        # Explicit client base URL wins (e.g. shared Tailscale host:port when the dashboard is on another host).
+        if CLIENT_BASE_URL:
+            return CLIENT_BASE_URL
         # Clients reach the proxy on the host this page was opened on, or the first public one.
         host = self.headers.get("Host", "")
         host = host if host in PUBLIC_HOSTS else (PUBLIC_HOSTS or [None])[0]

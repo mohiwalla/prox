@@ -92,8 +92,9 @@ async function keysChecks(page, mock, until, url) {
   await until(() => updated.length);
   assert.deepEqual(updated, [{ id: "ck_bbbbbbbbbbbb", enabled: false }]);
 
-  // Usage: chart with keyboard inspection, and breakdowns by model and account.
+  // Usage modal: chart with keyboard inspection, range dropdown, and breakdowns by model and account.
   await page.locator('[data-key-open="ck_bbbbbbbbbbbb"]').click();
+  await page.locator("#key-usage-dialog[open]").waitFor();
   await page.locator("[data-key-chart]").waitFor();
   await page.locator("[data-key-chart]").focus();
   await page.keyboard.press("End");
@@ -103,20 +104,26 @@ async function keysChecks(page, mock, until, url) {
   assert.match(breakdowns, /b@example\.com[\s\S]*150[\s\S]*1 req · 1 failed/);
   await page.locator('[data-key-unit="day"]').click();
   assert.equal(await page.locator('[data-key-unit="day"]').getAttribute("aria-pressed"), "true");
+  await page.locator("#key-usage-range").selectOption("2160");
+  assert.match(await page.locator("#key-usage-body").innerText(), /last 90 days/i);
+  await page.locator("#key-usage-close").click();
+  await page.locator("#key-usage-dialog").waitFor({ state: "hidden" });
 
-  // Rotate and delete confirm first; Cancel sends nothing and returns focus.
-  await page.locator("[data-key-rotate]").click();
+  // Row ellipsis menu: Rotate and delete confirm first; Cancel sends nothing.
+  await page.locator('[data-key-menu="ck_bbbbbbbbbbbb"]').click();
+  await page.locator('#key-menu [data-key-action="rotate"]').click();
   await page.locator("#confirm-dialog[open]").waitFor();
   await page.keyboard.press("Escape");
   await page.locator("#confirm-dialog").waitFor({ state: "hidden" });
-  assert.equal(await page.evaluate(() => document.activeElement.hasAttribute("data-key-rotate")), true);
   assert.deepEqual(rotated, []);
-  await page.locator("[data-key-rotate]").click();
+  await page.locator('[data-key-menu="ck_bbbbbbbbbbbb"]').click();
+  await page.locator('#key-menu [data-key-action="rotate"]').click();
   await page.locator("#confirm-remove").click();
   await page.locator("#secret-dialog[open]").waitFor();
   assert.deepEqual(rotated, [{ id: "ck_bbbbbbbbbbbb" }]);
   await page.locator("#secret-done").click();
-  await page.locator("[data-key-delete]").click();
+  await page.locator('[data-key-menu="ck_bbbbbbbbbbbb"]').click();
+  await page.locator('#key-menu [data-key-action="delete"]').click();
   await page.locator("#confirm-dialog[open]").waitFor();
   assert.equal(await page.locator("#confirm-remove").innerText(), "Delete key");
   await page.locator("#confirm-remove").click();

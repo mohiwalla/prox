@@ -42,6 +42,8 @@ the public host names in `DASHBOARD_HOSTS` (other Host headers are refused):
 Environment=DASHBOARD_HOSTS=proxy.example.com,box.tailnet.ts.net:8317
 # Optional: these Tailscale logins skip the management key (tailnet-only setups).
 Environment=DASHBOARD_TAILNET_USERS=you@github
+# Optional: override the Base URL shown in the Keys copy modal (e.g. shared Tailscale host:port).
+Environment=DASHBOARD_CLIENT_BASE_URL=https://box.tailnet.ts.net:8317
 ```
 
 `DASHBOARD_TAILNET_USERS` trusts the `Tailscale-User-Login` header, so only set it when
