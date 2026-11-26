@@ -1982,6 +1982,13 @@
         width: 12px;
         height: 12px;
       }
+      .secret-field-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
       .code-sample {
         display: flex;
         align-items: flex-start;
@@ -3426,7 +3433,49 @@
           </div>
         </div>
         <div class="field">
-          <label id="secret-example-label">Example request</label>
+          <div class="secret-field-head">
+            <label id="secret-example-label">Client setup</label>
+            <div
+              class="segmented sm"
+              id="secret-client-tabs"
+              role="tablist"
+              aria-label="Client setup format"
+            >
+              <button
+                type="button"
+                role="tab"
+                data-secret-client="curl"
+                aria-selected="true"
+                class="active"
+              >
+                curl
+              </button>
+              <button
+                type="button"
+                role="tab"
+                data-secret-client="claude"
+                aria-selected="false"
+              >
+                Claude Code
+              </button>
+              <button
+                type="button"
+                role="tab"
+                data-secret-client="codex"
+                aria-selected="false"
+              >
+                Codex
+              </button>
+              <button
+                type="button"
+                role="tab"
+                data-secret-client="openai"
+                aria-selected="false"
+              >
+                OpenAI
+              </button>
+            </div>
+          </div>
           <div class="code-sample" aria-labelledby="secret-example-label">
             <pre id="secret-example" tabindex="0"></pre>
             <button
@@ -3443,7 +3492,7 @@
               ></span>
             </button>
           </div>
-          <p class="field-description">
+          <p class="field-description" id="secret-example-help">
             Send the key as <code>Authorization: Bearer …</code>. OpenAI-style
             clients take the base URL with <code>/v1</code>.
           </p>
@@ -5902,7 +5951,46 @@
       });
 
       // The secret, shown once with a ready-to-paste example.
-      let secretKey = null;
+      let secretKey = null,
+        secretPayload = null,
+        secretClient = "curl";
+      function secretSnippet(client, payload) {
+        if (!payload) return { code: "", help: "" };
+        const { base, secret, model } = payload;
+        if (client === "claude") {
+          return {
+            code: `export ANTHROPIC_BASE_URL="${base}"\nexport ANTHROPIC_AUTH_TOKEN="${secret}"\nclaude`,
+            help: "Run in your shell before launching Claude Code.",
+          };
+        }
+        if (client === "codex") {
+          return {
+            code: `# ~/.codex/config.toml\nmodel_provider = "prox"\n\n[model_providers.prox]\nname = "prox"\nbase_url = "${base}/v1"\nenv_key = "PROX_API_KEY"\nwire_api = "responses"\n\n# shell\nexport PROX_API_KEY="${secret}"`,
+            help: "Configure the custom provider once, then export PROX_API_KEY before running codex.",
+          };
+        }
+        if (client === "openai") {
+          return {
+            code: `export OPENAI_BASE_URL="${base}/v1"\nexport OPENAI_API_KEY="${secret}"`,
+            help: "Works with OpenAI-compatible SDKs and editors (Cursor, Cline, Roo Code, OpenCode, Aider).",
+          };
+        }
+        return {
+          code: `curl ${base}/v1/chat/completions \\\n  -H "Authorization: Bearer ${secret}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"${model}","messages":[{"role":"user","content":"Hello"}]}'`,
+          help: "Send the key as Authorization: Bearer …. OpenAI-style clients take the base URL with /v1.",
+        };
+      }
+      function renderSecretExample(client) {
+        secretClient = client;
+        for (const btn of $$("#secret-client-tabs [data-secret-client]")) {
+          const on = btn.dataset.secretClient === client;
+          btn.classList.toggle("active", on);
+          btn.setAttribute("aria-selected", on ? "true" : "false");
+        }
+        const { code, help } = secretSnippet(client, secretPayload);
+        $("#secret-example").textContent = code;
+        $("#secret-example-help").textContent = help;
+      }
       function showSecret(k, secret, how) {
         secretKey = k.id;
         const base = state.keys.base.replace(/\/$/, ""),
@@ -5912,6 +6000,7 @@
               (!k.providers.length || m.providers.some((p) => k.providers.includes(p))),
           ),
           model = allowed[0]?.id || k.models.find((p) => !/[*?]/.test(p)) || "MODEL";
+        secretPayload = { base, secret, model };
         $("#secret-title").textContent = `Copy ${k.name}'s key`;
         $("#secret-description").textContent =
           how === "rotated"
@@ -5919,13 +6008,14 @@
             : "The key is ready. Give it to the client it's for.";
         $("#secret-key").textContent = secret;
         $("#secret-base").textContent = base;
-        $("#secret-example").textContent = `curl ${base}/v1/chat/completions \\
-  -H "Authorization: Bearer ${secret}" \\
-  -H "Content-Type: application/json" \\
-  -d '{"model":"${model}","messages":[{"role":"user","content":"Hello"}]}'`;
+        renderSecretExample("curl");
         $("#secret-dialog").showModal();
         $("#secret-copy").focus();
       }
+      $("#secret-client-tabs").addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-secret-client]");
+        if (btn) renderSecretExample(btn.dataset.secretClient);
+      });
       $("#secret-copy").addEventListener("click", (e) =>
         copyWithFeedback(e.currentTarget, $("#secret-key").textContent, "Copy API key"),
       );
@@ -5937,6 +6027,7 @@
       );
       // Don't leave the secret in the page once the dialog is gone.
       function clearSecret() {
+        secretPayload = null;
         $("#secret-key").textContent = "";
         $("#secret-example").textContent = "";
       }

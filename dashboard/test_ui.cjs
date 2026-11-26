@@ -74,10 +74,18 @@ async function keysChecks(page, mock, until, url) {
   assert.deepEqual(created, [{ name: "new", providers: ["codex"], accounts: ["codex-a.json"], models: ["gpt-5*"], weekly_token_limit: 5000000 }]);
   assert.equal(await page.locator("#secret-key").innerText(), secret);
   assert.match(await page.locator("#secret-example").innerText(), /https:\/\/box\.tail\.ts\.net:8317\/v1\/chat\/completions/);
+  await page.locator('[data-secret-client="claude"]').click();
+  assert.match(await page.locator("#secret-example").innerText(), /ANTHROPIC_BASE_URL="https:\/\/box\.tail\.ts\.net:8317"/);
+  await page.locator('[data-secret-client="codex"]').click();
+  assert.match(await page.locator("#secret-example").innerText(), /wire_api = "responses"/);
+  await page.locator('[data-secret-client="openai"]').click();
+  assert.match(await page.locator("#secret-example").innerText(), /OPENAI_BASE_URL="https:\/\/box\.tail\.ts\.net:8317\/v1"/);
+  await page.locator('[data-secret-client="curl"]').click();
   assert.match(await page.locator("#secret-dialog").innerText(), /won’t see this key again/);
   await page.locator("#secret-done").click();
   await page.locator("#secret-dialog").waitFor({ state: "hidden" });
   assert.equal(await page.locator("#secret-key").textContent(), "", "The secret leaves the page with its dialog");
+  assert.equal(await page.locator("#secret-example").textContent(), "", "The example snippet leaves the page with its dialog");
 
   // The switch disables a key.
   await page.locator('[data-key-enabled="ck_bbbbbbbbbbbb"]').click();
