@@ -51,6 +51,11 @@ export function AddLoginDialog({
   const sessionRef = useRef<OAuthSession | null>(null);
   const ticketRef = useRef(0);
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const lastRequestRef = useRef<OAuthRequest | null>(null);
+
+  if (request) {
+    lastRequestRef.current = request;
+  }
 
   function clearPoll() {
     if (pollTimerRef.current) {
@@ -251,6 +256,20 @@ export function AddLoginDialog({
         id="oauth-dialog"
         className="ui-modal"
         initialFocus={() => closeRef.current}
+        finalFocus={() => {
+          const last = lastRequestRef.current;
+          if (last?.mode === "relogin" && last.accountId) {
+            return (
+              document.querySelector<HTMLElement>(
+                `[data-menu="${CSS.escape(last.accountId)}"]`,
+              ) ||
+              document.querySelector<HTMLElement>(
+                `[data-relogin="${CSS.escape(last.accountId)}"]`,
+              )
+            );
+          }
+          return document.querySelector<HTMLElement>("#add-login");
+        }}
       >
         <DialogClose
           ref={closeRef}

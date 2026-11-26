@@ -34,6 +34,11 @@ export function ResetDialog({
   const [error, setError] = useState("");
   const [retrySame, setRetrySame] = useState(false);
   const cancelRef = useRef<HTMLButtonElement | null>(null);
+  const lastAccountIdRef = useRef<string | null>(null);
+
+  if (account) {
+    lastAccountIdRef.current = account.id;
+  }
 
   useEffect(() => {
     if (!account) {
@@ -119,6 +124,14 @@ export function ResetDialog({
         id="reset-dialog"
         className="ui-modal"
         initialFocus={() => cancelRef.current}
+        finalFocus={() => {
+          const id = lastAccountIdRef.current;
+          return id
+            ? document.querySelector<HTMLElement>(
+                `[data-menu="${CSS.escape(id)}"]`,
+              )
+            : null;
+        }}
       >
         <header className="dialog-header">
           <DialogTitle id="reset-title">

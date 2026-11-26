@@ -108,18 +108,35 @@ export function KeyUsageDialog({
   clientKey,
   options,
   refreshSeq,
+  hours,
+  unit,
+  returnFocusSelector,
+  onHoursChange,
+  onUnitChange,
   onClose,
 }: {
   clientKey: ClientKey | null;
   options: KeyOptions | null;
   refreshSeq: number;
+  hours: number;
+  unit: "hour" | "day";
+  returnFocusSelector: string | null;
+  onHoursChange: (hours: number) => void;
+  onUnitChange: (unit: "hour" | "day") => void;
   onClose: () => void;
 }) {
-  const [hours, setHours] = useState(168);
-  const [unit, setUnit] = useState<"hour" | "day">("hour");
   const [buckets, setBuckets] = useState<KeyUsageBucket[] | null>(null);
   const [error, setError] = useState("");
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const lastReturnSelectorRef = useRef<string | null>(null);
+  const lastKeyIdRef = useRef<string | null>(null);
+
+  if (clientKey) {
+    lastKeyIdRef.current = clientKey.id;
+  }
+  if (returnFocusSelector) {
+    lastReturnSelectorRef.current = returnFocusSelector;
+  }
 
   const hourlyAllowed = hours <= 336;
   const effectiveUnit: "hour" | "day" = hourlyAllowed ? unit : "day";
@@ -130,6 +147,12 @@ export function KeyUsageDialog({
       setError("");
       return;
     }
+    setBuckets(null);
+    setError("");
+  }, [clientKey?.id]);
+
+  useEffect(() => {
+    if (!clientKey) return;
     let active = true;
     setError("");
     api<KeyUsageResponse>(
@@ -206,6 +229,17 @@ export function KeyUsageDialog({
         id="key-usage-dialog"
         className="ui-modal usage-dialog"
         initialFocus={() => closeRef.current}
+        finalFocus={() => {
+          const sel = lastReturnSelectorRef.current;
+          const exact = sel ? document.querySelector<HTMLElement>(sel) : null;
+          if (exact) return exact;
+          const id = lastKeyIdRef.current;
+          return id
+            ? document.querySelector<HTMLElement>(
+                `[data-key-open="${CSS.escape(id)}"]`,
+              )
+            : null;
+        }}
       >
         <header className="dialog-header usage-dialog-head">
           <div className="usage-dialog-title-wrap">
@@ -236,8 +270,8 @@ export function KeyUsageDialog({
                 value={String(hours)}
                 onChange={(e) => {
                   const nextHours = Number(e.target.value) || 168;
-                  setHours(nextHours);
-                  if (nextHours > 336) setUnit("day");
+                  onHoursChange(nextHours);
+                  if (nextHours > 336) onUnitChange("day");
                   setError("");
                 }}
               >
@@ -255,7 +289,7 @@ export function KeyUsageDialog({
               aria-label="Chart interval"
               value={effectiveUnit}
               onValueChange={(next) => {
-                if (next === "hour" || next === "day") setUnit(next);
+                if (next === "hour" || next === "day") onUnitChange(next);
               }}
             >
               <SegmentedControlIndicator />

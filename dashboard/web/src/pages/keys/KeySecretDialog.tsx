@@ -41,6 +41,11 @@ export function KeySecretDialog({
 }) {
   const [client, setClient] = useState<SecretClient>("curl");
   const copyRef = useRef<HTMLDivElement | null>(null);
+  const lastKeyIdRef = useRef<string | null>(null);
+
+  if (modal) {
+    lastKeyIdRef.current = modal.key.id;
+  }
 
   useEffect(() => {
     if (modal) setClient("curl");
@@ -82,6 +87,16 @@ export function KeySecretDialog({
           copyRef.current?.querySelector<HTMLButtonElement>("#secret-copy") ||
           null
         }
+        finalFocus={() => {
+          const id = lastKeyIdRef.current;
+          return (
+            (id
+              ? document.querySelector<HTMLElement>(
+                  `[data-key-open="${CSS.escape(id)}"]`,
+                )
+              : null) || document.querySelector<HTMLElement>("[data-key-new]")
+          );
+        }}
       >
         <header className="dialog-header">
           <DialogTitle id="secret-title">

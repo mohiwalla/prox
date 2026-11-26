@@ -19,6 +19,11 @@ export function ConfirmDialog({
 }) {
   const [busy, setBusy] = useState(false);
   const cancelRef = useRef<HTMLButtonElement | null>(null);
+  const returnFocusRef = useRef<(() => HTMLElement | null) | undefined>(undefined);
+
+  if (action) {
+    returnFocusRef.current = action.returnFocus;
+  }
 
   useEffect(() => {
     setBusy(false);
@@ -40,6 +45,7 @@ export function ConfirmDialog({
       return;
     }
     setBusy(false);
+    returnFocusRef.current = undefined;
     onClose();
     await action.done(result);
   }
@@ -56,6 +62,7 @@ export function ConfirmDialog({
         id="confirm-dialog"
         className="ui-modal"
         initialFocus={() => cancelRef.current}
+        finalFocus={() => returnFocusRef.current?.() ?? null}
       >
         <header className="dialog-header">
           <AlertDialogTitle id="confirm-title">

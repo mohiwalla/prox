@@ -38,6 +38,9 @@ interface Prefs {
   burn: number;
   forecast: boolean;
   windows: Record<string, string>;
+  keyUsageHours: number;
+  keyUsageUnit: "hour" | "day";
+  logsTab: "errors" | "activity";
 }
 
 function loadPrefs(): Prefs {
@@ -48,6 +51,9 @@ function loadPrefs(): Prefs {
     burn: 3,
     forecast: true,
     windows: {},
+    keyUsageHours: 168,
+    keyUsageUnit: "hour",
+    logsTab: "errors",
   };
   try {
     const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}");
@@ -65,6 +71,12 @@ function loadPrefs(): Prefs {
         if (typeof v === "string") defaults.windows[k] = v;
       }
     }
+    if ([24, 168, 336, 720, 2160].includes(saved.keyUsageHours))
+      defaults.keyUsageHours = saved.keyUsageHours;
+    if (saved.keyUsageUnit === "hour" || saved.keyUsageUnit === "day")
+      defaults.keyUsageUnit = saved.keyUsageUnit;
+    if (saved.logsTab === "errors" || saved.logsTab === "activity")
+      defaults.logsTab = saved.logsTab;
   } catch {
     // ignore storage errors
   }
@@ -342,11 +354,24 @@ export function App() {
           {page === "keys" ? (
             <KeysPage
               refreshTick={keysRefreshTick}
+              keyUsageHours={prefs.keyUsageHours}
+              keyUsageUnit={prefs.keyUsageUnit}
+              onKeyUsageHoursChange={(h) =>
+                setPrefs((prev) => ({ ...prev, keyUsageHours: h }))
+              }
+              onKeyUsageUnitChange={(u) =>
+                setPrefs((prev) => ({ ...prev, keyUsageUnit: u }))
+              }
               onMetaChange={setKeysMeta}
               onConfirm={setConfirmAction}
             />
           ) : page === "logs" ? (
-            <LogsPage />
+            <LogsPage
+              tab={prefs.logsTab}
+              onTabChange={(t) =>
+                setPrefs((prev) => ({ ...prev, logsTab: t }))
+              }
+            />
           ) : !data ? null : !count ? (
             <div className="state-card">
               <h2>

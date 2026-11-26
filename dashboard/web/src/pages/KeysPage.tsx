@@ -23,10 +23,18 @@ import { KeyUsageDialog } from "./keys/KeyUsageDialog";
 
 export function KeysPage({
   refreshTick,
+  keyUsageHours,
+  keyUsageUnit,
+  onKeyUsageHoursChange,
+  onKeyUsageUnitChange,
   onMetaChange,
   onConfirm,
 }: {
   refreshTick: number;
+  keyUsageHours: number;
+  keyUsageUnit: "hour" | "day";
+  onKeyUsageHoursChange: (hours: number) => void;
+  onKeyUsageUnitChange: (unit: "hour" | "day") => void;
   onMetaChange: (meta: string) => void;
   onConfirm: (action: ConfirmAction) => void;
 }) {
@@ -37,8 +45,10 @@ export function KeysPage({
   );
   const [error, setError] = useState("");
   const [usageKeyId, setUsageKeyId] = useState<string | null>(null);
+  const [usageReturnFocus, setUsageReturnFocus] = useState<string | null>(null);
   const [usageRefreshSeq, setUsageRefreshSeq] = useState(0);
   const [formOpen, setFormOpen] = useState(false);
+  const [formReturnFocus, setFormReturnFocus] = useState<string | null>(null);
   const [editingKey, setEditingKey] = useState<ClientKey | null>(null);
   const [secretModal, setSecretModal] = useState<SecretModalState | null>(null);
   const [pendingToggle, setPendingToggle] = useState<Record<string, boolean>>(
@@ -135,6 +145,10 @@ export function KeysPage({
       label: "Rotate key",
       busy: "Rotating…",
       failure: "Couldn't rotate the key",
+      returnFocus: () =>
+        document.querySelector<HTMLElement>(
+          `[data-key-menu="${CSS.escape(k.id)}"]`,
+        ),
       run: () => api<{ key: ClientKey; secret: string }>("keys/rotate", { id: k.id }),
       done(res) {
         const r = res as { key: ClientKey; secret: string };
@@ -156,11 +170,18 @@ export function KeysPage({
       label: "Delete key",
       busy: "Deleting…",
       failure: "Couldn't delete the key",
+      returnFocus: () =>
+        document.querySelector<HTMLElement>(
+          `[data-key-menu="${CSS.escape(k.id)}"]`,
+        ),
       run: () => api("keys/delete", { id: k.id }),
       async done() {
         notify("Key deleted", "success", `${k.name} no longer works.`);
         if (usageKeyId === k.id) setUsageKeyId(null);
         await loadKeys();
+        requestAnimationFrame(() => {
+          document.querySelector<HTMLElement>("[data-key-new]")?.focus();
+        });
       },
     });
   }
@@ -182,6 +203,7 @@ export function KeysPage({
             data-key-new=""
             onClick={() => {
               setEditingKey(null);
+              setFormReturnFocus("[data-key-new]");
               setFormOpen(true);
             }}
           >
@@ -221,6 +243,7 @@ export function KeysPage({
             data-key-new=""
             onClick={() => {
               setEditingKey(null);
+              setFormReturnFocus("[data-key-new]");
               setFormOpen(true);
             }}
           >
@@ -280,6 +303,7 @@ export function KeysPage({
                   if (target.closest("button, [role='switch'], [role='menu']"))
                     return;
                   if (window.getSelection()?.toString()) return;
+                  setUsageReturnFocus(`[data-key-open="${CSS.escape(k.id)}"]`);
                   setUsageKeyId(k.id);
                 }}
               >
@@ -289,7 +313,12 @@ export function KeysPage({
                     className="key-name"
                     data-key-open={k.id}
                     title={k.name}
-                    onClick={() => setUsageKeyId(k.id)}
+                    onClick={() => {
+                      setUsageReturnFocus(
+                        `[data-key-open="${CSS.escape(k.id)}"]`,
+                      );
+                      setUsageKeyId(k.id);
+                    }}
                   >
                     {k.name}
                   </button>
@@ -379,7 +408,12 @@ export function KeysPage({
                       <MenuItem
                         className="menu-item"
                         data-key-action="usage"
-                        onSelect={() => setUsageKeyId(k.id)}
+                        onSelect={() => {
+                          setUsageReturnFocus(
+                            `[data-key-menu="${CSS.escape(k.id)}"]`,
+                          );
+                          setUsageKeyId(k.id);
+                        }}
                       >
                         <Icon name="gauge" />
                         <span>View usage</span>
@@ -389,6 +423,9 @@ export function KeysPage({
                         data-key-action="edit"
                         onSelect={() => {
                           setEditingKey(k);
+                          setFormReturnFocus(
+                            `[data-key-menu="${CSS.escape(k.id)}"]`,
+                          );
                           setFormOpen(true);
                         }}
                       >
@@ -426,6 +463,7 @@ export function KeysPage({
         open={formOpen}
         editingKey={editingKey}
         options={options}
+        returnFocusSelector={formReturnFocus}
         onClose={() => setFormOpen(false)}
         onUpdated={loadKeys}
         onCreated={(key, secret) =>
@@ -444,6 +482,11 @@ export function KeysPage({
         clientKey={activeUsageKey}
         options={options}
         refreshSeq={usageRefreshSeq}
+        hours={keyUsageHours}
+        unit={keyUsageUnit}
+        returnFocusSelector={usageReturnFocus}
+        onHoursChange={onKeyUsageHoursChange}
+        onUnitChange={onKeyUsageUnitChange}
         onClose={() => setUsageKeyId(null)}
       />
     </div>

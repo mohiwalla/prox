@@ -15,8 +15,13 @@ const LOGS_HINTS = {
   activity: "Requests, retries and account switches as the proxy logs them.",
 };
 
-export function LogsPage() {
-  const [tab, setTab] = useState<"errors" | "activity">("errors");
+export function LogsPage({
+  tab,
+  onTabChange,
+}: {
+  tab: "errors" | "activity";
+  onTabChange: (tab: "errors" | "activity") => void;
+}) {
   const [files, setFiles] = useState<ErrorLogFile[] | null>(null);
   const [errorsErr, setErrorsErr] = useState("");
   const [openName, setOpenName] = useState<string | null>(null);
@@ -200,7 +205,7 @@ export function LogsPage() {
           aria-label="Log type"
           value={tab}
           onValueChange={(next) => {
-            if (next === "errors" || next === "activity") setTab(next);
+            if (next === "errors" || next === "activity") onTabChange(next);
           }}
         >
           <SegmentedControlIndicator />

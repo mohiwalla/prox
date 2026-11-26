@@ -16,6 +16,7 @@ export function KeyFormDialog({
   open,
   editingKey,
   options,
+  returnFocusSelector,
   onClose,
   onCreated,
   onUpdated,
@@ -23,6 +24,7 @@ export function KeyFormDialog({
   open: boolean;
   editingKey: ClientKey | null;
   options: KeyOptions | null;
+  returnFocusSelector: string | null;
   onClose: () => void;
   onCreated: (key: ClientKey, secret: string) => void;
   onUpdated: () => Promise<void>;
@@ -40,6 +42,15 @@ export function KeyFormDialog({
   const nameRef = useRef<HTMLInputElement | null>(null);
   const modelInputRef = useRef<HTMLInputElement | null>(null);
   const limitRef = useRef<HTMLInputElement | null>(null);
+  const lastReturnSelectorRef = useRef<string | null>(null);
+  const skipFinalFocusRef = useRef(false);
+
+  if (open && returnFocusSelector) {
+    lastReturnSelectorRef.current = returnFocusSelector;
+  }
+  if (open) {
+    skipFinalFocusRef.current = false;
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -184,6 +195,7 @@ export function KeyFormDialog({
           "keys/create",
           body,
         );
+        skipFinalFocusRef.current = true;
         onClose();
         await onUpdated();
         onCreated(r.key, r.secret);
@@ -208,6 +220,14 @@ export function KeyFormDialog({
         id="key-dialog"
         className="ui-modal"
         initialFocus={() => nameRef.current}
+        finalFocus={() => {
+          if (skipFinalFocusRef.current) return null;
+          const sel = lastReturnSelectorRef.current;
+          return (
+            (sel ? document.querySelector<HTMLElement>(sel) : null) ||
+            document.querySelector<HTMLElement>("[data-key-new]")
+          );
+        }}
       >
         <DialogClose
           className="dialog-close ghost icon-btn sm"

@@ -108,6 +108,10 @@ export function AccountsPage({
       label: "Remove",
       busy: "Removing…",
       failure: "Couldn't remove the account",
+      returnFocus: () =>
+        document.querySelector<HTMLElement>(
+          `[data-menu="${CSS.escape(a.id)}"]`,
+        ),
       run: () => api("account/remove", { id: a.id }),
       async done() {
         notify("Account removed", "success", `${label} is no longer in the pool.`);
