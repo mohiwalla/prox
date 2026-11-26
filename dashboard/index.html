@@ -1795,38 +1795,8 @@
       .key-detail .plot {
         margin-top: 16px;
       }
-      .key-detail .plot.usage svg,
-      .usage-dialog .plot.usage svg {
+      .key-detail .plot.usage svg {
         height: 160px;
-      }
-      dialog.usage-dialog {
-        width: min(760px, calc(100vw - 32px));
-        max-height: min(88vh, 780px);
-        overflow: auto;
-      }
-      .usage-dialog-head {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 12px;
-      }
-      .usage-dialog-title-wrap {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        min-width: 0;
-        flex-wrap: wrap;
-      }
-      .usage-dialog-controls {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 12px;
-        margin-bottom: 16px;
-      }
-      .usage-dialog .plot {
-        margin-top: 16px;
       }
       .key-chart-head {
         display: flex;
@@ -2204,6 +2174,52 @@
       }
       .dialog-body > a.button {
         width: fit-content;
+      }
+      dialog.usage-dialog {
+        width: min(760px, calc(100% - 32px));
+        max-height: 88dvh;
+      }
+      dialog.usage-dialog:focus {
+        outline: none;
+      }
+      .usage-dialog .dialog-header.usage-dialog-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding-right: 0;
+      }
+      .usage-dialog-title-wrap {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        min-width: 0;
+        flex-wrap: wrap;
+      }
+      .usage-dialog-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      #key-usage-body {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .usage-dialog .plot {
+        margin-top: 0;
+      }
+      .usage-dialog .plot.usage svg {
+        height: 160px;
+      }
+      .usage-dialog .key-breakdowns {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      .usage-dialog .key-share {
+        grid-template-columns: minmax(0, 1.4fr) minmax(80px, 1fr) auto auto;
       }
       .dialog-footer {
         display: flex;
@@ -3582,6 +3598,7 @@
     <dialog
       id="key-usage-dialog"
       class="usage-dialog"
+      tabindex="-1"
       aria-labelledby="key-usage-title"
     >
       <header class="dialog-header usage-dialog-head">
@@ -5608,7 +5625,10 @@
         $("#key-usage-hint").textContent = `cpk_…${k.hint}`;
         $("#key-usage-range").value = String(keys.hours);
         const dialog = $("#key-usage-dialog");
-        if (!dialog.open) dialog.showModal();
+        if (!dialog.open) {
+          dialog.showModal();
+          dialog.focus();
+        }
         renderKeyUsage();
         loadKeyUsage(id, keys.hours);
       }
@@ -6358,7 +6378,7 @@
           tw = tooltip.offsetWidth;
         let left = ax + 14;
         if (left + tw > svg.clientWidth) left = ax - 14 - tw;
-        tooltip.style.transform = `translate3d(${Math.max(0, left)}px, ${-tooltip.offsetHeight + 8}px, 0)`;
+        tooltip.style.transform = `translate3d(${Math.max(0, left)}px, 8px, 0)`;
         $(".chart-inspect", fig).textContent = `${label} · ${slot.tokens.toLocaleString()} tokens, ${slot.requests} requests`;
       }
       $("#key-usage-dialog").addEventListener("pointermove", (e) => {
