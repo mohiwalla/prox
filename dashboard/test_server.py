@@ -98,6 +98,42 @@ class QuotaTests(unittest.TestCase):
             ("3p-daily", "Claude & GPT", "Claude & GPT · Daily Limit", 50, None)])
         self.assertIsNotNone(result["windows"][0]["reset_at"])
 
+    def test_antigravity_quota_prefers_daily_endpoint_and_falls_back_to_prod(self):
+        raw = {"auth_index": "ag1", "provider": "antigravity", "project_id": "aicode-consumers"}
+        ok_body = json.dumps({"groups": [{"displayName": "Gemini Models", "buckets": [
+            {"bucketId": "gemini-5h", "window": "5h", "remainingFraction": 0.62, "resetTime": "2026-11-23T18:34:00Z"}]}]})
+        with tempfile.TemporaryDirectory() as folder:
+            hub = Hub(Store(Path(folder) / "history.sqlite"))
+            with patch.object(hub, "request", return_value={"status_code": 200, "body": ok_body}) as req:
+                parsed = hub.fetch_quota(raw)
+            self.assertEqual(req.call_count, 1)
+            self.assertEqual(req.call_args.args[1]["url"],
+                             "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary")
+            self.assertEqual(parsed["windows"][0]["remaining"], 62.0)
+
+            with patch.object(hub, "request", side_effect=[
+                {"status_code": 503, "body": "{}"},
+                {"status_code": 200, "body": ok_body},
+            ]) as req:
+                parsed = hub.fetch_quota(raw)
+            self.assertEqual([c.args[1]["url"] for c in req.call_args_list], [
+                "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
+                "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
+            ])
+            self.assertEqual(parsed["windows"][0]["remaining"], 62.0)
+
+            with patch.object(hub, "request", side_effect=[
+                {"status_code": 200, "body": "{}"},
+                {"status_code": 200, "body": ok_body},
+            ]) as req:
+                parsed = hub.fetch_quota(raw)
+            self.assertEqual(req.call_count, 2)
+            self.assertEqual(parsed["windows"][0]["remaining"], 62.0)
+
+            with patch.object(hub, "request", return_value={"status_code": 500, "body": "{}"}), \
+                    self.assertRaisesRegex(ValueError, "HTTP 500"):
+                hub.fetch_quota(raw)
+
     def test_claude_reads_utilization_and_skips_null_windows(self):
         result = parse_claude({
             "five_hour": {"utilization": 68.0, "resets_at": "2026-11-13T18:00:00+00:00"},

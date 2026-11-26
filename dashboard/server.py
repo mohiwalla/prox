@@ -49,6 +49,10 @@ PLAN_INTERVAL = 6 * 3600  # an account's plan rarely changes
 # A Claude reset claim with an unknown outcome may be retried with the same request ID for 10 minutes.
 RESET_RETRY_WINDOW = 600
 CODEX_RESETS_URL = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits"
+ANTIGRAVITY_QUOTA_URLS = (
+    "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
+    "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
+)
 CLAUDE_UA = "claude-cli/2.1.280 (external, cli)"
 # Sign in once: sessions survive restarts and renew while used. 400 days is the longest
 # cookie lifetime browsers accept; renewal happens at most once a day.
@@ -582,15 +586,30 @@ class Hub:
             payload = {"method": "GET", "url": "https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1",
                        "header": headers}
         else:
+            # Antigravity accounts serve live traffic and quota on daily-cloudcode-pa;
+            # fall back to cloudcode-pa only if daily fails or returns no windows.
             headers["User-Agent"] = "antigravity/hub/2.23.0 linux/amd64"
-            payload = {"method": "POST", "url": "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
-                       "header": headers, "data": json.dumps({"project": raw.get("project_id", "")})}
+            body_data = json.dumps({"project": raw.get("project_id", "")})
+            last_error = None
+            for url in ANTIGRAVITY_QUOTA_URLS:
+                payload = {"auth_index": raw["auth_index"], "method": "POST", "url": url,
+                           "header": headers, "data": body_data}
+                response = self.request("requests/api-call", payload)
+                if not 200 <= response.get("status_code", 0) < 300:
+                    last_error = ValueError(f"Quota request returned HTTP {response.get('status_code', 'unknown')}. Try refreshing or signing in again.")
+                    continue
+                parsed = parse_antigravity(json.loads(response.get("body", "{}")))
+                if parsed["windows"]:
+                    parsed["observed_at"] = time.time()
+                    return parsed
+                last_error = ValueError("The provider returned no quota windows.")
+            raise last_error
         payload["auth_index"] = raw["auth_index"]
         response = self.request("requests/api-call", payload)
         if not 200 <= response.get("status_code", 0) < 300:
             raise ValueError(f"Quota request returned HTTP {response.get('status_code', 'unknown')}. Try refreshing or signing in again.")
         data = json.loads(response.get("body", "{}"))
-        parsed = {"codex": parse_codex, "claude": parse_claude}.get(raw["provider"], parse_antigravity)(data)
+        parsed = {"codex": parse_codex, "claude": parse_claude}[raw["provider"]](data)
         if not parsed["windows"]:
             raise ValueError("The provider returned no quota windows.")
         parsed["observed_at"] = time.time()
