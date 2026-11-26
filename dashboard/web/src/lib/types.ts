@@ -148,6 +148,7 @@ export interface ConfirmAction {
   label: string;
   busy: string;
   failure: string;
+  returnFocus?: () => HTMLElement | null;
   run: () => Promise<unknown>;
   done: (result: unknown) => void | Promise<void>;
 }

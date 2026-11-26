@@ -107,8 +107,20 @@ async function keysChecks(page, mock, until, url) {
   await page.locator("#key-usage-range").selectOption("2160");
   await page.locator("#key-usage-body", { hasText: /last 90 days/i }).waitFor();
   assert.match(await page.locator("#key-usage-body").innerText(), /last 90 days/i);
+  await page.keyboard.press("Escape");
+  await page.locator("#key-usage-dialog[data-open], #key-usage-dialog ui-dialog-content[data-open]").waitFor({ state: "hidden" });
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("data-key-open")), "ck_bbbbbbbbbbbb", "Escape returns focus to the triggering key row");
+
+  // Reloading preserves Key Usage range and Hourly/Daily selection.
+  await page.reload();
+  await page.locator('[data-key-open="ck_bbbbbbbbbbbb"]').waitFor();
+  await page.locator('[data-key-open="ck_bbbbbbbbbbbb"]').click();
+  await page.locator("#key-usage-dialog[data-open], #key-usage-dialog ui-dialog-content[data-open]").waitFor();
+  assert.equal(await page.locator("#key-usage-range").inputValue(), "2160");
+  assert.notEqual(await dayItem.getAttribute("data-checked"), null);
   await page.locator("#key-usage-close").click();
   await page.locator("#key-usage-dialog[data-open], #key-usage-dialog ui-dialog-content[data-open]").waitFor({ state: "hidden" });
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("data-key-open")), "ck_bbbbbbbbbbbb");
 
   // Row ellipsis menu: Rotate and delete confirm first; Cancel sends nothing.
   await page.locator('[data-key-menu="ck_bbbbbbbbbbbb"]').click();
@@ -116,6 +128,7 @@ async function keysChecks(page, mock, until, url) {
   await page.locator("#confirm-dialog[open], #confirm-dialog[data-open]").waitFor();
   await page.keyboard.press("Escape");
   await page.locator("#confirm-dialog[open], #confirm-dialog[data-open]").waitFor({ state: "hidden" });
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("data-key-menu")), "ck_bbbbbbbbbbbb", "Escape from confirm returns focus to row menu trigger");
   assert.deepEqual(rotated, []);
   await page.locator('[data-key-menu="ck_bbbbbbbbbbbb"]').click();
   await page.locator('[data-key-action="rotate"]').click();
