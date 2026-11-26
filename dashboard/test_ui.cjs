@@ -95,6 +95,7 @@ async function keysChecks(page, mock, until, url) {
   // Usage modal: chart with keyboard inspection, range dropdown, and breakdowns by model and account.
   await page.locator('[data-key-open="ck_bbbbbbbbbbbb"]').click();
   await page.locator("#key-usage-dialog ui-dialog-content[data-open]").waitFor();
+  assert.equal(await page.evaluate(() => document.activeElement?.id), "key-usage-close");
   await page.locator("[data-key-chart]").waitFor();
   await page.locator("[data-key-chart]").focus();
   await page.keyboard.press("End");
